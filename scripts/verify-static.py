@@ -232,6 +232,13 @@ for path, token, why in (
     ('src/core/typingengine.cpp', 'm_pendingOriginal', 'revertible autocorrection'),
     ('tests/tst_smarttyping.cpp', 'backspaceRightAfterAutocorrectRevertsAndRemembers', 'undo autocorrect'),
     ('src/platform/kwin/kwininputmethodv1connection.cpp', '~ProtocolInputMethodV1Context() override', 'contexts destroyed after deactivate'),
+    ('data/frequency/ATTRIBUTION.md', 'CC BY-SA 4.0', 'frequency data attribution (0.3.0)'),
+    ('data/emoji/ATTRIBUTION.md', 'Unicode License V3', 'CLDR attribution'),
+    ('src/core/locallexicon.cpp', 'std::partial_sort', 'rank-first completion selection'),
+    ('src/core/emojicatalog.cpp', 'void EmojiCatalog::setKeywordLanguage', 'localized emoji search'),
+    ('src/app/keyboarduibridge.cpp', 'void KeyboardUiBridge::setLayoutMode', 'compact layout mode'),
+    ('tests/tst_lexicon.cpp', 'germanNounsFromFrequencyKeepTheirCapital', 'frequency + speller capitals'),
+    ('tests/tst_qmlkeyboard.cpp', 'compactModeDocksTheKeysLeftOrRight', 'compact layout'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -243,4 +250,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v0.2.4 markers present: composition (preedit), stale-echo history, same-channel replacement, affix-aware lexicon, opt-in trace; QML braces balanced.')
+print('v0.3.0 markers present: composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

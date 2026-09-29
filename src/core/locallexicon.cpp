@@ -17,6 +17,7 @@
 #include <hunspell/hunspell.hxx>
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <thread>
 
@@ -36,6 +37,25 @@ struct DictionaryData
     // sorted offset per word. Bit 31 marks words the dictionary capitalizes.
     QString blob;
     std::vector<quint32> entries;
+
+    // Word frequency (sorted by word for prefix search); rank 1 = most common.
+    struct FreqEntry { QString word; quint32 rank; bool capital; };
+    std::vector<FreqEntry> freq;
+
+    std::pair<size_t, size_t> freqRange(QStringView prefix) const
+    {
+        auto less = [](const FreqEntry &e, QStringView p) { return QStringView(e.word).compare(p) < 0; };
+        const auto lo = std::lower_bound(freq.begin(), freq.end(), prefix, less);
+        const QString upper = prefix.toString() + QChar(0xFFFF);
+        const auto hi = std::lower_bound(lo, freq.end(), QStringView(upper), less);
+        return {size_t(lo - freq.begin()), size_t(hi - freq.begin())};
+    }
+
+    const FreqEntry *freqFind(QStringView word) const
+    {
+        const auto [lo, hi] = freqRange(word);
+        return lo < hi && freq[lo].word == word ? &freq[lo] : nullptr;
+    }
 
     static constexpr quint32 CapitalFlag = 0x80000000u;
 
@@ -192,10 +212,54 @@ QStringList dictionaryNames(const QString &code)
     return {QStringLiteral("en_US"), QStringLiteral("en_GB")};
 }
 
+QString capitalizeFirst(const QString &word)
+{
+    if (word.isEmpty()) return word;
+    QString result = word;
+    result[0] = result.at(0).toUpper();
+    return result;
+}
+
 QStringList &searchPathOverride()
 {
     static QStringList paths;
     return paths;
+}
+
+QStringList &frequencyPathOverride()
+{
+    static QStringList paths;
+    return paths;
+}
+
+void loadFrequency(DictionaryData &data, const QString &language, const QStringList &paths)
+{
+    QFile file;
+    for (const QString &dir : paths) {
+        file.setFileName(dir + QLatin1Char('/') + language + QStringLiteral(".txt"));
+        if (file.exists()) break;
+    }
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+    const QString text = QString::fromUtf8(file.readAll());
+    quint32 rank = 0;
+    for (QStringView line : QStringView(text).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+        const QString word = line.trimmed().toString();
+        if (word.isEmpty()) continue;
+        ++rank;
+        bool capital = false;
+        if (data.speller) {
+            // Keep only real words; German nouns and names are valid only
+            // capitalized, so remember that for display.
+            if (!data.spell(word)) {
+                if (!data.spell(capitalizeFirst(word))) continue;
+                capital = true;
+            }
+        }
+        data.freq.push_back({word, rank, capital});
+    }
+    std::sort(data.freq.begin(), data.freq.end(), [](const auto &a, const auto &b) { return a.word < b.word; });
+    data.freq.erase(std::unique(data.freq.begin(), data.freq.end(), [](const auto &a, const auto &b) { return a.word == b.word; }), data.freq.end());
+    data.freq.shrink_to_fit();
 }
 
 bool isWordText(QStringView word)
@@ -216,7 +280,8 @@ QString decodeText(const QByteArray &raw, const QByteArray &encoding)
     return decoder.decode(raw);
 }
 
-std::shared_ptr<DictionaryData> loadDictionary(const QString &language, const QStringList &searchPaths)
+std::shared_ptr<DictionaryData> loadDictionary(const QString &language, const QStringList &searchPaths,
+                                               const QStringList &frequencyPaths)
 {
     QElapsedTimer timer;
     timer.start();
@@ -236,6 +301,7 @@ std::shared_ptr<DictionaryData> loadDictionary(const QString &language, const QS
     }
     if (base.isEmpty()) {
         qCInfo(lcLexicon) << "no dictionary for" << language;
+        loadFrequency(*data, language, frequencyPaths);
         return data;
     }
 
@@ -284,17 +350,12 @@ std::shared_ptr<DictionaryData> loadDictionary(const QString &language, const QS
         previous = &item.word;
     }
     data->blob.squeeze();
-    qCInfo(lcLexicon) << "loaded" << language << data->entries.size() << "entries in" << timer.elapsed() << "ms";
+    loadFrequency(*data, language, frequencyPaths);
+    qCInfo(lcLexicon) << "loaded" << language << data->entries.size() << "entries," << data->freq.size()
+                      << "frequency words in" << timer.elapsed() << "ms";
     return data;
 }
 
-QString capitalizeFirst(const QString &word)
-{
-    if (word.isEmpty()) return word;
-    QString result = word;
-    result[0] = result.at(0).toUpper();
-    return result;
-}
 
 bool isAdjacentTransposition(const QString &a, const QString &b)
 {
@@ -366,6 +427,24 @@ void LocalLexicon::setDictionarySearchPaths(const QStringList &paths)
     searchPathOverride() = paths;
 }
 
+void LocalLexicon::setFrequencySearchPaths(const QStringList &paths)
+{
+    frequencyPathOverride() = paths;
+}
+
+QStringList LocalLexicon::frequencySearchPaths()
+{
+    if (!frequencyPathOverride().isEmpty()) return frequencyPathOverride();
+    return {QStringLiteral(":/v3keyboard/frequency")};
+}
+
+int LocalLexicon::frequencyRank(const QString &word) const
+{
+    if (!m_data) return 0;
+    const auto *entry = m_data->freqFind(word);
+    return entry ? int(entry->rank) : 0;
+}
+
 QStringList LocalLexicon::dictionarySearchPaths()
 {
     if (!searchPathOverride().isEmpty()) return searchPathOverride();
@@ -398,8 +477,9 @@ void LocalLexicon::startLoading()
     m_data.reset();
     std::promise<std::shared_ptr<DictionaryData>> promise;
     m_pending = promise.get_future();
-    std::thread([promise = std::move(promise), language = m_language, paths = dictionarySearchPaths()]() mutable {
-        promise.set_value(loadDictionary(language, paths));
+    std::thread([promise = std::move(promise), language = m_language, paths = dictionarySearchPaths(),
+                 freqPaths = frequencySearchPaths()]() mutable {
+        promise.set_value(loadDictionary(language, paths, freqPaths));
     }).detach();
 }
 
@@ -457,7 +537,7 @@ bool LocalLexicon::isValidWord(const QString &word) const
         // capitalized, so a lowercase "haus" is still a real word.
         return m_data->spell(word) || m_data->spell(capitalizeFirst(word));
     }
-    return m_data->contains(word);
+    return m_data->contains(word) || m_data->freqFind(word);
 }
 
 QString LocalLexicon::bigramKey(const QString &previousWord, const QString &word) const
@@ -468,7 +548,12 @@ QString LocalLexicon::bigramKey(const QString &previousWord, const QString &word
 int LocalLexicon::priorScore(const QString &candidate, const QString &previousWord) const
 {
     int score = 0;
-    if (isCore(candidate)) score += 150;
+    // The small built-in core list is only a prior when no frequency data exists.
+    if (isCore(candidate) && (!m_data || m_data->freq.empty())) score += 150;
+    if (const int rank = frequencyRank(candidate); rank > 0) {
+        // 360 for the most common word, falling logarithmically to 0 at 50k.
+        score += qMax(0, int(360.0 * (1.0 - std::log(double(rank)) / std::log(50001.0))));
+    }
     const int personal = m_personalFrequency.value(candidate);
     if (personal > 0) {
         // Personal use outweighs the generic core list after a few repetitions.
@@ -534,7 +619,13 @@ QStringList LocalLexicon::suggestions(const QString &word, const QString &previo
     auto consider = [&](const QString &candidate, bool capital) {
         if (scored.contains(candidate)) return;
         int score = 1200 + priorScore(candidate, prev) - qAbs(candidate.size() - typed.size()) * 8;
-        if (candidate == typed) score += 500;
+        // The typed fragment itself only leads when it is a real, common word
+        // ("he"), not an abbreviation-like fragment ("h", "пр").
+        if (candidate == typed) {
+            const int rank = frequencyRank(candidate);
+            if (typed.size() > 2 || (rank > 0 && rank <= 300) || m_personalFrequency.value(candidate) > 0) score += 500;
+            else score -= 300;
+        }
         if (capital) { score -= 60; capitalized.insert(candidate); }
         scored.insert(candidate, score);
     };
@@ -545,7 +636,19 @@ QStringList LocalLexicon::suggestions(const QString &word, const QString &previo
     for (const QString &core : m_coreWords) {
         if (core.startsWith(typed)) consider(core, false);
     }
-    if (m_data && typed.size() >= 2) {
+    if (m_data && !m_data->freq.empty()) {
+        // Only the most frequent completions can win; pick them by rank with
+        // a cheap integer pass before the full scoring.
+        const auto [lo, hi] = m_data->freqRange(typed);
+        std::vector<size_t> picks;
+        picks.reserve(hi - lo);
+        for (size_t i = lo; i < hi; ++i) picks.push_back(i);
+        const size_t keep = qMin<size_t>(picks.size(), 12);
+        std::partial_sort(picks.begin(), picks.begin() + keep, picks.end(),
+                          [this](size_t a, size_t b) { return m_data->freq[a].rank < m_data->freq[b].rank; });
+        for (size_t k = 0; k < keep; ++k) consider(m_data->freq[picks[k]].word, m_data->freq[picks[k]].capital);
+    }
+    if (m_data && typed.size() >= 2 && m_data->freq.empty()) {
         // Dictionary stems carry no frequency, so single-letter prefixes would
         // only produce alphabetical noise at a high scan cost.
         const auto [lo, hi] = m_data->prefixRange(typed);
@@ -592,11 +695,14 @@ QString LocalLexicon::bestCorrection(const QString &word, const QString &previou
     const QList<Candidate> candidates = correctionCandidates(typed, normalize(previousWord));
     if (candidates.isEmpty()) return {};
     const Candidate &best = candidates.first();
+    const int rank = frequencyRank(best.word);
+    const int margin = candidates.size() > 1 ? best.score - candidates.at(1).score : 1000;
     const bool confident = best.edit == Edit::Transposition
         || isCore(best.word)
-        || m_personalFrequency.value(best.word) >= 2;
+        || m_personalFrequency.value(best.word) >= 2
+        || (rank > 0 && rank <= 3000 && margin >= 60);
     if (!confident) return {};
-    if (candidates.size() > 1 && candidates.at(1).score == best.score) return {};
+    if (margin == 0) return {};
     return best.word;
 }
 

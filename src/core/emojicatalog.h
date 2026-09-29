@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -23,6 +24,8 @@ public:
 
     QStringList categories() const;
     QStringList glyphs(const QString &category = {}, const QString &query = {}, int limit = 240) const;
+    // Adds CLDR keywords of the keyboard language (English is always used).
+    void setKeywordLanguage(const QString &code);
     int size() const;
 
 private:
@@ -32,6 +35,12 @@ private:
     QString categoryForName(const QString &name) const;
 
     QVector<EmojiEntry> m_entries;
+    QString m_keywordLanguage;
+    // glyph without U+FE0F -> keywords joined by '|'; loaded lazily.
+    mutable QHash<QString, QString> m_englishKeywords;
+    mutable QHash<QString, QString> m_languageKeywords;
+    mutable bool m_englishLoaded = false;
+    mutable bool m_languageLoaded = false;
 };
 
 }

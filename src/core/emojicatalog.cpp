@@ -165,18 +165,86 @@ QStringList EmojiCatalog::categories() const
     return result;
 }
 
+namespace
+{
+
+QString withoutVariationSelector(const QString &glyph)
+{
+    QString key = glyph;
+    key.remove(QChar(0xFE0F));
+    return key;
+}
+
+QHash<QString, QString> loadKeywords(const QString &code)
+{
+    QHash<QString, QString> map;
+    QFile file(QStringLiteral(":/v3keyboard/emoji/%1.tsv").arg(code));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return map;
+    const QString text = QString::fromUtf8(file.readAll());
+    for (QStringView line : QStringView(text).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+        const qsizetype tab = line.indexOf(QLatin1Char('\t'));
+        if (tab <= 0) continue;
+        map.insert(line.left(tab).toString(), line.mid(tab + 1).toString());
+    }
+    return map;
+}
+
+// 3: a keyword equals the query, 2: starts with it, 1: contains it, 0: no match.
+int keywordMatch(const QString &keywords, const QString &query)
+{
+    if (keywords.isEmpty()) return 0;
+    int best = 0;
+    for (QStringView keyword : QStringView(keywords).split(QLatin1Char('|'))) {
+        if (keyword == query) return 3;
+        if (keyword.startsWith(query)) best = qMax(best, 2);
+        else if (keyword.contains(query)) best = qMax(best, 1);
+    }
+    return best;
+}
+
+}
+
+void EmojiCatalog::setKeywordLanguage(const QString &code)
+{
+    if (code == m_keywordLanguage) return;
+    m_keywordLanguage = code;
+    m_languageKeywords.clear();          // only one extra language in memory
+    m_languageLoaded = false;
+}
+
 QStringList EmojiCatalog::glyphs(const QString &category, const QString &query, int limit) const
 {
     const QString q = query.trimmed().toLower();
     const QString cat = category.isEmpty() ? QStringLiteral("All") : category;
-    QStringList result;
+    if (!q.isEmpty()) {
+        if (!m_englishLoaded) { m_englishKeywords = loadKeywords(QStringLiteral("en")); m_englishLoaded = true; }
+        if (!m_languageLoaded && !m_keywordLanguage.isEmpty() && m_keywordLanguage != QStringLiteral("en")) {
+            m_languageKeywords = loadKeywords(m_keywordLanguage);
+            m_languageLoaded = true;
+        }
+    }
+    QStringList exact;
+    QStringList strong;
+    QStringList weak;
     for (const auto &entry : m_entries) {
         if (cat != QStringLiteral("All") && entry.category != cat) continue;
-        if (!q.isEmpty() && !entry.name.toLower().contains(q) && !entry.glyph.contains(q)) continue;
-        result.append(entry.glyph);
-        if (result.size() >= limit) break;
+        if (q.isEmpty()) {
+            strong.append(entry.glyph);
+        } else {
+            const QString key = withoutVariationSelector(entry.glyph);
+            const int name = entry.name.toLower().startsWith(q) ? 2 : (entry.name.toLower().contains(q) ? 1 : 0);
+            const int match = qMax(qMax(name, keywordMatch(m_englishKeywords.value(key), q)),
+                                   keywordMatch(m_languageKeywords.value(key), q));
+            if (match == 3) exact.append(entry.glyph);
+            else if (match == 2) strong.append(entry.glyph);
+            else if (match == 1 || entry.glyph.contains(q)) weak.append(entry.glyph);
+        }
+        if (exact.size() >= limit) break;
     }
-    return result;
+    exact.append(strong);
+    exact.append(weak);
+    if (exact.size() > limit) exact.resize(limit);
+    return exact;
 }
 
 int EmojiCatalog::size() const { return m_entries.size(); }

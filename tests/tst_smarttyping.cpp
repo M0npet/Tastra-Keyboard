@@ -76,6 +76,7 @@ private Q_SLOTS:
         QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_smarttyping"));
         V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
     }
 
     void init() { QSettings().clear(); }

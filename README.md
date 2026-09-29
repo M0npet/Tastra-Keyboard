@@ -43,3 +43,10 @@ See `docs/alpha-0.1.md` for the exact scope.
   read `~/.local/state/v3-keyboard/trace.log` (sizes/decisions only).
 
 See docs/beta-0.2.7-completion.md and docs/HANDOFF.md.
+
+## 0.3.0 additions
+
+- Frequency-ranked suggestions and autocorrect prior (bundled word lists,
+  filtered through Hunspell; attribution in data/frequency/ATTRIBUTION.md).
+- Emoji search with CLDR keywords in EN/DE/RU/UK (data/emoji/ATTRIBUTION.md).
+- Compact layout (left/right) in Settings.

@@ -38,7 +38,12 @@ KeyboardUiBridge::KeyboardUiBridge(
     QSettings settings;
     m_model.setLanguage(settings.value(QStringLiteral("language"), QStringLiteral("en")).toString());
     m_typingEngine.setLanguage(m_model.languageCode());
+    m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
+    {
+        const QString mode = settings.value(QStringLiteral("layoutMode"), QStringLiteral("full")).toString();
+        if (mode == QStringLiteral("left") || mode == QStringLiteral("right")) m_layoutMode = mode;
+    }
     m_keyScale = qBound(0.85, settings.value(QStringLiteral("keyScale"), 1.0).toDouble(), 1.20);
     m_keyBorders = settings.value(QStringLiteral("keyBorders"), true).toBool();
     m_keyPopups = settings.value(QStringLiteral("keyPopups"), true).toBool();
@@ -90,6 +95,7 @@ QVariantList KeyboardUiBridge::toolbarActions() const
 }
 
 bool KeyboardUiBridge::amoled() const { return m_amoled; }
+QString KeyboardUiBridge::layoutMode() const { return m_layoutMode; }
 double KeyboardUiBridge::keyScale() const { return m_keyScale; }
 bool KeyboardUiBridge::keyBorders() const { return m_keyBorders; }
 bool KeyboardUiBridge::keyPopups() const { return m_keyPopups; }
@@ -213,6 +219,7 @@ void KeyboardUiBridge::nextLanguage()
     m_typingEngine.commitComposition();
     m_model.nextLanguage();
     m_typingEngine.setLanguage(m_model.languageCode());
+    m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     persistLanguage();
     typingStateDidChange();
 }
@@ -222,6 +229,7 @@ void KeyboardUiBridge::setLanguage(const QString &code)
     m_typingEngine.commitComposition();
     m_model.setLanguage(code);
     m_typingEngine.setLanguage(m_model.languageCode());
+    m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     persistLanguage();
     typingStateDidChange();
 }
@@ -398,6 +406,22 @@ void KeyboardUiBridge::setAmoled(bool enabled)
     m_amoled = enabled;
     persistPreference(QStringLiteral("amoled"), enabled);
     Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setLayoutMode(const QString &mode)
+{
+    if (mode != QStringLiteral("full") && mode != QStringLiteral("left") && mode != QStringLiteral("right")) return;
+    if (m_layoutMode == mode) return;
+    m_layoutMode = mode;
+    persistPreference(QStringLiteral("layoutMode"), mode);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::cycleLayoutMode()
+{
+    setLayoutMode(m_layoutMode == QStringLiteral("full") ? QStringLiteral("left")
+                  : m_layoutMode == QStringLiteral("left") ? QStringLiteral("right")
+                                                            : QStringLiteral("full"));
 }
 
 void KeyboardUiBridge::setKeyScale(double scale)

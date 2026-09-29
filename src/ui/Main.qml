@@ -14,11 +14,14 @@ Rectangle {
     readonly property real keyGap: metrics.keyGap
     readonly property real keyHeight: metrics.keyHeight
     readonly property real toolbarHeight: portrait ? 54 : 48
+    readonly property bool compact: keyboardBridge.layoutMode !== "full"
+    // Compact mode: a narrower keyboard docked to one side, for one-handed use
+    // of a large tablet (the input panel itself stays docked by KWin).
     readonly property real contentWidth: Math.min(
         width - metrics.outerMargin * 2,
         width * metrics.contentWidthRatio,
         metrics.maxContentWidth
-    )
+    ) * (compact ? 0.62 : 1.0)
     readonly property real baseKeyWidth: (contentWidth - keyGap * 9) / 10
     readonly property color backgroundColor: keyboardBridge.amoled ? "#000000" : "#202124"
     readonly property color panelColor: keyboardBridge.amoled ? "#080808" : "#292a2d"
@@ -575,8 +578,10 @@ Rectangle {
 
     Column {
         id: keyboardRows
+        x: keyboardBridge.layoutMode === "left" ? root.metrics.outerMargin
+           : keyboardBridge.layoutMode === "right" ? root.width - width - root.metrics.outerMargin
+           : (root.width - width) / 2
         anchors {
-            horizontalCenter: parent.horizontalCenter
             top: parent.top
             topMargin: root.toolbarHeight + root.metrics.topPadding
         }
@@ -1170,6 +1175,12 @@ Rectangle {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - autocorrectButton.width - parent.spacing; height: autocorrectButton.height; verticalAlignment: Text.AlignVCenter; text: "Autocorrect"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: autocorrectButton; width: root.portrait ? 170 : 150; label: keyboardBridge.autocorrectEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setAutocorrectEnabled(!keyboardBridge.autocorrectEnabled) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - layoutButton.width - parent.spacing; height: layoutButton.height; verticalAlignment: Text.AlignVCenter; text: "Keyboard layout"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: layoutButton; width: root.portrait ? 170 : 150; label: keyboardBridge.layoutMode === "left" ? "Compact left" : keyboardBridge.layoutMode === "right" ? "Compact right" : "Full width"; onTriggered: keyboardBridge.cycleLayoutMode() }
                     }
 
                     Row {

@@ -21,10 +21,16 @@ private:
     static void useFixtureDictionaries()
     {
         LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/hunspell")});
+        LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
     }
     static void useNoDictionaries()
     {
         LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+    }
+    static void useFrequencies()
+    {
+        LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/frequency")});
     }
     static void loaded(LocalLexicon &lexicon, const QString &language)
     {
@@ -125,6 +131,31 @@ private Q_SLOTS:
         QVERIFY(lexicon.bestCorrection(QStringLiteral("teh")).isEmpty());
     }
 
+    void frequencyRanksCompletionsFromTheFirstLetter()
+    {
+        useFixtureDictionaries();
+        useFrequencies();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        // "help" is more frequent than "hello" in the fixture list.
+        QCOMPARE(lexicon.suggestions(QStringLiteral("hel"), {}).value(0), QStringLiteral("help"));
+        // Single letters now give real completions, most frequent first.
+        QCOMPARE(lexicon.suggestions(QStringLiteral("t"), {}).value(0), QStringLiteral("the"));
+        // Inflected forms come from the list; junk not in the dictionary is dropped.
+        QVERIFY(lexicon.suggestions(QStringLiteral("wan"), {}).contains(QStringLiteral("wants")));
+        QVERIFY(!lexicon.suggestions(QStringLiteral("qz"), {}).contains(QStringLiteral("qzxjunk")));
+    }
+
+    void germanNounsFromFrequencyKeepTheirCapital()
+    {
+        useFixtureDictionaries();
+        useFrequencies();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("de"));
+        QCOMPARE(lexicon.suggestions(QStringLiteral("ha"), {}).value(0), QStringLiteral("Haus"));
+        QVERIFY(lexicon.suggestions(QStringLiteral("hau"), {}).contains(QStringLiteral("Hause")));
+    }
+
     void prefixCompletionsUseDictionaryAndCoreWords()
     {
         useFixtureDictionaries();
@@ -156,10 +187,10 @@ private Q_SLOTS:
         LocalLexicon lexicon;
         loaded(lexicon, QStringLiteral("en"));
         QVERIFY(lexicon.hasSystemDictionary());
-        loaded(lexicon, QStringLiteral("de"));   // fixture has no de_DE
+        loaded(lexicon, QStringLiteral("ru"));   // fixture has no ru_RU
         QVERIFY(!lexicon.hasSystemDictionary());
-        QCOMPARE(lexicon.language(), QStringLiteral("de"));
-        QCOMPARE(lexicon.bestCorrection(QStringLiteral("dsa")), QStringLiteral("das"));
+        QCOMPARE(lexicon.language(), QStringLiteral("ru"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("првиет")), QStringLiteral("привет"));
     }
 };
 

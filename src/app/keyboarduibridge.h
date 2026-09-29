@@ -43,6 +43,7 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool secureInput READ secureInput NOTIFY inputContextChanged)
 
     Q_PROPERTY(bool amoled READ amoled WRITE setAmoled NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(QString layoutMode READ layoutMode WRITE setLayoutMode NOTIFY uiPreferencesChanged)
     Q_PROPERTY(double keyScale READ keyScale WRITE setKeyScale NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool keyBorders READ keyBorders WRITE setKeyBorders NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool keyPopups READ keyPopups WRITE setKeyPopups NOTIFY uiPreferencesChanged)
@@ -85,6 +86,7 @@ public:
     QStringList suggestions() const;
 
     bool amoled() const;
+    QString layoutMode() const;
     double keyScale() const;
     bool keyBorders() const;
     bool keyPopups() const;
@@ -140,6 +142,9 @@ public:
     Q_INVOKABLE void clearClipboardHistory();
 
     Q_INVOKABLE void setAmoled(bool enabled);
+    // "full", "left" or "right" (compact keyboard docked to one side).
+    Q_INVOKABLE void setLayoutMode(const QString &mode);
+    Q_INVOKABLE void cycleLayoutMode();
     Q_INVOKABLE void setKeyScale(double scale);
     Q_INVOKABLE void setKeyBorders(bool enabled);
     Q_INVOKABLE void setKeyPopups(bool enabled);
@@ -184,6 +189,7 @@ private:
     PanelManager m_panelManager;
 
     bool m_amoled = false;
+    QString m_layoutMode = QStringLiteral("full");
     double m_keyScale = 1.0;
     bool m_keyBorders = true;
     bool m_keyPopups = true;

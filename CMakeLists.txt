@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 0.2.7
+    VERSION 0.3.0
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -46,6 +46,15 @@ add_library(v3keyboard-core STATIC
 target_include_directories(v3keyboard-core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+file(GLOB V3KBD_DATA_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/data/frequency/*.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/data/emoji/*.tsv")
+qt_add_resources(v3keyboard-core "v3keyboard-data"
+    PREFIX "/v3keyboard"
+    BASE data
+    FILES ${V3KBD_DATA_FILES}
 )
 
 target_link_libraries(v3keyboard-core

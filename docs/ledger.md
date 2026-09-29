@@ -672,3 +672,17 @@ RED (observed before each fix):
 - Context destroy after deactivate: compile-verified only (no compositor in
   the sandbox); exercised on device by every focus change.
 Sandbox: 10/10 CTest + 3/3 KWin overlay, static verify OK.
+
+## 2026-09-29 — 0.3.0 (user: "do the whole project, then we test")
+
+Frequency data: license verified (FrequencyWords content CC BY-SA 4.0; CC's
+2015 declaration of one-way compatibility with GPLv3). CLDR: Unicode License V3.
+RED: frequencyRanksCompletionsFromTheFirstLetter (core-list bonus outranked real
+frequencies -> core prior only without frequency data),
+germanNounsFromFrequencyKeepTheirCapital, emojiSearchUnderstandsTheKeyboardLanguage
+(ranking tiers), compactModeDocksTheKeysLeftOrRight (maxContentWidth cap; the
+first version of the test passed vacuously because labels were uppercase —
+made strict: keys must be found, span > 300 px, root follows the view).
+Real-data bench (sandbox): suggestions 0.02–0.04 ms/keystroke after rank-first
+selection (3–8 ms before); background load EN 0.3 s, RU 0.5 s, DE/UK 1.3–1.5 s.
+Sandbox: 10/10 CTest + 3/3 KWin overlay, static verify OK.

@@ -1,4 +1,4 @@
-# Handoff — V3 Keyboard (state at Beta 0.2.7 packaging, 2026-09-29)
+# Handoff — V3 Keyboard (state at 0.3.0 packaging, 2026-09-29)
 
 Device: Minisforum V3, Arch, Qt 6.11.2, KWin 6.7.5, hunspell 1.7.3,
 dictionaries en/de/ru (pacman) + uk (pinned LibreOffice upstream, user dir).
@@ -21,3 +21,8 @@ User requirements: native only (no Java/Electron/Chromium), maximally
 economical, offline at runtime, dictionaries provisioned automatically at
 install time, root-cause debugging, TDD, coherent release slices; the user
 prefers finishing a slice fully and testing it all at once.
+
+0.3.0 adds bundled frequency lists (CC BY-SA 4.0 -> GPLv3 one-way), CLDR emoji
+keywords (Unicode License V3) and a compact left/right layout. Not done by
+design: voice/handwriting (heavy offline models), wlroots backend, floating
+panel (KWin controls placement).

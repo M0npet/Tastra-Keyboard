@@ -21,6 +21,25 @@ private Q_SLOTS:
         QCoreApplication::setApplicationName(QStringLiteral("tst_clipboardemoji"));
     }
 
+    void emojiSearchUnderstandsTheKeyboardLanguage()
+    {
+        V3Keyboard::EmojiCatalog catalog;
+        // English names always work.
+        QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("grinning")).contains(QStringLiteral("😀")));
+        QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("улыб")).isEmpty());
+
+        catalog.setKeywordLanguage(QStringLiteral("ru"));
+        QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("улыб")).contains(QStringLiteral("😀")));
+        // Variation selectors do not matter: CLDR lists the heart without U+FE0F.
+        QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("сердце")).contains(QStringLiteral("❤️")));
+        catalog.setKeywordLanguage(QStringLiteral("uk"));
+        QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("усміш")).contains(QStringLiteral("😀")));
+        catalog.setKeywordLanguage(QStringLiteral("de"));
+        QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("lachen")).contains(QStringLiteral("😀")));
+        // Exact keyword matches come first: the red heart is in the first row.
+        QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("herz")).mid(0, 8).contains(QStringLiteral("❤️")));
+    }
+
     void clipboardHistoryDeduplicatesAndKeepsNewestFirst()
     {
         V3Keyboard::ClipboardHistory history;

@@ -82,6 +82,7 @@ private Q_SLOTS:
         QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_qmlkeyboard"));
         V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
     }
 
     void init()
@@ -221,6 +222,43 @@ private Q_SLOTS:
         QTest::qWait(qApp->styleHints()->mousePressAndHoldInterval() + 200);
         QTest::touchEvent(&view, touch).release(0, q);
         QTRY_COMPARE(backend.commits, QStringList({alternate}));
+    }
+
+    void compactModeDocksTheKeysLeftOrRight()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);          // lowercase labels
+
+        QQuickView view;
+        view.setResizeMode(QQuickView::SizeRootObjectToView);
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.resize(1600, 520);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto keyX = [&](const QString &label) {
+            QQuickItem *key = findText(view.rootObject(), label);
+            return key ? key->mapToScene(QPointF(key->width() / 2, 0)).x() : -1.0;
+        };
+        QTRY_VERIFY(keyX(QStringLiteral("q")) > 0 && keyX(QStringLiteral("p")) > 0);
+        const qreal fullSpan = keyX(QStringLiteral("p")) - keyX(QStringLiteral("q"));
+        QVERIFY(fullSpan > 300);
+
+        QCOMPARE(bridge.layoutMode(), QStringLiteral("full"));
+        bridge.setLayoutMode(QStringLiteral("left"));
+        QTRY_VERIFY(keyX(QStringLiteral("p")) < view.width() / 2 + 200);
+        QVERIFY(keyX(QStringLiteral("p")) - keyX(QStringLiteral("q")) < fullSpan * 0.8);
+        bridge.setLayoutMode(QStringLiteral("right"));
+        QTRY_VERIFY(keyX(QStringLiteral("q")) > view.width() / 2 - 200);
+        bridge.setLayoutMode(QStringLiteral("bogus"));        // ignored
+        QCOMPARE(bridge.layoutMode(), QStringLiteral("right"));
+
+        // Persisted like the other preferences.
+        V3Keyboard::KeyboardUiBridge reloaded(controller, model);
+        QCOMPARE(reloaded.layoutMode(), QStringLiteral("right"));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

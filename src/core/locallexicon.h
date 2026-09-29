@@ -35,6 +35,10 @@ public:
     // standard system locations. Tests point this at fixtures.
     static void setDictionarySearchPaths(const QStringList &paths);
     static QStringList dictionarySearchPaths();
+    // Directories (or qrc prefixes) searched for <lang>.txt word-frequency
+    // lists, most frequent word first. Default: the bundled lists.
+    static void setFrequencySearchPaths(const QStringList &paths);
+    static QStringList frequencySearchPaths();
 
     void setLanguage(const QString &code);
     QString language() const;
@@ -70,6 +74,7 @@ private:
     bool isValidWord(const QString &word) const;
     QList<Candidate> correctionCandidates(const QString &typed, const QString &previousWord) const;
     int priorScore(const QString &candidate, const QString &previousWord) const;
+    int frequencyRank(const QString &word) const;
     QString bigramKey(const QString &previousWord, const QString &word) const;
 
     QString m_language = QStringLiteral("en");
