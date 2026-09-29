@@ -58,6 +58,9 @@ public:
     // Commits whatever is held in the preedit as-is (before cursor moves,
     // paste, language switch). resetComposition() instead drops it.
     void commitComposition();
+    // Inserts recognized speech: commits any composition first, separates it
+    // from preceding text, applies sentence case and updates the context.
+    void insertDictation(const QString &text);
     bool surroundingTextSupported() const;
     void setSensitiveContext(bool sensitive);
     bool syncSurroundingText(const QString &text, int cursorByte, int anchorByte);

@@ -316,12 +316,30 @@ Rectangle {
         Item {
             anchors.fill: parent
 
+            Text {
+                // Voice status replaces the suggestions while it matters.
+                id: voiceStatus
+                visible: keyboardBridge.voiceBuilt && !root.toolbarExpanded
+                    && (keyboardBridge.voiceState === "recording" || keyboardBridge.voiceState === "recognizing"
+                        || keyboardBridge.voiceMessage.length > 0)
+                anchors.centerIn: parent
+                width: parent.width * 0.7
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+                color: root.textColor
+                font.pixelSize: root.portrait ? 17 : 15
+                text: keyboardBridge.voiceState === "recording" ? "Listening… tap 🎤 to finish"
+                    : keyboardBridge.voiceState === "recognizing" ? "Recognizing…"
+                    : keyboardBridge.voiceMessage
+            }
+
             Row {
                 id: suggestionRow
                 visible: keyboardBridge.activePanel === "typing"
                     && keyboardBridge.suggestionsEnabled
                     && keyboardBridge.suggestions.length > 0
                     && !root.toolbarExpanded
+                    && !voiceStatus.visible
                 anchors.centerIn: parent
                 spacing: root.keyGap
 
@@ -400,6 +418,30 @@ Rectangle {
                         id: backToolsMouse
                         anchors.fill: parent
                         onClicked: root.toolbarExpanded = false
+                    }
+                }
+
+                Rectangle {
+                    // Offline dictation: tap to record, tap again to insert.
+                    visible: keyboardBridge.voiceBuilt
+                    width: root.portrait ? 52 : 46
+                    height: root.portrait ? 42 : 38
+                    radius: 12
+                    color: keyboardBridge.voiceState === "recording" ? "#c0392b"
+                         : voiceMouse.pressed ? root.specialKeyColor : "transparent"
+                    opacity: keyboardBridge.voiceState === "unavailable" ? 0.55 : 1.0
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: keyboardBridge.voiceState === "recognizing" ? "…" : "🎤"
+                        color: root.textColor
+                        font.pixelSize: root.portrait ? 22 : 19
+                    }
+
+                    MouseArea {
+                        id: voiceMouse
+                        anchors.fill: parent
+                        onClicked: keyboardBridge.toggleVoice()
                     }
                 }
 

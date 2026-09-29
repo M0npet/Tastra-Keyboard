@@ -2,6 +2,12 @@
 
 #include "keyboarduibridge.h"
 #include "tracelog.h"
+#include "voicecontroller.h"
+
+#ifdef V3KBD_HAVE_VOICE
+#include "voice/qtaudiorecorder.h"
+#include "voice/whisperrecognizer.h"
+#endif
 
 #include "core/keyboardcontroller.h"
 #include "core/keyboardmodel.h"
@@ -27,6 +33,13 @@ int main(int argc, char **argv)
     V3Keyboard::KeyboardController controller(backend);
     V3Keyboard::KeyboardModel model;
     V3Keyboard::KeyboardUiBridge bridge(controller, model);
+#ifdef V3KBD_HAVE_VOICE
+    // Offline dictation; the model is only loaded when the mic key is used.
+    V3Keyboard::QtAudioRecorder voiceRecorder;
+    V3Keyboard::WhisperRecognizer voiceRecognizer(V3Keyboard::WhisperRecognizer::defaultModelPath());
+    V3Keyboard::VoiceController voice(&voiceRecorder, &voiceRecognizer);
+    bridge.setVoiceController(&voice);
+#endif
     V3Keyboard::KWin::KWinInputMethodV1Connection inputMethod(backend);
 
     QQuickView view;

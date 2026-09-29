@@ -17,6 +17,7 @@
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 #include "core/keyboardmodel.h"
+#include "app/voicecontroller.h"
 #include "core/locallexicon.h"
 
 #include <QPointingDevice>
@@ -259,6 +260,40 @@ private Q_SLOTS:
         // Persisted like the other preferences.
         V3Keyboard::KeyboardUiBridge reloaded(controller, model);
         QCOMPARE(reloaded.layoutMode(), QStringLiteral("right"));
+    }
+
+    void micButtonAppearsOnlyWithVoiceAndStartsRecording()
+    {
+        struct Recorder final : V3Keyboard::AudioRecorder {
+            bool start(QString *) override { started = true; return true; }
+            std::vector<float> stop() override { return {}; }
+            bool started = false;
+        } recorder;
+        struct Recognizer final : V3Keyboard::SpeechRecognizer {
+            QString unavailableReason() const override { return {}; }
+            void recognize(std::vector<float>, const QString &, std::function<void(QString, QString)>) override {}
+        } recognizer;
+
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QVERIFY(!findText(view.rootObject(), QStringLiteral("🎤")));      // not built in
+
+        V3Keyboard::VoiceController voice(&recorder, &recognizer);
+        bridge.setVoiceController(&voice);
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("🎤")));
+        QTest::qWait(100);   // let the toolbar Row re-position its children (polish)
+        QQuickItem *mic = findText(view.rootObject(), QStringLiteral("🎤"));
+        QTest::mouseClick(&view, Qt::LeftButton, {}, mic->mapToScene(QPointF(mic->width() / 2, mic->height() / 2)).toPoint());
+        QTRY_VERIFY(recorder.started);
+        QCOMPARE(bridge.voiceState(), QStringLiteral("recording"));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("Listening… tap 🎤 to finish")));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

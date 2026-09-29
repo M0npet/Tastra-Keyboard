@@ -239,6 +239,12 @@ for path, token, why in (
     ('src/app/keyboarduibridge.cpp', 'void KeyboardUiBridge::setLayoutMode', 'compact layout mode'),
     ('tests/tst_lexicon.cpp', 'germanNounsFromFrequencyKeepTheirCapital', 'frequency + speller capitals'),
     ('tests/tst_qmlkeyboard.cpp', 'compactModeDocksTheKeysLeftOrRight', 'compact layout'),
+    ('src/app/voicecontroller.cpp', 'MinimumSamples', 'voice controller (0.4.0)'),
+    ('src/voice/whisperrecognizer.cpp', 'm_idleTimer.setInterval(60000)', 'model released when idle'),
+    ('src/voice/qtaudiorecorder.cpp', 'MaxSeconds = 30', 'bounded in-memory recording'),
+    ('scripts/v3kbd-voice-setup.sh', '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898', 'pinned model checksum'),
+    ('src/app/keyboarduibridge.cpp', 'if (m_voice) m_voice->cancel();', 'dictation never lands in a new field'),
+    ('tests/tst_voice.cpp', 'emptyResultsAndCancelledRecognitionInsertNothing', 'voice state machine'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -250,4 +256,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v0.3.0 markers present: composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.4.0 markers present: offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

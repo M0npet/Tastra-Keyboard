@@ -1,4 +1,4 @@
-# Handoff — V3 Keyboard (state at 0.3.0 packaging, 2026-09-29)
+# Handoff — V3 Keyboard (state at 0.4.0 packaging, 2026-09-29)
 
 Device: Minisforum V3, Arch, Qt 6.11.2, KWin 6.7.5, hunspell 1.7.3,
 dictionaries en/de/ru (pacman) + uk (pinned LibreOffice upstream, user dir).
@@ -26,3 +26,8 @@ prefers finishing a slice fully and testing it all at once.
 keywords (Unicode License V3) and a compact left/right layout. Not done by
 design: voice/handwriting (heavy offline models), wlroots backend, floating
 panel (KWin controls placement).
+
+0.4.0 adds opt-in offline voice (whisper.cpp + Qt Multimedia, compiled only
+when both are installed; model via scripts/v3kbd-voice-setup.sh, pinned
+SHA-256). Remaining ideas: handwriting (no light offline engine identified),
+wlroots backend, floating panel (KWin controls placement).

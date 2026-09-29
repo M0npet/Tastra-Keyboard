@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+#include "voicecontroller.h"
 #include "keyboardlayoutmetrics.h"
 
 #include "core/keyboardcontroller.h"
@@ -39,6 +40,7 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_model.setLanguage(settings.value(QStringLiteral("language"), QStringLiteral("en")).toString());
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
+    if (m_voice) m_voice->setLanguage(m_model.languageCode());
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
     {
         const QString mode = settings.value(QStringLiteral("layoutMode"), QStringLiteral("full")).toString();
@@ -96,6 +98,29 @@ QVariantList KeyboardUiBridge::toolbarActions() const
 
 bool KeyboardUiBridge::amoled() const { return m_amoled; }
 QString KeyboardUiBridge::layoutMode() const { return m_layoutMode; }
+bool KeyboardUiBridge::voiceBuilt() const { return m_voice != nullptr; }
+QString KeyboardUiBridge::voiceState() const { return m_voice ? m_voice->state() : QStringLiteral("unavailable"); }
+QString KeyboardUiBridge::voiceMessage() const { return m_voice ? m_voice->message() : QString(); }
+
+void KeyboardUiBridge::setVoiceController(VoiceController *voice)
+{
+    m_voice = voice;
+    if (!m_voice) return;
+    m_voice->setLanguage(m_model.languageCode());
+    connect(m_voice, &VoiceController::stateChanged, this, &KeyboardUiBridge::voiceChanged);
+    connect(m_voice, &VoiceController::textRecognized, this, [this](const QString &text) {
+        const bool uppercaseBefore = uppercase();
+        m_typingEngine.insertDictation(text);
+        if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+        Q_EMIT suggestionsChanged();
+    });
+    Q_EMIT voiceChanged();
+}
+
+void KeyboardUiBridge::toggleVoice()
+{
+    if (m_voice) m_voice->toggle();
+}
 double KeyboardUiBridge::keyScale() const { return m_keyScale; }
 bool KeyboardUiBridge::keyBorders() const { return m_keyBorders; }
 bool KeyboardUiBridge::keyPopups() const { return m_keyPopups; }
@@ -220,6 +245,7 @@ void KeyboardUiBridge::nextLanguage()
     m_model.nextLanguage();
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
+    if (m_voice) m_voice->setLanguage(m_model.languageCode());
     persistLanguage();
     typingStateDidChange();
 }
@@ -230,6 +256,7 @@ void KeyboardUiBridge::setLanguage(const QString &code)
     m_model.setLanguage(code);
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
+    if (m_voice) m_voice->setLanguage(m_model.languageCode());
     persistLanguage();
     typingStateDidChange();
 }
@@ -523,6 +550,7 @@ void KeyboardUiBridge::clearLearnedWords()
 
 void KeyboardUiBridge::resetInputContext()
 {
+    if (m_voice) m_voice->cancel();                 // never type into a new field
     m_typingEngine.setSensitiveContext(false);
     m_typingEngine.resetInputContext();
     if (m_secureInput) {

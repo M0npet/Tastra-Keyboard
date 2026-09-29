@@ -686,3 +686,16 @@ made strict: keys must be found, span > 300 px, root follows the view).
 Real-data bench (sandbox): suggestions 0.02–0.04 ms/keystroke after rank-first
 selection (3–8 ms before); background load EN 0.3 s, RU 0.5 s, DE/UK 1.3–1.5 s.
 Sandbox: 10/10 CTest + 3/3 KWin overlay, static verify OK.
+
+## 2026-09-29 — 0.4.0 offline voice input (user: "davai dalshe" after the proposal)
+
+Sources verified: Arch extra whisper-cpp 1.9.1 (MIT); model ggml-base-q5_1.bin
+SHA-256 from the official Hugging Face LFS metadata. Built whisper.cpp v1.9.1
+in the sandbox (exports CMake config + whisper.pc; pkg-config fallback added).
+RED/GREEN: tst_voice (state machine with fake recorder/recognizer),
+dictationCommitsPendingWordThenSentenceCasedText (engine-level expectation
+corrected: capitalizing typed letters is the bridge's job),
+dictationFlowsFromVoiceIntoTheField (bridge), micButtonAppearsOnlyWithVoice...
+(UI; first failure was the test clicking before the Row polished its layout),
+tst_voiceadapters (PCM conversion, missing model, real whisper run with the
+repository test model). Both builds green: voice ON 12/12, voice OFF 11/11.

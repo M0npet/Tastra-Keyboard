@@ -119,6 +119,28 @@ QString TypingEngine::takePendingText()
     return text;
 }
 
+void TypingEngine::insertDictation(const QString &text)
+{
+    QString phrase = text.simplified();
+    if (phrase.isEmpty()) return;
+    const bool hadWord = (m_composing && !m_currentWord.isEmpty()) || !m_currentWord.isEmpty();
+    commitComposition();
+    if (!m_sensitiveContext && m_sentenceStart && m_autoCapitalizationEnabled && m_autoCapitalizationAllowed) {
+        phrase[0] = phrase.at(0).toUpper();
+    }
+    const QString separator = hadWord ? QStringLiteral(" ") : QString();
+    commitLocal(separator + phrase + QLatin1Char(' '));
+    const QChar last = phrase.back();
+    m_sentenceStart = last == QLatin1Char('.') || last == QLatin1Char('!') || last == QLatin1Char('?');
+    m_sentencePunctuationPending = false;
+    const QStringList words = phrase.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    m_previousWord = words.isEmpty() ? QString() : words.last().toLower();
+    m_currentWord.clear();
+    m_lastActionWasSpace = false;
+    m_spaceFromSuggestion = false;
+    refreshSuggestions();
+}
+
 void TypingEngine::commitComposition()
 {
     if (m_composing && !m_currentWord.isEmpty()) {

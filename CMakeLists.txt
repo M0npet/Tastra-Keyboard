@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -109,6 +109,7 @@ add_library(v3keyboard-app STATIC
     src/app/keyboarduibridge.cpp
     src/app/keyboardlayoutmetrics.cpp
     src/app/tracelog.cpp
+    src/app/voicecontroller.cpp
 )
 
 target_include_directories(v3keyboard-app
@@ -365,3 +366,42 @@ if(BUILD_TESTING)
     target_link_libraries(tst_lexicon PRIVATE v3keyboard-core Qt6::Test)
     add_test(NAME lexicon COMMAND tst_lexicon)
 endif()
+
+if(BUILD_TESTING)
+    add_executable(tst_voice tests/tst_voice.cpp)
+    target_link_libraries(tst_voice PRIVATE v3keyboard-app Qt6::Test)
+    add_test(NAME voice COMMAND tst_voice)
+endif()
+
+# Offline voice input (opt-in at install time): built only when both Qt
+# Multimedia and whisper.cpp are present; otherwise the keyboard has no mic key.
+option(V3KBD_VOICE "Build offline voice input if whisper.cpp and Qt Multimedia are available" ON)
+set(V3KBD_HAVE_VOICE OFF)
+if(V3KBD_VOICE)
+    find_package(Qt6 QUIET COMPONENTS Multimedia)
+    find_package(whisper CONFIG QUIET)
+    if(NOT TARGET whisper)
+        pkg_check_modules(WHISPER QUIET IMPORTED_TARGET whisper)
+        if(TARGET PkgConfig::WHISPER)
+            add_library(whisper INTERFACE IMPORTED)
+            target_link_libraries(whisper INTERFACE PkgConfig::WHISPER)
+        endif()
+    endif()
+    if(TARGET Qt6::Multimedia AND TARGET whisper)
+        set(V3KBD_HAVE_VOICE ON)
+        add_library(v3keyboard-voice STATIC
+            src/voice/qtaudiorecorder.cpp
+            src/voice/whisperrecognizer.cpp
+        )
+        target_include_directories(v3keyboard-voice PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+        target_link_libraries(v3keyboard-voice PUBLIC v3keyboard-app Qt6::Multimedia whisper)
+        target_link_libraries(v3-keyboard PRIVATE v3keyboard-voice)
+        target_compile_definitions(v3-keyboard PRIVATE V3KBD_HAVE_VOICE=1)
+        if(BUILD_TESTING)
+            add_executable(tst_voiceadapters tests/tst_voiceadapters.cpp)
+            target_link_libraries(tst_voiceadapters PRIVATE v3keyboard-voice Qt6::Test)
+            add_test(NAME voiceadapters COMMAND tst_voiceadapters)
+        endif()
+    endif()
+endif()
+message(STATUS "V3 Keyboard offline voice input: ${V3KBD_HAVE_VOICE}")

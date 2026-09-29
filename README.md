@@ -50,3 +50,8 @@ See docs/beta-0.2.7-completion.md and docs/HANDOFF.md.
   filtered through Hunspell; attribution in data/frequency/ATTRIBUTION.md).
 - Emoji search with CLDR keywords in EN/DE/RU/UK (data/emoji/ATTRIBUTION.md).
 - Compact layout (left/right) in Settings.
+
+## 0.4.0 addition: offline voice input (opt-in)
+
+`v3kbd-voice-setup` installs whisper.cpp + Qt Multimedia and a 60 MB model;
+the keyboard then shows a 🎤 key. Everything runs locally. See docs/release-0.4.0.md.

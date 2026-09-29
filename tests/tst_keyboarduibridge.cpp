@@ -8,6 +8,7 @@
 #include <QStandardPaths>
 
 #include "app/tracelog.h"
+#include "app/voicecontroller.h"
 #include "core/locallexicon.h"
 
 #include <QFile>
@@ -204,6 +205,41 @@ private Q_SLOTS:
         const QByteArray content = log.readAll();
         QVERIFY(content.contains("v3keyboard.test: probe bytes 3"));
         QVERIFY(!content.contains("not ours"));
+    }
+
+    void dictationFlowsFromVoiceIntoTheField()
+    {
+        struct Recorder final : V3Keyboard::AudioRecorder {
+            bool start(QString *) override { return true; }
+            std::vector<float> stop() override { return std::vector<float>(16000, 0.1f); }
+        } recorder;
+        struct Recognizer final : V3Keyboard::SpeechRecognizer {
+            QString unavailableReason() const override { return {}; }
+            void recognize(std::vector<float>, const QString &lang, std::function<void(QString, QString)> done) override
+            {
+                language = lang;
+                done(QStringLiteral("hello there."), {});
+            }
+            QString language;
+        } recognizer;
+
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QVERIFY(!bridge.voiceBuilt());
+        V3Keyboard::VoiceController voice(&recorder, &recognizer);
+        bridge.setVoiceController(&voice);
+        QVERIFY(bridge.voiceBuilt());
+        bridge.setLanguage(QStringLiteral("de"));
+
+        bridge.toggleVoice();
+        QCOMPARE(bridge.voiceState(), QStringLiteral("recording"));
+        bridge.toggleVoice();
+        QCOMPARE(recognizer.language, QStringLiteral("de"));
+        QCOMPARE(backend.commits.last(), QStringLiteral("Hello there. "));
+        QVERIFY(bridge.uppercase());                          // sentence ended
+        QCOMPARE(bridge.voiceState(), QStringLiteral("idle"));
     }
 
     void tapTextReachesController()

@@ -44,6 +44,9 @@ class KeyboardUiBridge final : public QObject
 
     Q_PROPERTY(bool amoled READ amoled WRITE setAmoled NOTIFY uiPreferencesChanged)
     Q_PROPERTY(QString layoutMode READ layoutMode WRITE setLayoutMode NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(bool voiceBuilt READ voiceBuilt NOTIFY voiceChanged)
+    Q_PROPERTY(QString voiceState READ voiceState NOTIFY voiceChanged)
+    Q_PROPERTY(QString voiceMessage READ voiceMessage NOTIFY voiceChanged)
     Q_PROPERTY(double keyScale READ keyScale WRITE setKeyScale NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool keyBorders READ keyBorders WRITE setKeyBorders NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool keyPopups READ keyPopups WRITE setKeyPopups NOTIFY uiPreferencesChanged)
@@ -87,6 +90,11 @@ public:
 
     bool amoled() const;
     QString layoutMode() const;
+    bool voiceBuilt() const;
+    QString voiceState() const;
+    QString voiceMessage() const;
+    // Optional: only set when the binary was built with offline voice input.
+    void setVoiceController(class VoiceController *voice);
     double keyScale() const;
     bool keyBorders() const;
     bool keyPopups() const;
@@ -145,6 +153,7 @@ public:
     // "full", "left" or "right" (compact keyboard docked to one side).
     Q_INVOKABLE void setLayoutMode(const QString &mode);
     Q_INVOKABLE void cycleLayoutMode();
+    Q_INVOKABLE void toggleVoice();
     Q_INVOKABLE void setKeyScale(double scale);
     Q_INVOKABLE void setKeyBorders(bool enabled);
     Q_INVOKABLE void setKeyPopups(bool enabled);
@@ -168,6 +177,7 @@ Q_SIGNALS:
     void keyboardStateChanged();
     void toolbarStateChanged();
     void uiPreferencesChanged();
+    void voiceChanged();
     void typingPreferencesChanged();
     void suggestionsChanged();
     void clipboardChanged();
@@ -190,6 +200,7 @@ private:
 
     bool m_amoled = false;
     QString m_layoutMode = QStringLiteral("full");
+    class VoiceController *m_voice = nullptr;
     double m_keyScale = 1.0;
     bool m_keyBorders = true;
     bool m_keyPopups = true;

@@ -398,6 +398,26 @@ private Q_SLOTS:
         QCOMPARE(backend.commits, QStringList({QStringLiteral("hello"), QStringLiteral(" ")}));
     }
 
+    void dictationCommitsPendingWordThenSentenceCasedText()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        engine.insertDictation(QStringLiteral("привет как дела."));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("Привет как дела. ")}));
+        QVERIFY(engine.wantsAutoUppercase());               // ended a sentence
+
+        engine.typeLetter(QStringLiteral("o"));
+        engine.typeLetter(QStringLiteral("k"));
+        engine.insertDictation(QStringLiteral("and more"));
+        // The unfinished word is committed first, then a separating space.
+        // (Upper-casing typed letters is the bridge's job; the engine got "o".)
+        QCOMPARE(backend.commits.mid(1), QStringList({QStringLiteral("ok"), QStringLiteral(" and more ")}));
+        QVERIFY(!engine.wantsAutoUppercase());
+    }
+
     void spaceAfterSuggestionIsNotADoubleSpace()
     {
         FakeBackend backend;
