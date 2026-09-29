@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <QString>
+#include <QStringList>
+
+namespace V3Keyboard
+{
+
+class KeyboardModel
+{
+public:
+    enum class ShiftState {
+        Lowercase,
+        OneShot,
+        CapsLock,
+    };
+
+    enum class Layer {
+        Alphabet,
+        Symbols,
+    };
+
+    void pressShift();
+    void consumeShiftAfterLetter();
+    void toggleSymbols();
+
+    bool uppercase() const;
+    bool capsLock() const;
+    bool symbolsActive() const;
+
+    QString textForLetter(const QString &text) const;
+    QString alternateForKey(const QString &text) const;
+
+    QString languageCode() const;
+    QString languageLabel() const;
+    QStringList languageCodes() const;
+    QStringList languageLabels() const;
+    QStringList row1() const;
+    QStringList row2() const;
+    QStringList row3() const;
+
+    void setLanguage(const QString &code);
+    void nextLanguage();
+
+private:
+    void resetShift();
+
+    ShiftState m_shiftState = ShiftState::Lowercase;
+    Layer m_layer = Layer::Alphabet;
+    int m_languageIndex = 0;
+};
+
+}

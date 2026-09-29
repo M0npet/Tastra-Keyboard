@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=V3 Keyboard
+Comment=Privacy-first virtual keyboard for Wayland
+Exec=v3-keyboard
+Type=Application
+X-KDE-Wayland-VirtualKeyboard=true
+Icon=input-keyboard-virtual
+NoDisplay=true

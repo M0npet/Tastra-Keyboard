@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import re
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+errors = []
+
+def require(path, token, description=None):
+    text = (ROOT / path).read_text(encoding='utf-8')
+    if token not in text:
+        errors.append(f"{path}: missing {description or token!r}")
+
+def forbid(path, token, description=None):
+    text = (ROOT / path).read_text(encoding='utf-8')
+    if token in text:
+        errors.append(f"{path}: forbidden {description or token!r}")
+
+# Architecture / model checks.
+require('src/core/toolbarregistry.h', 'language.visible = false;', 'hidden toolbar language action')
+for action in ('clipboard', 'emoji', 'textEditing', 'settings'):
+    require('src/core/toolbarregistry.h', f'{action}.visible = true;', f'visible {action} action')
+
+require('src/core/keyboardmodel.cpp', 'QString KeyboardModel::alternateForKey', 'long-press alternate model')
+require('src/core/keyboardmodel.cpp', 'QStringLiteral("ß")')
+require('src/core/keyboardmodel.cpp', 'QStringLiteral("ґ")')
+require('src/core/keyboardmodel.cpp', 'QStringLiteral("ё")')
+
+for method in ('deleteForward', 'moveLeft', 'moveRight', 'moveHome', 'moveEnd'):
+    require('src/core/inputmethodbackend.h', f'virtual void {method}() = 0;', f'backend {method}')
+    require('src/core/keyboardcontroller.cpp', f'void KeyboardController::{method}()', f'controller {method}')
+    require('src/platform/kwin/kwininputmethodv1backend.cpp', f'void KWinInputMethodV1Backend::{method}()', f'KWin {method}')
+
+# Bridge/persistence checks.
+for token in (
+    'Q_PROPERTY(bool amoled',
+    'Q_PROPERTY(double keyScale',
+    'Q_PROPERTY(bool keyBorders',
+    'Q_PROPERTY(bool keyPopups',
+    'Q_PROPERTY(QString clipboardText',
+    'Q_INVOKABLE void pasteClipboard()',
+    'Q_INVOKABLE void clearClipboard()',
+    'Q_INVOKABLE void tapAlternate',
+):
+    require('src/app/keyboarduibridge.h', token)
+
+require('src/app/keyboarduibridge.cpp', 'QSettings settings;', 'settings persistence')
+require('src/app/keyboarduibridge.cpp', 'QGuiApplication::clipboard()', 'system clipboard access')
+require('src/app/main.cpp', 'bridge.resetInputContext();', 'typing/panel reset on context close')
+require('CMakeLists.txt', 'Qt6::Gui', 'Qt GUI dependency for clipboard')
+
+
+# Smart typing / local privacy-first engine checks.
+for path, token in (
+    ('src/core/locallexicon.cpp', 'LocalLexicon::bestCorrection'),
+    ('src/core/locallexicon.cpp', '/usr/share/hunspell'),
+    ('src/core/typingengine.cpp', 'TypingEngine::chooseSuggestion'),
+    ('src/core/typingengine.cpp', 'TypingEngine::endGlide'),
+    ('src/core/clipboardhistory.cpp', 'ClipboardHistory::capture'),
+    ('src/core/emojicatalog.cpp', 'emoji-test.txt'),
+):
+    require(path, token)
+
+for token in (
+    'Q_PROPERTY(QStringList suggestions',
+    'Q_PROPERTY(bool autocorrectEnabled',
+    'Q_PROPERTY(bool learningEnabled',
+    'Q_PROPERTY(bool glideEnabled',
+    'Q_PROPERTY(QStringList clipboardHistory',
+    'Q_INVOKABLE void selectSuggestion',
+    'Q_INVOKABLE QString endGlide',
+):
+    require('src/app/keyboarduibridge.h', token)
+
+require('tests/tst_smarttyping.cpp', 'autocorrectReplacesCommittedWordBeforeSpace')
+require('tests/tst_smarttyping.cpp', 'shortTokensAreNotAggressivelyAutocorrected')
+require('src/core/locallexicon.cpp', 'typed.size() < 3', 'conservative short-token autocorrect guard')
+require('tests/tst_smarttyping.cpp', 'glideDecoderCanResolveSimpleTrace')
+require('tests/tst_clipboardemoji.cpp', 'clipboardHistoryDeduplicatesAndKeepsNewestFirst')
+
+# UI checks.
+qml_path = ROOT / 'src/ui/Main.qml'
+qml = qml_path.read_text(encoding='utf-8')
+for token in (
+    'id: topToolbar',
+    'model: keyboardBridge.toolbarActions',
+    'id: languageChooserPanel',
+    'onLongPressed: keyboardBridge.openLanguagePanel()',
+    'keyboardBridge.alternateForKey(modelData)',
+    'keyboardBridge.tapAlternate(modelData)',
+    'keyboardBridge.clipboardText',
+    'keyboardBridge.emojiSearch',
+    'keyboardBridge.suggestions',
+    'keyboardBridge.selectSuggestion',
+    'keyboardBridge.clipboardHistory',
+    'keyboardBridge.backspaceRepeated',
+    'keyboardBridge.moveCursor',
+    'keyboardBridge.moveLeft()',
+    'keyboardBridge.deleteForward()',
+    'keyboardBridge.setAmoled',
+    'keyboardBridge.setKeyScale',
+    'keyboardBridge.setKeyBorders',
+    'keyboardBridge.setKeyPopups',
+):
+    if token not in qml:
+        errors.append(f'src/ui/Main.qml: missing {token!r}')
+
+if 'Language' in re.sub(r'Keyboard language', '', qml) and 'languageChooserPanel' not in qml:
+    errors.append('src/ui/Main.qml: language UI unexpectedly missing')
+
+# Cheap syntax sanity: braces outside strings/comments must balance.
+def balance_braces(text: str):
+    depth = 0
+    i = 0
+    in_str = None
+    line_comment = False
+    block_comment = False
+    while i < len(text):
+        c = text[i]
+        n = text[i+1] if i + 1 < len(text) else ''
+        if line_comment:
+            if c == '\n':
+                line_comment = False
+            i += 1
+            continue
+        if block_comment:
+            if c == '*' and n == '/':
+                block_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+        if in_str:
+            if c == '\\':
+                i += 2
+                continue
+            if c == in_str:
+                in_str = None
+            i += 1
+            continue
+        if c == '/' and n == '/':
+            line_comment = True
+            i += 2
+            continue
+        if c == '/' and n == '*':
+            block_comment = True
+            i += 2
+            continue
+        if c in ('"', "'"):
+            in_str = c
+        elif c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth < 0:
+                return False, depth
+        i += 1
+    return depth == 0 and not in_str and not block_comment, depth
+
+ok, depth = balance_braces(qml)
+if not ok:
+    errors.append(f'src/ui/Main.qml: brace/string sanity failed (depth={depth})')
+
+# Test intent checks.
+require('tests/tst_keyboardmodel.cpp', 'exposesLanguageSpecificLongPressAlternates')
+require('tests/tst_keyboardmodel.cpp', 'QStringLiteral("clipboard")')
+require('tests/tst_specialkeys.cpp', 'controllerForwardsEditingKeys')
+require('tests/tst_keyboarduibridge.cpp', 'editingCommandsReachController')
+
+# Secure/input-context integration checks.
+for _file, _marker in [
+    ("src/app/keyboarduibridge.h", "Q_PROPERTY(bool secureInput"),
+    ("src/app/keyboarduibridge.cpp", "setSurroundingText"),
+    ("src/app/keyboarduibridge.cpp", "setContentType"),
+    ("src/platform/kwin/kwininputmethodv1connection.h", "surroundingTextChanged"),
+    ("src/platform/kwin/kwininputmethodv1connection.h", "contentTypeChanged"),
+    ("src/app/main.cpp", "preferredLanguageChanged"),
+]:
+    if _marker not in (ROOT / _file).read_text(encoding="utf-8"):
+        errors.append(f"secure/input-context marker missing: {_file}: {_marker}")
+
+
+# Beta 0.2.2 live-input repair checks.
+require('src/core/typingengine.h', 'bool syncSurroundingText', 'state-aware surrounding-text sync')
+require('src/core/typingengine.cpp', 'm_localEditPending', 'local edit / stale echo guard')
+require('src/core/typingengine.cpp', 'void TypingEngine::backspaceRepeated', 'batched repeated backspace')
+require('src/core/locallexicon.cpp', 'learnWordWithContext', 'single-persist contextual learning')
+require('tests/tst_smarttyping.cpp', 'staleSurroundingEchoDoesNotClobberLocalWord')
+require('tests/tst_smarttyping.cpp', 'terminalPunctuationImmediatelyArmsCapitalization')
+require('tests/tst_smarttyping.cpp', 'repeatedBackspaceUpdatesCompositionInOneOperation')
+require('tests/tst_keyboarduibridge.cpp', 'ordinaryTypingDoesNotInvalidateWholeKeyboard')
+
+if errors:
+    print('STATIC VERIFY: FAILED')
+    for error in errors:
+        print(f' - {error}')
+    sys.exit(1)
+
+print('STATIC VERIFY: OK')
+print('v0.2.2 live-input repair markers are present, stale surrounding-text echoes are guarded, and QML braces are balanced.')

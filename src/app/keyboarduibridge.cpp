@@ -1,0 +1,547 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "keyboarduibridge.h"
+#include "keyboardlayoutmetrics.h"
+
+#include "core/keyboardcontroller.h"
+
+#include <QClipboard>
+#include <QCoreApplication>
+#include <QGuiApplication>
+#include <QSettings>
+#include <QtGlobal>
+
+namespace V3Keyboard
+{
+namespace
+{
+
+QClipboard *systemClipboard()
+{
+    if (!qobject_cast<QGuiApplication *>(QCoreApplication::instance())) return nullptr;
+    return QGuiApplication::clipboard();
+}
+
+}
+
+KeyboardUiBridge::KeyboardUiBridge(
+    KeyboardController &controller,
+    KeyboardModel &model,
+    QObject *parent)
+    : QObject(parent)
+    , m_controller(controller)
+    , m_model(model)
+    , m_typingEngine(controller)
+    , m_toolbarRegistry(ToolbarRegistry::createDefault())
+    , m_toolbarModel(m_toolbarRegistry)
+{
+    QSettings settings;
+    m_model.setLanguage(settings.value(QStringLiteral("language"), QStringLiteral("en")).toString());
+    m_typingEngine.setLanguage(m_model.languageCode());
+    m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
+    m_keyScale = qBound(0.85, settings.value(QStringLiteral("keyScale"), 1.0).toDouble(), 1.20);
+    m_keyBorders = settings.value(QStringLiteral("keyBorders"), true).toBool();
+    m_keyPopups = settings.value(QStringLiteral("keyPopups"), true).toBool();
+    m_glideEnabled = settings.value(QStringLiteral("glideEnabled"), true).toBool();
+
+    m_typingEngine.setSuggestionsEnabled(settings.value(QStringLiteral("suggestionsEnabled"), true).toBool());
+    m_typingEngine.setAutocorrectEnabled(settings.value(QStringLiteral("autocorrectEnabled"), true).toBool());
+    m_typingEngine.setLearningEnabled(settings.value(QStringLiteral("learningEnabled"), true).toBool());
+    m_typingEngine.setAutoCapitalizationEnabled(settings.value(QStringLiteral("autoCapitalizationEnabled"), true).toBool());
+    m_typingEngine.setDoubleSpacePeriodEnabled(settings.value(QStringLiteral("doubleSpacePeriodEnabled"), true).toBool());
+
+    if (auto *clipboard = systemClipboard()) {
+        captureClipboard();
+        connect(clipboard, &QClipboard::dataChanged, this, [this]() {
+            captureClipboard();
+            Q_EMIT clipboardChanged();
+        });
+    }
+}
+
+bool KeyboardUiBridge::uppercase() const { return m_model.uppercase() || m_typingEngine.wantsAutoUppercase(); }
+bool KeyboardUiBridge::capsLock() const { return m_model.capsLock(); }
+bool KeyboardUiBridge::symbolsActive() const { return m_model.symbolsActive(); }
+QString KeyboardUiBridge::languageCode() const { return m_model.languageCode(); }
+QString KeyboardUiBridge::languageLabel() const { return m_model.languageLabel(); }
+QStringList KeyboardUiBridge::row1() const { return m_model.row1(); }
+QStringList KeyboardUiBridge::row2() const { return m_model.row2(); }
+QStringList KeyboardUiBridge::row3() const { return m_model.row3(); }
+QString KeyboardUiBridge::activePanel() const { return panelIdName(m_panelManager.activePanel()); }
+QStringList KeyboardUiBridge::toolbarActionIds() const { return m_toolbarModel.visibleActionIds(); }
+QStringList KeyboardUiBridge::languageCodes() const { return m_model.languageCodes(); }
+QStringList KeyboardUiBridge::languageLabels() const { return m_model.languageLabels(); }
+QString KeyboardUiBridge::currentWord() const { return m_typingEngine.currentWord(); }
+QStringList KeyboardUiBridge::suggestions() const { return m_typingEngine.suggestions(); }
+
+QVariantList KeyboardUiBridge::toolbarActions() const
+{
+    QVariantList result;
+    for (const auto &action : m_toolbarModel.visibleActions()) {
+        QVariantMap item;
+        item.insert(QStringLiteral("id"), action.id);
+        item.insert(QStringLiteral("label"), action.label);
+        item.insert(QStringLiteral("iconName"), action.iconName);
+        item.insert(QStringLiteral("enabled"), action.enabled);
+        result.append(item);
+    }
+    return result;
+}
+
+bool KeyboardUiBridge::amoled() const { return m_amoled; }
+double KeyboardUiBridge::keyScale() const { return m_keyScale; }
+bool KeyboardUiBridge::keyBorders() const { return m_keyBorders; }
+bool KeyboardUiBridge::keyPopups() const { return m_keyPopups; }
+bool KeyboardUiBridge::suggestionsEnabled() const { return m_typingEngine.suggestionsEnabled(); }
+bool KeyboardUiBridge::autocorrectEnabled() const { return m_typingEngine.autocorrectEnabled(); }
+bool KeyboardUiBridge::learningEnabled() const { return m_typingEngine.learningEnabled(); }
+bool KeyboardUiBridge::autoCapitalizationEnabled() const { return m_typingEngine.autoCapitalizationEnabled(); }
+bool KeyboardUiBridge::doubleSpacePeriodEnabled() const { return m_typingEngine.doubleSpacePeriodEnabled(); }
+bool KeyboardUiBridge::glideEnabled() const { return m_glideEnabled; }
+bool KeyboardUiBridge::secureInput() const { return m_secureInput; }
+bool KeyboardUiBridge::clipboardHistoryEnabled() const { return m_clipboardHistory.enabled(); }
+
+QString KeyboardUiBridge::clipboardText() const
+{
+    if (auto *clipboard = systemClipboard()) return clipboard->text();
+    return {};
+}
+
+QStringList KeyboardUiBridge::clipboardHistory() const { return m_clipboardHistory.items(); }
+QStringList KeyboardUiBridge::emojiItems() const { return m_emojiCatalog.glyphs(QStringLiteral("All"), {}, 240); }
+QStringList KeyboardUiBridge::emojiCategories() const { return m_emojiCatalog.categories(); }
+QStringList KeyboardUiBridge::emojiSearch(const QString &query, const QString &category) const
+{
+    return m_emojiCatalog.glyphs(category, query, 240);
+}
+
+QVariantMap KeyboardUiBridge::layoutMetrics(bool portrait) const
+{
+    auto metrics = portrait ? KeyboardLayoutMetrics::portrait() : KeyboardLayoutMetrics::landscape();
+    metrics.keyHeight *= m_keyScale;
+    metrics.fontSize *= qBound(0.92, m_keyScale, 1.12);
+    metrics.popupHeight *= m_keyScale;
+    metrics.keyRadius *= qBound(0.95, m_keyScale, 1.08);
+    return {
+        {QStringLiteral("contentWidthRatio"), metrics.contentWidthRatio},
+        {QStringLiteral("maxContentWidth"), metrics.maxContentWidth},
+        {QStringLiteral("keyHeight"), metrics.keyHeight},
+        {QStringLiteral("keyGap"), metrics.keyGap},
+        {QStringLiteral("outerMargin"), metrics.outerMargin},
+        {QStringLiteral("topPadding"), metrics.topPadding},
+        {QStringLiteral("bottomPadding"), metrics.bottomPadding},
+        {QStringLiteral("keyRadius"), metrics.keyRadius},
+        {QStringLiteral("fontSize"), metrics.fontSize},
+        {QStringLiteral("popupHeight"), metrics.popupHeight},
+        {QStringLiteral("panelHeight"), metrics.panelHeight()},
+    };
+}
+
+QString KeyboardUiBridge::alternateForKey(const QString &text) const
+{
+    QString alternate = m_model.alternateForKey(text);
+    if (!alternate.isEmpty() && uppercase()) alternate = alternate.toUpper();
+    return alternate;
+}
+
+void KeyboardUiBridge::typingStateDidChange()
+{
+    Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::tapLetter(const QString &letter)
+{
+    const bool oneShotWasActive = m_model.uppercase() && !m_model.capsLock();
+    const bool autoUpperWasActive = m_typingEngine.wantsAutoUppercase();
+    const QString output = uppercase() ? letter.toUpper() : letter.toLower();
+    m_typingEngine.typeLetter(output);
+    m_model.consumeShiftAfterLetter();
+
+    // Normal typing changes suggestions on every tap, but it does not need to
+    // invalidate every row/key binding. Keeping keyboardStateChanged off the
+    // hot path removes a large amount of QML work in Chromium text fields.
+    if (oneShotWasActive || autoUpperWasActive) Q_EMIT keyboardStateChanged();
+    if (m_typingEngine.suggestionsEnabled()) Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::tapAlternate(const QString &base)
+{
+    QString alternate = m_model.alternateForKey(base);
+    if (alternate.isEmpty()) return;
+    const bool autoUpperWasActive = m_typingEngine.wantsAutoUppercase();
+    if (uppercase()) alternate = alternate.toUpper();
+    const bool oneShotWasActive = m_model.uppercase() && !m_model.capsLock();
+    m_typingEngine.typeLetter(alternate);
+    m_model.consumeShiftAfterLetter();
+    if (oneShotWasActive || autoUpperWasActive) Q_EMIT keyboardStateChanged();
+    if (m_typingEngine.suggestionsEnabled()) Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::tapText(const QString &text)
+{
+    const bool uppercaseBefore = uppercase();
+    m_typingEngine.typeText(text);
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::selectSuggestion(const QString &word)
+{
+    const bool uppercaseBefore = uppercase();
+    m_typingEngine.chooseSuggestion(word);
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::shift()
+{
+    m_model.pressShift();
+    Q_EMIT keyboardStateChanged();
+}
+
+void KeyboardUiBridge::toggleSymbols()
+{
+    m_model.toggleSymbols();
+    Q_EMIT keyboardStateChanged();
+}
+
+void KeyboardUiBridge::nextLanguage()
+{
+    m_model.nextLanguage();
+    m_typingEngine.setLanguage(m_model.languageCode());
+    persistLanguage();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::setLanguage(const QString &code)
+{
+    m_model.setLanguage(code);
+    m_typingEngine.setLanguage(m_model.languageCode());
+    persistLanguage();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::activateToolbarAction(const QString &id)
+{
+    if (m_toolbarModel.activate(id, m_panelManager)) {
+        if (id == QStringLiteral("clipboard")) Q_EMIT clipboardChanged();
+        Q_EMIT toolbarStateChanged();
+    }
+}
+
+void KeyboardUiBridge::openLanguagePanel()
+{
+    if (m_panelManager.openPanel(PanelId::Language)) Q_EMIT toolbarStateChanged();
+}
+
+void KeyboardUiBridge::closePanel()
+{
+    if (m_panelManager.closePanel()) Q_EMIT toolbarStateChanged();
+}
+
+void KeyboardUiBridge::space()
+{
+    const bool uppercaseBefore = uppercase();
+    m_typingEngine.space();
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::backspace()
+{
+    const bool uppercaseBefore = uppercase();
+    m_typingEngine.backspace();
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::backspaceRepeated(int count)
+{
+    const bool uppercaseBefore = uppercase();
+    m_typingEngine.backspaceRepeated(count);
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::deleteForward()
+{
+    m_typingEngine.resetComposition();
+    m_controller.deleteForward();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::moveLeft()
+{
+    m_typingEngine.resetComposition();
+    m_controller.moveLeft();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::moveRight()
+{
+    m_typingEngine.resetComposition();
+    m_controller.moveRight();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::moveCursor(int delta)
+{
+    m_typingEngine.resetComposition();
+    const int bounded = qBound(-48, delta, 48);
+    if (bounded < 0) for (int i = 0; i < -bounded; ++i) m_controller.moveLeft();
+    if (bounded > 0) for (int i = 0; i < bounded; ++i) m_controller.moveRight();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::moveHome()
+{
+    m_typingEngine.resetComposition();
+    m_controller.moveHome();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::moveEnd()
+{
+    m_typingEngine.resetComposition();
+    m_controller.moveEnd();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::enter()
+{
+    const bool uppercaseBefore = uppercase();
+    m_typingEngine.enter();
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::beginGlide(const QString &key)
+{
+    if (m_glideEnabled && !m_model.symbolsActive()) m_typingEngine.beginGlide(key);
+}
+
+void KeyboardUiBridge::glideThrough(const QString &key)
+{
+    if (m_glideEnabled && !m_model.symbolsActive()) m_typingEngine.glideThrough(key);
+}
+
+QString KeyboardUiBridge::endGlide()
+{
+    if (!m_glideEnabled || m_model.symbolsActive()) return {};
+    const bool uppercaseBefore = uppercase();
+    const QString word = m_typingEngine.endGlide();
+    if (!word.isEmpty()) {
+        if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+        Q_EMIT suggestionsChanged();
+    }
+    return word;
+}
+
+void KeyboardUiBridge::captureClipboard()
+{
+    m_clipboardHistory.capture(clipboardText());
+}
+
+void KeyboardUiBridge::pasteClipboard()
+{
+    const QString text = clipboardText();
+    if (!text.isEmpty()) {
+        m_typingEngine.resetComposition();
+        m_controller.tapText(text);
+        Q_EMIT suggestionsChanged();
+    }
+}
+
+void KeyboardUiBridge::pasteClipboardHistory(int index)
+{
+    const auto items = m_clipboardHistory.items();
+    if (index < 0 || index >= items.size()) return;
+    m_typingEngine.resetComposition();
+    m_controller.tapText(items.at(index));
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::removeClipboardHistory(int index)
+{
+    m_clipboardHistory.removeAt(index);
+    Q_EMIT clipboardChanged();
+}
+
+void KeyboardUiBridge::clearClipboard()
+{
+    if (auto *clipboard = systemClipboard()) clipboard->clear();
+    Q_EMIT clipboardChanged();
+}
+
+void KeyboardUiBridge::clearClipboardHistory()
+{
+    m_clipboardHistory.clear();
+    Q_EMIT clipboardChanged();
+}
+
+void KeyboardUiBridge::setAmoled(bool enabled)
+{
+    if (m_amoled == enabled) return;
+    m_amoled = enabled;
+    persistPreference(QStringLiteral("amoled"), enabled);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setKeyScale(double scale)
+{
+    const double bounded = qBound(0.85, scale, 1.20);
+    if (qAbs(m_keyScale - bounded) < 0.001) return;
+    m_keyScale = bounded;
+    persistPreference(QStringLiteral("keyScale"), bounded);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setKeyBorders(bool enabled)
+{
+    if (m_keyBorders == enabled) return;
+    m_keyBorders = enabled;
+    persistPreference(QStringLiteral("keyBorders"), enabled);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setKeyPopups(bool enabled)
+{
+    if (m_keyPopups == enabled) return;
+    m_keyPopups = enabled;
+    persistPreference(QStringLiteral("keyPopups"), enabled);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setSuggestionsEnabled(bool enabled)
+{
+    if (m_typingEngine.suggestionsEnabled() == enabled) return;
+    m_typingEngine.setSuggestionsEnabled(enabled);
+    persistPreference(QStringLiteral("suggestionsEnabled"), enabled);
+    Q_EMIT typingPreferencesChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::setAutocorrectEnabled(bool enabled)
+{
+    if (m_typingEngine.autocorrectEnabled() == enabled) return;
+    m_typingEngine.setAutocorrectEnabled(enabled);
+    persistPreference(QStringLiteral("autocorrectEnabled"), enabled);
+    Q_EMIT typingPreferencesChanged();
+}
+
+void KeyboardUiBridge::setLearningEnabled(bool enabled)
+{
+    if (m_typingEngine.learningEnabled() == enabled) return;
+    m_typingEngine.setLearningEnabled(enabled);
+    persistPreference(QStringLiteral("learningEnabled"), enabled);
+    Q_EMIT typingPreferencesChanged();
+}
+
+void KeyboardUiBridge::setAutoCapitalizationEnabled(bool enabled)
+{
+    if (m_typingEngine.autoCapitalizationEnabled() == enabled) return;
+    m_typingEngine.setAutoCapitalizationEnabled(enabled);
+    persistPreference(QStringLiteral("autoCapitalizationEnabled"), enabled);
+    Q_EMIT typingPreferencesChanged();
+    Q_EMIT keyboardStateChanged();
+}
+
+void KeyboardUiBridge::setDoubleSpacePeriodEnabled(bool enabled)
+{
+    if (m_typingEngine.doubleSpacePeriodEnabled() == enabled) return;
+    m_typingEngine.setDoubleSpacePeriodEnabled(enabled);
+    persistPreference(QStringLiteral("doubleSpacePeriodEnabled"), enabled);
+    Q_EMIT typingPreferencesChanged();
+}
+
+void KeyboardUiBridge::setGlideEnabled(bool enabled)
+{
+    if (m_glideEnabled == enabled) return;
+    m_glideEnabled = enabled;
+    persistPreference(QStringLiteral("glideEnabled"), enabled);
+    Q_EMIT typingPreferencesChanged();
+}
+
+void KeyboardUiBridge::setClipboardHistoryEnabled(bool enabled)
+{
+    if (m_clipboardHistory.enabled() == enabled) return;
+    m_clipboardHistory.setEnabled(enabled);
+    Q_EMIT clipboardChanged();
+}
+
+void KeyboardUiBridge::clearLearnedWords()
+{
+    m_typingEngine.clearLearning();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::resetInputContext()
+{
+    if (m_secureInput) {
+        m_secureInput = false;
+        m_typingEngine.setSensitiveContext(false);
+        Q_EMIT inputContextChanged();
+    } else {
+        m_typingEngine.resetComposition();
+    }
+    m_panelManager.returnToTyping();
+    Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+    Q_EMIT toolbarStateChanged();
+}
+
+void KeyboardUiBridge::setSurroundingText(const QString &text, int cursorByte, int anchorByte)
+{
+    const bool uppercaseBefore = uppercase();
+    if (!m_typingEngine.syncSurroundingText(text, cursorByte, anchorByte)) return;
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::setContentType(quint32 hint, quint32 purpose)
+{
+    constexpr quint32 hiddenTextHint = 0x40;
+    constexpr quint32 sensitiveDataHint = 0x80;
+    constexpr quint32 passwordPurpose = 8;
+    constexpr quint32 pinPurpose = 9;
+    const bool secure = (hint & (hiddenTextHint | sensitiveDataHint)) != 0
+        || purpose == passwordPurpose
+        || purpose == pinPurpose;
+    if (m_secureInput == secure) return;
+    m_secureInput = secure;
+    m_typingEngine.setSensitiveContext(secure);
+    Q_EMIT inputContextChanged();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::resetCompositionFromClient()
+{
+    m_typingEngine.resetComposition();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::setPreferredLanguage(const QString &language)
+{
+    const QString lowered = language.toLower();
+    QString code;
+    if (lowered.startsWith(QStringLiteral("de"))) code = QStringLiteral("de");
+    else if (lowered.startsWith(QStringLiteral("uk"))) code = QStringLiteral("uk");
+    else if (lowered.startsWith(QStringLiteral("ru"))) code = QStringLiteral("ru");
+    else if (lowered.startsWith(QStringLiteral("en"))) code = QStringLiteral("en");
+    if (!code.isEmpty() && code != m_model.languageCode()) setLanguage(code);
+}
+
+void KeyboardUiBridge::persistLanguage() const
+{
+    QSettings settings;
+    settings.setValue(QStringLiteral("language"), m_model.languageCode());
+}
+
+void KeyboardUiBridge::persistPreference(const QString &key, const QVariant &value) const
+{
+    QSettings settings;
+    settings.setValue(key, value);
+}
+
+}
