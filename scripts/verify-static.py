@@ -223,6 +223,9 @@ for path, token, why in (
     ('tests/tst_qmlkeyboard.cpp', 'is not declared', 'no implicit handler parameters'),
     ('src/core/typingengine.cpp', 'm_spaceFromSuggestion', 'Space after a suggestion is not a double-space (0.2.5)'),
     ('tests/tst_smarttyping.cpp', 'spaceAfterSuggestionIsNotADoubleSpace', '0.2.5 live regression'),
+    ('src/core/typingengine.cpp', 'ignored while composing', 'echoes never abandon a live preedit (0.2.6)'),
+    ('src/core/typingengine.cpp', 'constexpr qint64 SettleMs = 150;', 'settle window sized from device trace'),
+    ('tests/tst_smarttyping.cpp', 'placeholderEchoDuringCompositionKeepsPendingSpace', '0.2.6 trace regression'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include <functional>
+#include <limits>
+
 #include "locallexicon.h"
 
 #include <QString>
@@ -27,6 +30,7 @@ public:
     void setDoubleSpacePeriodEnabled(bool enabled);
     void setAutoCapitalizationAllowed(bool allowed);
     void setCompositionEnabled(bool enabled);
+    void setClockForTesting(std::function<qint64()> clock);
     bool compositionEnabled() const;
     bool composing() const;
 
@@ -107,6 +111,8 @@ private:
     bool m_spaceFromSuggestion = false; // that space was added by a suggestion
     bool m_preeditRejected = false; // backend/client cannot show preedit
     bool m_inSync = false;
+    std::function<qint64()> m_clock;
+    qint64 m_lastLocalOpMs = std::numeric_limits<qint64>::min() / 2;
     QString m_model;                // committed text before the cursor (tail)
     QStringList m_history;          // recent states produced or confirmed
 };

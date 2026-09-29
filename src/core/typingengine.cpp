@@ -3,6 +3,9 @@
 #include "typingengine.h"
 #include "keyboardcontroller.h"
 
+#include <QElapsedTimer>
+
+#include <limits>
 #include <QLoggingCategory>
 
 // Decisions and sizes only; typed text never reaches the log.
@@ -16,6 +19,15 @@ namespace
 constexpr int ModelTail = 256;
 constexpr int CompareTail = 64;
 constexpr int MaxHistory = 64;
+// Echoes of our own edits arrive 2-6 ms later (p99, device trace 0.2.5; max
+// 36 ms). Unknown states inside this window are self-caused, not user edits.
+constexpr qint64 SettleMs = 150;
+
+qint64 monotonicMs()
+{
+    static QElapsedTimer timer = [] { QElapsedTimer t; t.start(); return t; }();
+    return timer.elapsed();
+}
 
 QString tail(const QString &text)
 {
@@ -55,6 +67,8 @@ void TypingEngine::setAutoCapitalizationEnabled(bool enabled) { m_autoCapitaliza
 void TypingEngine::setDoubleSpacePeriodEnabled(bool enabled) { m_doubleSpacePeriodEnabled = enabled; }
 void TypingEngine::setAutoCapitalizationAllowed(bool allowed) { m_autoCapitalizationAllowed = allowed; }
 bool TypingEngine::surroundingTextSupported() const { return m_surroundingSupported; }
+void TypingEngine::setClockForTesting(std::function<qint64()> clock) { m_clock = std::move(clock); }
+
 void TypingEngine::setCompositionEnabled(bool enabled) { if (!enabled) commitComposition(); m_compositionEnabled = enabled; }
 bool TypingEngine::compositionEnabled() const { return m_compositionEnabled; }
 bool TypingEngine::composing() const { return m_composing || m_pendingSpace; }
@@ -68,6 +82,7 @@ bool TypingEngine::compositionAvailable() const
 
 bool TypingEngine::setPreeditLocal(const QString &text)
 {
+    m_lastLocalOpMs = m_clock ? m_clock() : monotonicMs();
     if (!m_controller.setPreedit(text)) {
         qCDebug(lcEngine) << "preedit rejected -> immediate commits for this context";
         m_preeditRejected = true;
@@ -202,6 +217,7 @@ void TypingEngine::observePunctuation(const QString &text)
 
 void TypingEngine::commitLocal(const QString &text)
 {
+    m_lastLocalOpMs = m_clock ? m_clock() : monotonicMs();
     m_controller.tapText(text);
     m_model = tail(m_model + text);
     recordLocalState();
@@ -209,6 +225,7 @@ void TypingEngine::commitLocal(const QString &text)
 
 void TypingEngine::backspaceLocal()
 {
+    m_lastLocalOpMs = m_clock ? m_clock() : monotonicMs();
     m_controller.backspace();
     if (!m_model.isEmpty()) {
         const bool pair = m_model.size() >= 2 && m_model.back().isLowSurrogate();
@@ -219,6 +236,7 @@ void TypingEngine::backspaceLocal()
 
 bool TypingEngine::deleteLocal(const QString &text)
 {
+    m_lastLocalOpMs = m_clock ? m_clock() : monotonicMs();
     if (!m_controller.deleteBeforeCursor(text)) return false;
     m_model.chop(text.size());
     recordLocalState();
@@ -243,6 +261,10 @@ void TypingEngine::forgetTextState()
     m_model.clear();
     m_history = {QString()};
     m_inSync = false;
+    // The keyboard no longer models the text (cursor moved, paste, client
+    // reset): the next echo is the truth and must not be treated as
+    // self-caused by the settle window.
+    m_lastLocalOpMs = std::numeric_limits<qint64>::min() / 2;
 }
 
 bool TypingEngine::inSyncWithClient() const
@@ -462,6 +484,7 @@ void TypingEngine::enter()
     // queued key events, so this order can never be inverted.
     if (m_composing) commitComposition();
     if (!m_currentWord.isEmpty()) finalizeCurrentWord();
+    m_lastLocalOpMs = m_clock ? m_clock() : monotonicMs();
     m_controller.enter();
     m_model = tail(m_model + QLatin1Char('\n'));
     recordLocalState();
@@ -567,6 +590,16 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
     const int bounded = qBound(0, cursorByte, static_cast<int>(utf8.size()));
     const QString before = tail(QString::fromUtf8(utf8.left(bounded)));
 
+    if (composing()) {
+        // The keyboard owns the composition. Echo contents are unreliable
+        // (lagging caches, placeholder characters in empty editors), and
+        // abandoning a live preedit loses text; external changes end a
+        // composition through reset() (observed on device when the user
+        // clicks elsewhere or switches windows).
+        qCDebug(lcEngine) << "echo bytes" << bounded << "ignored while composing";
+        return false;
+    }
+
     if (cursorByte == anchorByte) {
         // Any state this keyboard produced recently (including states with
         // its preedit) is an echo. Clients such as Firefox answer from a
@@ -582,10 +615,17 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
         }
     }
 
-    // A state the keyboard never produced: cursor moved, selection, or the
-    // application changed the text. The client is the source of truth; if a
-    // composition was active the client has already committed or dropped it.
-    qCDebug(lcEngine) << "echo bytes" << bounded << "unknown state -> adopt; composition was" << composing();
+    const qint64 now = m_clock ? m_clock() : monotonicMs();
+    if (now - m_lastLocalOpMs < SettleMs) {
+        qCDebug(lcEngine) << "echo bytes" << bounded << "unknown but self-caused (settle window) -> ignored";
+        m_inSync = false;
+        return false;
+    }
+
+    // A state the keyboard never produced, at human speed: cursor moved,
+    // selection, or the application changed the text. The client is the
+    // source of truth.
+    qCDebug(lcEngine) << "echo bytes" << bounded << "unknown state -> adopt";
     m_composing = false;
     m_pendingSpace = false;
     m_spaceFromSuggestion = false;

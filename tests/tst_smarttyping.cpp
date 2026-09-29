@@ -290,6 +290,44 @@ private Q_SLOTS:
         QCOMPARE(backend.backspaces, 0);
     }
 
+    void placeholderEchoDuringCompositionKeepsPendingSpace()
+    {
+        // Trace 0.2.5 (claude.ai in Firefox): the empty composer reports one
+        // placeholder byte that disappears once text exists, so the first echo
+        // after "Slovo" + Space looked foreign; the pending space was dropped
+        // and "i" was committed without it -> "Slovoi".
+        FakeBackend backend;
+        backend.textChannel = true;
+        backend.preeditSupport = true;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        echo(engine, QStringLiteral("\n"));
+        for (const QChar ch : QStringLiteral("Slovo")) engine.typeLetter(QString(ch));
+        engine.space();
+        echo(engine, QStringLiteral("Slovo"));
+        engine.typeLetter(QStringLiteral("i"));
+
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("Slovo"), QStringLiteral(" ")}));
+        QCOMPARE(backend.preedit, QStringLiteral("i"));
+    }
+
+    void selfCausedEchoesAreIgnoredButLaterExternalEditsAdopted()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        qint64 now = 1000;
+        engine.setClockForTesting([&now] { return now; });
+
+        engine.typeLetter(QStringLiteral("a"));
+        now += 5;                                   // measured echo latency: 2-36 ms
+        echo(engine, QStringLiteral("zz"));
+        QCOMPARE(engine.currentWord(), QStringLiteral("a"));
+        now += 1000;                                // a human-speed external edit
+        echo(engine, QStringLiteral("hello wor"));
+        QCOMPARE(engine.currentWord(), QStringLiteral("wor"));
+    }
+
     void spaceAfterSuggestionIsNotADoubleSpace()
     {
         FakeBackend backend;
@@ -413,12 +451,15 @@ private Q_SLOTS:
         V3Keyboard::KeyboardController controller(backend);
         V3Keyboard::TypingEngine engine(controller);
 
+        qint64 now = 0;
+        engine.setClockForTesting([&now] { return now; });
         engine.typeLetter(QStringLiteral("h"));
         engine.typeLetter(QStringLiteral("e"));
         engine.typeLetter(QStringLiteral("l"));
-        // The user tapped elsewhere in the field: the client reports a state
-        // the keyboard never produced. It must be adopted, not ignored,
+        // The user tapped elsewhere in the field (at human speed): the client
+        // reports a state the keyboard never produced. It must be adopted,
         // otherwise a suggestion tap would replace the wrong text.
+        now += 1000;
         echo(engine, QStringLiteral("hello wor"));
         QCOMPARE(engine.currentWord(), QStringLiteral("wor"));
         QCOMPARE(engine.previousWord(), QStringLiteral("hello"));

@@ -625,3 +625,31 @@ RED: spaceAfterSuggestionIsNotADoubleSpace; 0.2.3 test
 suggestionAndDoubleSpaceUseTextChannel encoded the same wrong expectation and
 was corrected. GREEN: the first Space after a suggestion only confirms its
 space; a further Space makes ". ". Sandbox: all suites green.
+
+## 2026-09-29 — Beta 0.2.6 echo handling from device trace
+
+Live result of 0.2.5: "Slovoi  drugoe okno" after word + Space + window switch.
+Trace (privacy-safe, 1133 lines) showed:
+  31.265 COMMIT 5 + PRE 1 (pending space)
+  31.268 echo 5 bytes -> ADOPT, composition dropped (client still showed it)
+  31.541 COMMIT 1 ("i"): KWin's commit clears the preedit -> space lost
+Cause: claude.ai's empty composer reports a 1-byte placeholder that vanishes
+once text exists, so echo contents never match the keyboard's model.
+Measured first-echo latency after own operations: p50 2 ms, p99 6 ms,
+max 36 ms (78 samples). When the user clicked "send" mid-word, Firefox
+committed the composition itself and KWin sent reset (message arrived intact).
+RED: placeholderEchoDuringCompositionKeepsPendingSpace (reproduces "Slovoi"),
+selfCausedEchoesAreIgnoredButLaterExternalEditsAdopted.
+GREEN: echoes never abandon a live preedit (reset ends it); unknown echoes
+within 150 ms of an own operation are self-caused; later ones are adopted.
+Design note: externalCursorMoveAdoptsClientState now advances an injected
+clock (external edits happen at human speed).
+Also live-verified on 0.2.5: teh->the, suggestion without period, double-space
+period, Enter keeps last word, translit untouched, email/url no auto-cap,
+normal field auto-cap, window switch keeps the word.
+Regression caught before release: with the settle window, the echo after a
+keyboard cursor move (2-6 ms after committing the composition) was ignored,
+leaving stale context (bridge test cursorMovesAndLanguageSwitch... RED: "N"
+instead of "n"). Fix: forgetting the text state (cursor move, paste, client
+reset) disables the settle window for the next echo. Process note: the first
+0.2.6 commit was made while that test was red; it was amended after GREEN.
