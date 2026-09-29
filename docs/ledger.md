@@ -614,3 +614,14 @@ clients (user: "продолжай" after the A/B proposal); immediate mode kept
 setting.
 
 Verification (sandbox Qt 6.4.2): 10/10 CTest + 3/3 KWin overlay, static OK.
+
+## 2026-09-29 — Beta 0.2.5 suggestion-space fix
+
+Live result of 0.2.4 in Firefox: "the hello. Hi. Hello" — teh->the and
+double-space work; tapping a suggestion then Space produced "hello. ".
+Root cause: the space a suggestion inserts was flagged as a user Space
+(m_lastActionWasSpace), so the next Space triggered the double-space period.
+RED: spaceAfterSuggestionIsNotADoubleSpace; 0.2.3 test
+suggestionAndDoubleSpaceUseTextChannel encoded the same wrong expectation and
+was corrected. GREEN: the first Space after a suggestion only confirms its
+space; a further Space makes ". ". Sandbox: all suites green.

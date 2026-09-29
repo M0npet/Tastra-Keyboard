@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 0.2.4
+    VERSION 0.2.5
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )

@@ -104,6 +104,7 @@ private:
     bool m_compositionEnabled = true;
     bool m_composing = false;       // m_currentWord lives in the client's preedit
     bool m_pendingSpace = false;    // a space lives in the client's preedit
+    bool m_spaceFromSuggestion = false; // that space was added by a suggestion
     bool m_preeditRejected = false; // backend/client cannot show preedit
     bool m_inSync = false;
     QString m_model;                // committed text before the cursor (tail)

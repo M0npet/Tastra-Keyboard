@@ -290,6 +290,30 @@ private Q_SLOTS:
         QCOMPARE(backend.backspaces, 0);
     }
 
+    void spaceAfterSuggestionIsNotADoubleSpace()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        engine.typeLetter(QStringLiteral("h"));
+        engine.chooseSuggestion(QStringLiteral("hello"));
+        // Live report (0.2.4): tap suggestion, then Space -> "hello. ".
+        // The suggestion's own space must not count as the user's first Space.
+        engine.space();
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("hello")}));
+        QCOMPARE(backend.preedit, QStringLiteral(" "));
+        engine.typeLetter(QStringLiteral("w"));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("hello"), QStringLiteral(" ")}));
+
+        // A genuine second Space still produces the period.
+        engine.chooseSuggestion(QStringLiteral("world"));
+        engine.space();
+        engine.space();
+        QCOMPARE(backend.commits.last(), QStringLiteral(". "));
+    }
+
     void compositionBackspaceEditsPreeditFirst()
     {
         FakeBackend backend;
@@ -453,8 +477,10 @@ private Q_SLOTS:
         echo(engine, QStringLiteral(""));
         echo(engine, QStringLiteral("hello"));
         echo(engine, QStringLiteral("hello "));
-        // The suggestion already inserted a space, so this Space is the
-        // second one of a double-space.
+        // Space right after a suggestion only confirms its space (0.2.4 live
+        // report); the next Space is the double-space.
+        engine.space();
+        QCOMPARE(backend.commits.mid(3), QStringList({QStringLiteral("hello"), QStringLiteral(" ")}));
         engine.space();
 
         QCOMPARE(backend.backspaces, 0);

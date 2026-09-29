@@ -128,6 +128,7 @@ QString TypingEngine::formatForSentence(const QString &word) const
 void TypingEngine::typeLetter(const QString &text)
 {
     if (text.isEmpty()) return;
+    m_spaceFromSuggestion = false;
     if (m_sensitiveContext) {
         commitLocal(text);
         m_currentWord.clear();
@@ -159,6 +160,7 @@ void TypingEngine::typeLetter(const QString &text)
 void TypingEngine::typeText(const QString &text)
 {
     if (text.isEmpty()) return;
+    m_spaceFromSuggestion = false;
     if (m_sensitiveContext) {
         commitLocal(text);
         m_currentWord.clear();
@@ -285,6 +287,14 @@ void TypingEngine::finalizeCurrentWord(bool updatePrevious)
 
 void TypingEngine::space()
 {
+    if (m_spaceFromSuggestion) {
+        // The suggestion already added a space. This Space confirms it and
+        // counts as the user's first Space; only the next one makes ". ".
+        m_spaceFromSuggestion = false;
+        m_lastActionWasSpace = true;
+        refreshSuggestions();
+        return;
+    }
     if (m_sensitiveContext) {
         commitLocal(QStringLiteral(" "));
         m_currentWord.clear();
@@ -368,6 +378,7 @@ void TypingEngine::space()
 
 void TypingEngine::backspace()
 {
+    m_spaceFromSuggestion = false;
     if (m_pendingSpace) {
         m_pendingSpace = false;
         setPreeditLocal(QString());
@@ -400,6 +411,7 @@ void TypingEngine::backspace()
 
 void TypingEngine::backspaceRepeated(int count)
 {
+    m_spaceFromSuggestion = false;
     int bounded = qBound(1, count, 32);
     if (m_pendingSpace && bounded > 0) {
         m_pendingSpace = false;
@@ -441,6 +453,7 @@ void TypingEngine::backspaceRepeated(int count)
 
 void TypingEngine::enter()
 {
+    m_spaceFromSuggestion = false;
     if (m_pendingSpace) {
         m_pendingSpace = false;
         setPreeditLocal(QString());
@@ -490,7 +503,8 @@ void TypingEngine::chooseSuggestion(const QString &word)
     } else {
         m_pendingSpace = true;
     }
-    m_lastActionWasSpace = true;
+    m_spaceFromSuggestion = true;
+    m_lastActionWasSpace = false;
     m_sentenceStart = false;
     refreshSuggestions();
 }
@@ -513,6 +527,7 @@ void TypingEngine::refreshSuggestions()
 
 void TypingEngine::resetComposition()
 {
+    m_spaceFromSuggestion = false;
     m_composing = false;
     m_pendingSpace = false;
     m_currentWord.clear();
@@ -573,6 +588,7 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
     qCDebug(lcEngine) << "echo bytes" << bounded << "unknown state -> adopt; composition was" << composing();
     m_composing = false;
     m_pendingSpace = false;
+    m_spaceFromSuggestion = false;
     m_history = {before};
     m_model = before;
     m_inSync = true;

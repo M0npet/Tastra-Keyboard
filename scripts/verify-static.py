@@ -221,6 +221,8 @@ for path, token, why in (
     ('tests/tst_smarttyping.cpp', 'oneStepStaleEchoesDoNotFlipCaseOrWord', 'Firefox stale-echo regression'),
     ('tests/tst_smarttyping.cpp', 'compositionCommitsCorrectedWordWithoutDeletions', 'composition autocorrect'),
     ('tests/tst_qmlkeyboard.cpp', 'is not declared', 'no implicit handler parameters'),
+    ('src/core/typingengine.cpp', 'm_spaceFromSuggestion', 'Space after a suggestion is not a double-space (0.2.5)'),
+    ('tests/tst_smarttyping.cpp', 'spaceAfterSuggestionIsNotADoubleSpace', '0.2.5 live regression'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
