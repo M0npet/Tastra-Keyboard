@@ -3,6 +3,12 @@
 #include <QtTest/QTest>
 #include <QtTest/QSignalSpy>
 
+#include <QCoreApplication>
+#include <QSettings>
+#include <QStandardPaths>
+
+#include "core/locallexicon.h"
+
 #include "app/keyboarduibridge.h"
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
@@ -65,6 +71,65 @@ class KeyboardUiBridgeTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setApplicationName(QStringLiteral("tst_keyboarduibridge"));
+        V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+    }
+
+    void init() { QSettings().clear(); }
+
+    // KWin sends text-input-v1 enums and maps PIN to password (8); 9 is date.
+    void dateFieldIsNotTreatedAsSecret()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+
+        bridge.setContentType(0, 9);
+        QVERIFY(!bridge.secureInput());
+        bridge.setContentType(0, 8);
+        QVERIFY(bridge.secureInput());
+        bridge.setContentType(0x40, 0);
+        QVERIFY(bridge.secureInput());
+    }
+
+    void urlAndEmailFieldsDisableSmartTypingWithoutBeingSecret()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+
+        for (quint32 purpose : {5u, 6u}) {
+            bridge.setContentType(0, purpose);
+            QVERIFY(!bridge.secureInput());
+            QVERIFY(!bridge.uppercase());             // no auto-capitalization
+            bridge.tapLetter(QStringLiteral("h"));
+            bridge.tapLetter(QStringLiteral("e"));
+            QVERIFY(bridge.suggestions().isEmpty());  // no suggestions / learning
+            bridge.resetInputContext();
+        }
+        QCOMPARE(backend.commits.first(), QStringLiteral("h"));
+    }
+
+    void lowercaseHintDisablesAutoCapitalization()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+
+        QVERIFY(bridge.uppercase());                   // sentence start by default
+        bridge.setContentType(0x8, 0);
+        QVERIFY(!bridge.uppercase());
+        bridge.resetInputContext();
+        QVERIFY(bridge.uppercase());
+    }
+
     void tapTextReachesController()
     {
         FakeBackend backend;

@@ -20,6 +20,15 @@ public:
     virtual void moveHome() = 0;
     virtual void moveEnd() = 0;
     virtual void enter() = 0;
+
+    // Deletes `text`, which must be exactly the text before the cursor, via
+    // the same channel as commitText(). Returns false when the backend or the
+    // current client cannot do that; callers then fall back to backspace().
+    virtual bool deleteBeforeCursor(const QString &text)
+    {
+        Q_UNUSED(text);
+        return false;
+    }
 };
 
 }

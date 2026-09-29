@@ -3,19 +3,90 @@
 #include "locallexicon.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QLoggingCategory>
+#include <QSet>
 #include <QSettings>
-#include <QRegularExpression>
+#include <QStandardPaths>
+#include <QStringDecoder>
+#include <QStringEncoder>
 #include <QVector>
+
+#include <hunspell/hunspell.hxx>
+
 #include <algorithm>
+#include <chrono>
+#include <thread>
+
+Q_LOGGING_CATEGORY(lcLexicon, "v3keyboard.lexicon", QtWarningMsg)
 
 namespace V3Keyboard
 {
+
+// Immutable once built; created on a worker thread, then only used on the
+// thread that owns the LocalLexicon.
+struct DictionaryData
+{
+    QString language;
+    std::unique_ptr<Hunspell> speller;
+    QByteArray encoding;
+    // Compact completion index: all lowercase words concatenated, plus one
+    // sorted offset per word. Bit 31 marks words the dictionary capitalizes.
+    QString blob;
+    std::vector<quint32> entries;
+
+    static constexpr quint32 CapitalFlag = 0x80000000u;
+
+    QStringView wordAt(size_t i) const
+    {
+        const quint32 start = entries[i] & ~CapitalFlag;
+        qsizetype end = blob.indexOf(QLatin1Char('\n'), start);
+        return QStringView(blob).mid(start, end - start);
+    }
+    bool capitalizedAt(size_t i) const { return entries[i] & CapitalFlag; }
+
+    std::pair<size_t, size_t> prefixRange(QStringView prefix) const
+    {
+        auto less = [this](quint32 entry, QStringView p) {
+            const quint32 start = entry & ~CapitalFlag;
+            const qsizetype end = blob.indexOf(QLatin1Char('\n'), start);
+            return QStringView(blob).mid(start, end - start).compare(p) < 0;
+        };
+        const auto lo = std::lower_bound(entries.begin(), entries.end(), prefix, less);
+        const QString upper = prefix.toString() + QChar(0xFFFF);
+        const auto hi = std::lower_bound(lo, entries.end(), QStringView(upper), less);
+        return {size_t(lo - entries.begin()), size_t(hi - entries.begin())};
+    }
+
+    bool contains(QStringView word) const
+    {
+        const auto [lo, hi] = prefixRange(word);
+        return lo < hi && wordAt(lo) == word;
+    }
+
+    QByteArray encode(const QString &word) const
+    {
+        if (encoding == "UTF-8") return word.toUtf8();
+        if (encoding == "ISO8859-1" || encoding == "ISO-8859-1") return word.toLatin1();
+        QStringEncoder encoder(encoding.constData());
+        if (!encoder.isValid()) return {};
+        return encoder.encode(word);
+    }
+
+    bool spell(const QString &word) const
+    {
+        if (!speller || word.isEmpty()) return false;
+        const QByteArray bytes = encode(word);
+        return !bytes.isEmpty() && speller->spell(std::string(bytes.constData(), bytes.size()));
+    }
+};
+
 namespace
 {
 
-QStringList fallbackWords(const QString &code)
+QStringList coreWords(const QString &code)
 {
     if (code == QStringLiteral("de")) {
         return {
@@ -86,34 +157,169 @@ QStringList fallbackWords(const QString &code)
     };
 }
 
-QStringList dictionaryCandidates(const QString &code)
+// Only strings that are never valid words go here: without a dictionary they
+// are the sole autocorrections, so they must be unambiguous.
+QHash<QString, QString> curatedTypos(const QString &code)
+{
+    QHash<QString, QString> map;
+    auto add = [&map](const char *typo, const char *word) {
+        map.insert(QString::fromUtf8(typo), QString::fromUtf8(word));
+    };
+    if (code == QStringLiteral("de")) {
+        add("dsa", "das"); add("udn", "und"); add("nciht", "nicht"); add("ncith", "nicht");
+        add("hlalo", "hallo"); add("danek", "danke"); add("iwe", "wie");
+    } else if (code == QStringLiteral("uk")) {
+        add("првиіт", "привіт"); add("дяукю", "дякую");
+        add("щоо", "що"); add("якщко", "якщо");
+    } else if (code == QStringLiteral("ru")) {
+        add("првиет", "привет"); add("пирвет", "привет"); add("спаисбо", "спасибо");
+        add("сапсибо", "спасибо"); add("сейчса", "сейчас"); add("очнеь", "очень");
+    } else {
+        add("teh", "the"); add("hte", "the"); add("adn", "and"); add("taht", "that");
+        add("waht", "what"); add("thier", "their"); add("recieve", "receive");
+        add("becuase", "because"); add("wiht", "with"); add("thsi", "this");
+    }
+    return map;
+}
+
+QStringList dictionaryNames(const QString &code)
 {
     if (code == QStringLiteral("de")) {
-        return {QStringLiteral("de_DE.dic"), QStringLiteral("de_DE_frami.dic"), QStringLiteral("de_AT.dic")};
+        return {QStringLiteral("de_DE"), QStringLiteral("de_DE_frami"), QStringLiteral("de_AT"), QStringLiteral("de_CH")};
     }
-    if (code == QStringLiteral("uk")) {
-        return {QStringLiteral("uk_UA.dic"), QStringLiteral("uk_UA-large.dic")};
-    }
-    if (code == QStringLiteral("ru")) {
-        return {QStringLiteral("ru_RU.dic")};
-    }
-    return {QStringLiteral("en_US.dic"), QStringLiteral("en_GB.dic")};
+    if (code == QStringLiteral("uk")) return {QStringLiteral("uk_UA")};
+    if (code == QStringLiteral("ru")) return {QStringLiteral("ru_RU")};
+    return {QStringLiteral("en_US"), QStringLiteral("en_GB")};
 }
 
-QString prefixKey(const QString &word)
+QStringList &searchPathOverride()
 {
-    return word.left(qMin(3, word.size()));
+    static QStringList paths;
+    return paths;
 }
 
-QString collapsed(const QString &word)
+bool isWordText(QStringView word)
 {
-    QString result;
+    if (word.isEmpty() || word.size() > 48) return false;
     for (const QChar ch : word) {
-        if (result.isEmpty() || result.back() != ch) {
-            result.append(ch);
+        if (!ch.isLetter() && ch != QLatin1Char('\'') && ch != QLatin1Char('-')) return false;
+    }
+    return true;
+}
+
+QString decodeText(const QByteArray &raw, const QByteArray &encoding)
+{
+    if (encoding.isEmpty() || encoding == "UTF-8") return QString::fromUtf8(raw);
+    if (encoding == "ISO8859-1" || encoding == "ISO-8859-1") return QString::fromLatin1(raw);
+    QStringDecoder decoder(encoding.constData());
+    if (!decoder.isValid()) return {};
+    return decoder.decode(raw);
+}
+
+std::shared_ptr<DictionaryData> loadDictionary(const QString &language, const QStringList &searchPaths)
+{
+    QElapsedTimer timer;
+    timer.start();
+    auto data = std::make_shared<DictionaryData>();
+    data->language = language;
+
+    QString base;
+    for (const QString &name : dictionaryNames(language)) {
+        for (const QString &dir : searchPaths) {
+            const QString candidate = dir + QLatin1Char('/') + name;
+            if (QFileInfo::exists(candidate + QStringLiteral(".dic")) && QFileInfo::exists(candidate + QStringLiteral(".aff"))) {
+                base = candidate;
+                break;
+            }
+        }
+        if (!base.isEmpty()) break;
+    }
+    if (base.isEmpty()) {
+        qCInfo(lcLexicon) << "no dictionary for" << language;
+        return data;
+    }
+
+    const QByteArray aff = QFile::encodeName(base + QStringLiteral(".aff"));
+    const QByteArray dic = QFile::encodeName(base + QStringLiteral(".dic"));
+    data->speller = std::make_unique<Hunspell>(aff.constData(), dic.constData());
+    data->encoding = QByteArray(data->speller->get_dict_encoding().c_str()).toUpper();
+
+    QFile file(QString::fromLocal8Bit(dic));
+    if (!file.open(QIODevice::ReadOnly)) return data;
+    const QString text = decodeText(file.readAll(), data->encoding);
+
+    struct Item { QString word; bool capital; };
+    std::vector<Item> items;
+    items.reserve(text.count(QLatin1Char('\n')));
+    bool first = true;
+    for (QStringView line : QStringView(text).split(QLatin1Char('\n'))) {
+        if (first) { first = false; continue; }          // entry count
+        if (line.isEmpty() || line.front().isSpace() || line.front() == QLatin1Char('#')) continue;
+        qsizetype cut = line.size();
+        for (qsizetype i = 0; i < line.size(); ++i) {
+            const QChar ch = line.at(i);
+            if ((ch == QLatin1Char('/') && (i == 0 || line.at(i - 1) != QLatin1Char('\\'))) || ch.isSpace()) { cut = i; break; }
+        }
+        const QStringView word = line.left(cut);
+        if (!isWordText(word)) continue;
+        const QString lower = word.toString().toLower();
+        if (word.size() > 1 && word.toString().toUpper() == word) continue;   // acronyms
+        items.push_back({lower, word.front().isUpper()});
+    }
+    std::sort(items.begin(), items.end(), [](const Item &a, const Item &b) {
+        const int c = a.word.compare(b.word);
+        return c < 0 || (c == 0 && !a.capital && b.capital);
+    });
+
+    qsizetype total = 0;
+    for (const Item &item : items) total += item.word.size() + 1;
+    data->blob.reserve(total);
+    data->entries.reserve(items.size());
+    const QString *previous = nullptr;
+    for (const Item &item : items) {
+        if (previous && *previous == item.word) continue;   // lowercase variant sorted first wins
+        data->entries.push_back(quint32(data->blob.size()) | (item.capital ? DictionaryData::CapitalFlag : 0));
+        data->blob += item.word;
+        data->blob += QLatin1Char('\n');
+        previous = &item.word;
+    }
+    data->blob.squeeze();
+    qCInfo(lcLexicon) << "loaded" << language << data->entries.size() << "entries in" << timer.elapsed() << "ms";
+    return data;
+}
+
+QString capitalizeFirst(const QString &word)
+{
+    if (word.isEmpty()) return word;
+    QString result = word;
+    result[0] = result.at(0).toUpper();
+    return result;
+}
+
+bool isAdjacentTransposition(const QString &a, const QString &b)
+{
+    if (a.size() != b.size() || a.size() < 2) return false;
+    int first = -1;
+    for (int i = 0; i < a.size(); ++i) {
+        if (a.at(i) != b.at(i)) { first = i; break; }
+    }
+    if (first < 0 || first + 1 >= a.size()) return false;
+    return a.at(first) == b.at(first + 1) && a.at(first + 1) == b.at(first)
+        && QStringView(a).mid(first + 2) == QStringView(b).mid(first + 2);
+}
+
+bool differsByRepeatedLetter(const QString &shorter, const QString &longer)
+{
+    if (longer.size() != shorter.size() + 1) return false;
+    for (int i = 0; i < longer.size(); ++i) {
+        QString removed = longer;
+        removed.remove(i, 1);
+        if (removed == shorter) {
+            return (i > 0 && longer.at(i - 1) == longer.at(i))
+                || (i + 1 < longer.size() && longer.at(i + 1) == longer.at(i));
         }
     }
-    return result;
+    return false;
 }
 
 int levenshtein(const QString &a, const QString &b)
@@ -132,21 +338,95 @@ int levenshtein(const QString &a, const QString &b)
     return prev[b.size()];
 }
 
+QString collapsed(const QString &word)
+{
+    QString result;
+    for (const QChar ch : word) {
+        if (result.isEmpty() || result.back() != ch) result.append(ch);
+    }
+    return result;
+}
+
 }
 
 LocalLexicon::LocalLexicon()
 {
-    reload();
+    m_coreWords = coreWords(m_language);
+    m_typoMap = curatedTypos(m_language);
+}
+
+LocalLexicon::~LocalLexicon()
+{
+    flushLearning();
+    if (m_pending.valid()) m_pending.wait();
+}
+
+void LocalLexicon::setDictionarySearchPaths(const QStringList &paths)
+{
+    searchPathOverride() = paths;
+}
+
+QStringList LocalLexicon::dictionarySearchPaths()
+{
+    if (!searchPathOverride().isEmpty()) return searchPathOverride();
+    const QString env = qEnvironmentVariable("V3KBD_DICTIONARY_DIRS");
+    if (!env.isEmpty()) return env.split(QLatin1Char(':'), Qt::SkipEmptyParts);
+    return {
+        QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/v3-keyboard/dictionaries"),
+        QStringLiteral("/usr/share/hunspell"),
+        QStringLiteral("/usr/share/myspell/dicts"),
+    };
 }
 
 void LocalLexicon::setLanguage(const QString &code)
 {
-    if (code == m_language) return;
+    if (code == m_language && m_loadStarted) return;
+    if (code != m_language) flushLearning();
     m_language = code;
-    reload();
+    m_coreWords = coreWords(code);
+    m_typoMap = curatedTypos(code);
+    loadLearning();
+    startLoading();
 }
 
 QString LocalLexicon::language() const { return m_language; }
+
+void LocalLexicon::startLoading()
+{
+    m_loadStarted = true;
+    // Release the previous language right away: one dictionary in memory.
+    m_data.reset();
+    std::promise<std::shared_ptr<DictionaryData>> promise;
+    m_pending = promise.get_future();
+    std::thread([promise = std::move(promise), language = m_language, paths = dictionarySearchPaths()]() mutable {
+        promise.set_value(loadDictionary(language, paths));
+    }).detach();
+}
+
+void LocalLexicon::adoptLoadedData() const
+{
+    if (!m_pending.valid()) return;
+    if (m_pending.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+    auto data = m_pending.get();
+    if (data && data->language == m_language) m_data = std::move(data);
+}
+
+bool LocalLexicon::waitForDictionary(int timeoutMs)
+{
+    if (!m_loadStarted) startLoading();
+    if (m_pending.valid()) {
+        if (timeoutMs < 0) m_pending.wait();
+        else if (m_pending.wait_for(std::chrono::milliseconds(timeoutMs)) != std::future_status::ready) return false;
+    }
+    adoptLoadedData();
+    return true;
+}
+
+bool LocalLexicon::hasSystemDictionary() const
+{
+    adoptLoadedData();
+    return m_data && m_data->speller;
+}
 
 QString LocalLexicon::normalize(const QString &word) const
 {
@@ -159,181 +439,86 @@ QString LocalLexicon::normalize(const QString &word) const
 QString LocalLexicon::alphabet() const
 {
     if (m_language == QStringLiteral("de")) return QStringLiteral("abcdefghijklmnopqrstuvwxyzäöüß");
-    if (m_language == QStringLiteral("uk")) return QStringLiteral("абвгґдеєжзиіїйклмнопрстуфхцчшщьюя");
+    if (m_language == QStringLiteral("uk")) return QStringLiteral("абвгґдеєжзиіїйклмнопрстуфхцчшщьюя'");
     if (m_language == QStringLiteral("ru")) return QStringLiteral("абвгдеёжзийклмнопрстуфхцчшщъыьэюя");
     return QStringLiteral("abcdefghijklmnopqrstuvwxyz");
 }
 
-void LocalLexicon::reload()
+bool LocalLexicon::isCore(const QString &word) const { return m_coreWords.contains(word); }
+
+bool LocalLexicon::isValidWord(const QString &word) const
 {
-    m_words.clear();
-    m_prefixIndex.clear();
-    m_personalFrequency.clear();
-    m_bigramFrequency.clear();
-    loadFallbackWords();
-    loadSystemDictionary();
-    loadLearning();
-}
-
-void LocalLexicon::addWord(const QString &word)
-{
-    const QString w = normalize(word);
-    if (w.size() < 1 || w.size() > 48 || m_words.contains(w)) return;
-    m_words.insert(w);
-    for (int n = 1; n <= qMin(3, static_cast<int>(w.size())); ++n) {
-        m_prefixIndex[w.left(n)].append(w);
+    if (word.isEmpty()) return false;
+    if (m_personalFrequency.value(word) > 0 || isCore(word)) return true;
+    adoptLoadedData();
+    if (!m_data) return false;
+    if (m_data->speller) {
+        // Hunspell is case-sensitive: German nouns and names are stored
+        // capitalized, so a lowercase "haus" is still a real word.
+        return m_data->spell(word) || m_data->spell(capitalizeFirst(word));
     }
-}
-
-void LocalLexicon::loadFallbackWords()
-{
-    for (const QString &word : fallbackWords(m_language)) addWord(word);
-}
-
-void LocalLexicon::loadSystemDictionary()
-{
-    const QString base = QStringLiteral("/usr/share/hunspell");
-    QString path;
-    for (const QString &name : dictionaryCandidates(m_language)) {
-        const QString candidate = base + QLatin1Char('/') + name;
-        if (QFileInfo::exists(candidate)) {
-            path = candidate;
-            break;
-        }
-    }
-    if (path.isEmpty()) return;
-
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return;
-    const QByteArray raw = file.readAll();
-    QString text = QString::fromUtf8(raw);
-    if (text.count(QChar::ReplacementCharacter) > 8) {
-        text = QString::fromLatin1(raw);
-    }
-
-    const QStringList lines = text.split(QLatin1Char('\n'));
-    for (int i = 0; i < lines.size(); ++i) {
-        QString line = lines.at(i).trimmed();
-        if (i == 0) {
-            bool ok = false;
-            line.toInt(&ok);
-            if (ok) continue;
-        }
-        if (line.isEmpty()) continue;
-        line = line.section(QRegularExpression(QStringLiteral("[\\s/]")), 0, 0);
-        addWord(line);
-    }
-}
-
-void LocalLexicon::loadLearning()
-{
-    QSettings settings;
-    const QVariantMap words = settings.value(QStringLiteral("learning/%1/words").arg(m_language)).toMap();
-    for (auto it = words.constBegin(); it != words.constEnd(); ++it) {
-        const QString word = normalize(it.key());
-        const int count = it.value().toInt();
-        if (!word.isEmpty() && count > 0) {
-            m_personalFrequency.insert(word, count);
-            addWord(word);
-        }
-    }
-
-    const QVariantMap bigrams = settings.value(QStringLiteral("learning/%1/bigrams").arg(m_language)).toMap();
-    for (auto it = bigrams.constBegin(); it != bigrams.constEnd(); ++it) {
-        if (it.value().toInt() > 0) m_bigramFrequency.insert(it.key(), it.value().toInt());
-    }
-}
-
-void LocalLexicon::persistLearning() const
-{
-    QVariantMap words;
-    for (auto it = m_personalFrequency.constBegin(); it != m_personalFrequency.constEnd(); ++it) {
-        words.insert(it.key(), it.value());
-    }
-    QVariantMap bigrams;
-    for (auto it = m_bigramFrequency.constBegin(); it != m_bigramFrequency.constEnd(); ++it) {
-        bigrams.insert(it.key(), it.value());
-    }
-    QSettings settings;
-    settings.setValue(QStringLiteral("learning/%1/words").arg(m_language), words);
-    settings.setValue(QStringLiteral("learning/%1/bigrams").arg(m_language), bigrams);
+    return m_data->contains(word);
 }
 
 QString LocalLexicon::bigramKey(const QString &previousWord, const QString &word) const
 {
-    return normalize(previousWord) + QChar(0x001f) + normalize(word);
+    return previousWord + QChar(0x001f) + word;
 }
 
-int LocalLexicon::scoreCandidate(const QString &candidate, const QString &typed, const QString &previousWord, bool prefix) const
+int LocalLexicon::priorScore(const QString &candidate, const QString &previousWord) const
 {
-    int score = prefix ? 1200 : 800;
-    if (candidate == typed) score += 500;
-    if (candidate.startsWith(typed)) score += 220;
-    score -= qAbs(candidate.size() - typed.size()) * 8;
-    score += qMin(300, m_personalFrequency.value(candidate) * 20);
-    if (!previousWord.isEmpty()) {
-        score += qMin(600, m_bigramFrequency.value(bigramKey(previousWord, candidate)) * 60);
+    int score = 0;
+    if (isCore(candidate)) score += 150;
+    const int personal = m_personalFrequency.value(candidate);
+    if (personal > 0) {
+        // Personal use outweighs the generic core list after a few repetitions.
+        score += qMin(450, 100 + personal * 40);
+        // Bigrams only exist for learned words; skip the key allocation otherwise.
+        if (!previousWord.isEmpty()) score += qMin(600, m_bigramFrequency.value(bigramKey(previousWord, candidate)) * 60);
     }
     return score;
 }
 
-QStringList LocalLexicon::ranked(const QSet<QString> &candidates, const QString &typed, const QString &previousWord, bool prefix, int limit) const
+QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString &typed, const QString &previousWord) const
 {
-    struct Scored { QString word; int score; };
-    QVector<Scored> scored;
-    scored.reserve(candidates.size());
-    for (const QString &candidate : candidates) {
-        scored.push_back({candidate, scoreCandidate(candidate, typed, previousWord, prefix)});
+    QSet<QString> variants;
+    const QString chars = alphabet();
+    for (int i = 0; i < typed.size(); ++i) {
+        QString v = typed; v.remove(i, 1); variants.insert(v);
     }
-    std::sort(scored.begin(), scored.end(), [](const Scored &a, const Scored &b) {
+    for (int i = 0; i + 1 < typed.size(); ++i) {
+        QString v = typed; std::swap(v[i], v[i + 1]); variants.insert(v);
+    }
+    for (int i = 0; i < typed.size(); ++i) {
+        for (const QChar ch : chars) {
+            if (typed.at(i) == ch) continue;
+            QString v = typed; v[i] = ch; variants.insert(v);
+        }
+    }
+    for (int i = 0; i <= typed.size(); ++i) {
+        for (const QChar ch : chars) {
+            QString v = typed; v.insert(i, ch); variants.insert(v);
+        }
+    }
+    variants.remove(typed);
+
+    QList<Candidate> result;
+    for (const QString &v : variants) {
+        if (v.isEmpty() || !isValidWord(v)) continue;
+        Candidate c;
+        c.word = v;
+        if (isAdjacentTransposition(typed, v)) c.edit = Edit::Transposition;
+        else if (differsByRepeatedLetter(typed, v) || differsByRepeatedLetter(v, typed)) c.edit = Edit::RepeatedLetter;
+        c.score = 800 + priorScore(v, previousWord) - qAbs(v.size() - typed.size()) * 8;
+        if (c.edit == Edit::Transposition) c.score += 150;
+        if (c.edit == Edit::RepeatedLetter) c.score += 100;
+        result.append(c);
+    }
+    std::sort(result.begin(), result.end(), [](const Candidate &a, const Candidate &b) {
         if (a.score != b.score) return a.score > b.score;
         if (a.word.size() != b.word.size()) return a.word.size() < b.word.size();
         return a.word < b.word;
     });
-    QStringList result;
-    for (const auto &item : scored) {
-        if (result.size() >= limit) break;
-        result.append(item.word);
-    }
-    return result;
-}
-
-QSet<QString> LocalLexicon::oneEditCandidates(const QString &word) const
-{
-    QSet<QString> result;
-    const QString chars = alphabet();
-
-    for (int i = 0; i < word.size(); ++i) {
-        QString deleted = word;
-        deleted.remove(i, 1);
-        if (m_words.contains(deleted)) result.insert(deleted);
-    }
-
-    for (int i = 0; i + 1 < word.size(); ++i) {
-        QString transposed = word;
-        const QChar tmp = transposed[i];
-        transposed[i] = transposed[i + 1];
-        transposed[i + 1] = tmp;
-        if (m_words.contains(transposed)) result.insert(transposed);
-    }
-
-    for (int i = 0; i < word.size(); ++i) {
-        for (const QChar ch : chars) {
-            if (word.at(i) == ch) continue;
-            QString substituted = word;
-            substituted[i] = ch;
-            if (m_words.contains(substituted)) result.insert(substituted);
-        }
-    }
-
-    for (int i = 0; i <= word.size(); ++i) {
-        for (const QChar ch : chars) {
-            QString inserted = word;
-            inserted.insert(i, ch);
-            if (m_words.contains(inserted)) result.insert(inserted);
-        }
-    }
-
     return result;
 }
 
@@ -341,34 +526,75 @@ QStringList LocalLexicon::suggestions(const QString &word, const QString &previo
 {
     const QString typed = normalize(word);
     if (typed.isEmpty() || limit <= 0) return {};
+    const QString prev = normalize(previousWord);
+    adoptLoadedData();
 
-    QSet<QString> prefixCandidates;
-    const QString key = prefixKey(typed);
-    const auto bucket = m_prefixIndex.value(key);
-    for (const QString &candidate : bucket) {
-        if (candidate.startsWith(typed)) prefixCandidates.insert(candidate);
+    QHash<QString, int> scored;
+    QSet<QString> capitalized;
+    auto consider = [&](const QString &candidate, bool capital) {
+        if (scored.contains(candidate)) return;
+        int score = 1200 + priorScore(candidate, prev) - qAbs(candidate.size() - typed.size()) * 8;
+        if (candidate == typed) score += 500;
+        if (capital) { score -= 60; capitalized.insert(candidate); }
+        scored.insert(candidate, score);
+    };
+
+    for (auto it = m_personalFrequency.constBegin(); it != m_personalFrequency.constEnd(); ++it) {
+        if (it.key().startsWith(typed)) consider(it.key(), false);
     }
-    if (m_words.contains(typed)) prefixCandidates.insert(typed);
+    for (const QString &core : m_coreWords) {
+        if (core.startsWith(typed)) consider(core, false);
+    }
+    if (m_data && typed.size() >= 2) {
+        // Dictionary stems carry no frequency, so single-letter prefixes would
+        // only produce alphabetical noise at a high scan cost.
+        const auto [lo, hi] = m_data->prefixRange(typed);
+        const size_t end = qMin(hi, lo + 400);
+        for (size_t i = lo; i < end; ++i) consider(m_data->wordAt(i).toString(), m_data->capitalizedAt(i));
+    }
 
-    QStringList result = ranked(prefixCandidates, typed, previousWord, true, limit);
-    if (result.size() >= limit) return result;
-
-    QSet<QString> corrections = oneEditCandidates(typed);
-    for (const QString &existing : result) corrections.remove(existing);
-    const QStringList corrected = ranked(corrections, typed, previousWord, false, limit - result.size());
-    result.append(corrected);
+    QList<std::pair<QString, int>> ordered(scored.constKeyValueBegin(), scored.constKeyValueEnd());
+    std::sort(ordered.begin(), ordered.end(), [](const auto &a, const auto &b) {
+        if (a.second != b.second) return a.second > b.second;
+        if (a.first.size() != b.first.size()) return a.first.size() < b.first.size();
+        return a.first < b.first;
+    });
+    QStringList result;
+    for (const auto &item : ordered) {
+        if (result.size() >= limit) break;
+        result.append(capitalized.contains(item.first) ? capitalizeFirst(item.first) : item.first);
+    }
+    if (result.size() < limit && typed.size() >= 3 && !isValidWord(typed)) {
+        for (const Candidate &c : correctionCandidates(typed, prev)) {
+            if (result.size() >= limit) break;
+            if (!result.contains(c.word)) result.append(c.word);
+        }
+    }
     return result;
 }
 
 QString LocalLexicon::bestCorrection(const QString &word, const QString &previousWord) const
 {
     const QString typed = normalize(word);
-    // Two-character tokens are too ambiguous for safe automatic replacement.
-    // Keeping them verbatim also makes double-space punctuation independent of
-    // the host system's Hunspell dictionary contents.
-    if (typed.size() < 3 || m_words.contains(typed)) return {};
-    const QStringList result = ranked(oneEditCandidates(typed), typed, previousWord, false, 1);
-    return result.isEmpty() ? QString() : result.first();
+    // Two-character tokens are too ambiguous for automatic replacement.
+    if (typed.size() < 3) return {};
+    const auto typo = m_typoMap.constFind(typed);
+    if (typo != m_typoMap.constEnd()) return typo.value();
+
+    // Without a real dictionary there is no way to know that the typed word
+    // is wrong; rewriting "knows" or "form" would corrupt valid text.
+    if (!hasSystemDictionary()) return {};
+    if (isValidWord(typed)) return {};
+
+    const QList<Candidate> candidates = correctionCandidates(typed, normalize(previousWord));
+    if (candidates.isEmpty()) return {};
+    const Candidate &best = candidates.first();
+    const bool confident = best.edit == Edit::Transposition
+        || isCore(best.word)
+        || m_personalFrequency.value(best.word) >= 2;
+    if (!confident) return {};
+    if (candidates.size() > 1 && candidates.at(1).score == best.score) return {};
+    return best.word;
 }
 
 QStringList LocalLexicon::nextWords(const QString &previousWord, int limit) const
@@ -404,19 +630,22 @@ QString LocalLexicon::decodeGlide(const QStringList &trace, const QString &previ
     }
     sequence = collapsed(sequence);
     if (sequence.size() < 2) return {};
+    adoptLoadedData();
+    const QString prev = normalize(previousWord);
 
     QSet<QString> candidates;
-    const QString first = sequence.left(1);
-    const auto bucket = m_prefixIndex.value(first);
-    for (const QString &word : bucket) {
-        if (word.isEmpty() || word.front() != sequence.front()) continue;
-        if (word.back() != sequence.back()) continue;
-        if (qAbs(word.size() - sequence.size()) > qMax(3, static_cast<int>(sequence.size() / 2))) continue;
+    auto consider = [&](const QString &word) {
+        if (word.isEmpty() || word.front() != sequence.front() || word.back() != sequence.back()) return;
+        if (qAbs(word.size() - sequence.size()) > qMax(3, int(sequence.size() / 2))) return;
         candidates.insert(word);
-    }
-    if (candidates.isEmpty()) {
-        for (const QString &word : m_words) {
-            if (!word.isEmpty() && word.front() == sequence.front() && word.back() == sequence.back()) candidates.insert(word);
+    };
+    for (auto it = m_personalFrequency.constBegin(); it != m_personalFrequency.constEnd(); ++it) consider(it.key());
+    for (const QString &core : m_coreWords) consider(core);
+    if (m_data) {
+        const auto [lo, hi] = m_data->prefixRange(sequence.left(1));
+        for (size_t i = lo; i < hi; ++i) {
+            const QStringView w = m_data->wordAt(i);
+            if (!w.isEmpty() && w.back() == sequence.back()) consider(w.toString());
         }
     }
 
@@ -426,8 +655,9 @@ QString LocalLexicon::decodeGlide(const QStringList &trace, const QString &previ
         const int distance = levenshtein(collapsed(word), sequence);
         int score = 1000 - distance * 120 - qAbs(word.size() - sequence.size()) * 12;
         score += qMin(240, m_personalFrequency.value(word) * 20);
-        score += qMin(480, m_bigramFrequency.value(bigramKey(previousWord, word)) * 60);
-        if (score > bestScore) {
+        if (isCore(word)) score += 60;
+        if (!prev.isEmpty()) score += qMin(480, m_bigramFrequency.value(bigramKey(prev, word)) * 60);
+        if (score > bestScore || (score == bestScore && word < best)) {
             bestScore = score;
             best = word;
         }
@@ -435,52 +665,67 @@ QString LocalLexicon::decodeGlide(const QStringList &trace, const QString &previ
     return bestScore >= 520 ? best : QString();
 }
 
-void LocalLexicon::learnWord(const QString &word)
+void LocalLexicon::loadLearning()
 {
-    const QString w = normalize(word);
-    if (w.size() < 2 || w.size() > 48) return;
-    addWord(w);
-    m_personalFrequency[w] = qMin(1000, m_personalFrequency.value(w) + 1);
-    persistLearning();
-}
-
-void LocalLexicon::learnBigram(const QString &previousWord, const QString &word)
-{
-    const QString prev = normalize(previousWord);
-    const QString next = normalize(word);
-    if (prev.isEmpty() || next.isEmpty()) return;
-    const QString key = bigramKey(prev, next);
-    m_bigramFrequency[key] = qMin(1000, m_bigramFrequency.value(key) + 1);
-    persistLearning();
+    m_personalFrequency.clear();
+    m_bigramFrequency.clear();
+    m_unsavedLearning = 0;
+    QSettings settings;
+    const QVariantMap words = settings.value(QStringLiteral("learning/%1/words").arg(m_language)).toMap();
+    for (auto it = words.constBegin(); it != words.constEnd(); ++it) {
+        const QString word = normalize(it.key());
+        const int count = it.value().toInt();
+        if (!word.isEmpty() && count > 0) m_personalFrequency.insert(word, count);
+    }
+    const QVariantMap bigrams = settings.value(QStringLiteral("learning/%1/bigrams").arg(m_language)).toMap();
+    for (auto it = bigrams.constBegin(); it != bigrams.constEnd(); ++it) {
+        if (it.value().toInt() > 0) m_bigramFrequency.insert(it.key(), it.value().toInt());
+    }
 }
 
 void LocalLexicon::learnWordWithContext(const QString &word, const QString &previousWord)
 {
     const QString w = normalize(word);
     if (w.size() < 2 || w.size() > 48) return;
-
-    addWord(w);
     m_personalFrequency[w] = qMin(1000, m_personalFrequency.value(w) + 1);
-
     const QString prev = normalize(previousWord);
     if (!prev.isEmpty()) {
         const QString key = bigramKey(prev, w);
         m_bigramFrequency[key] = qMin(1000, m_bigramFrequency.value(key) + 1);
     }
+    // Batch disk writes: one settings flush per 16 words (and on context or
+    // language change / shutdown) instead of one per word.
+    if (++m_unsavedLearning >= 16) flushLearning();
+}
 
-    persistLearning();
+void LocalLexicon::flushLearning()
+{
+    if (m_unsavedLearning == 0) return;
+    QVariantMap words;
+    for (auto it = m_personalFrequency.constBegin(); it != m_personalFrequency.constEnd(); ++it) words.insert(it.key(), it.value());
+    QVariantMap bigrams;
+    for (auto it = m_bigramFrequency.constBegin(); it != m_bigramFrequency.constEnd(); ++it) bigrams.insert(it.key(), it.value());
+    QSettings settings;
+    settings.setValue(QStringLiteral("learning/%1/words").arg(m_language), words);
+    settings.setValue(QStringLiteral("learning/%1/bigrams").arg(m_language), bigrams);
+    m_unsavedLearning = 0;
 }
 
 void LocalLexicon::clearLearning()
 {
     m_personalFrequency.clear();
     m_bigramFrequency.clear();
+    m_unsavedLearning = 0;
     QSettings settings;
     settings.remove(QStringLiteral("learning/%1").arg(m_language));
-    reload();
 }
 
-bool LocalLexicon::hasWord(const QString &word) const { return m_words.contains(normalize(word)); }
-int LocalLexicon::dictionarySize() const { return m_words.size(); }
+bool LocalLexicon::hasWord(const QString &word) const { return isValidWord(normalize(word)); }
+
+int LocalLexicon::dictionarySize() const
+{
+    adoptLoadedData();
+    return int(m_coreWords.size()) + (m_data ? int(m_data->entries.size()) : 0);
+}
 
 }

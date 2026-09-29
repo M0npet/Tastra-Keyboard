@@ -478,12 +478,11 @@ void KeyboardUiBridge::clearLearnedWords()
 
 void KeyboardUiBridge::resetInputContext()
 {
+    m_typingEngine.setSensitiveContext(false);
+    m_typingEngine.resetInputContext();
     if (m_secureInput) {
         m_secureInput = false;
-        m_typingEngine.setSensitiveContext(false);
         Q_EMIT inputContextChanged();
-    } else {
-        m_typingEngine.resetComposition();
     }
     m_panelManager.returnToTyping();
     Q_EMIT keyboardStateChanged();
@@ -501,18 +500,29 @@ void KeyboardUiBridge::setSurroundingText(const QString &text, int cursorByte, i
 
 void KeyboardUiBridge::setContentType(quint32 hint, quint32 purpose)
 {
+    // KWin forwards text-input-v1 enums here and maps PIN to password (8).
+    constexpr quint32 lowercaseHint = 0x8;
     constexpr quint32 hiddenTextHint = 0x40;
     constexpr quint32 sensitiveDataHint = 0x80;
-    constexpr quint32 passwordPurpose = 8;
-    constexpr quint32 pinPurpose = 9;
-    const bool secure = (hint & (hiddenTextHint | sensitiveDataHint)) != 0
-        || purpose == passwordPurpose
-        || purpose == pinPurpose;
-    if (m_secureInput == secure) return;
-    m_secureInput = secure;
-    m_typingEngine.setSensitiveContext(secure);
-    Q_EMIT inputContextChanged();
-    typingStateDidChange();
+    enum : quint32 { Digits = 2, Number = 3, Phone = 4, Url = 5, Email = 6, Password = 8,
+                     Date = 9, Time = 10, DateTime = 11, Terminal = 12 };
+
+    const bool secure = (hint & (hiddenTextHint | sensitiveDataHint)) != 0 || purpose == Password;
+    // Addresses, numbers and terminals must not be autocorrected, capitalized
+    // or learned from, but they are not secrets.
+    const bool restricted = purpose == Digits || purpose == Number || purpose == Phone
+        || purpose == Url || purpose == Email || purpose == Date || purpose == Time
+        || purpose == DateTime || purpose == Terminal;
+
+    const bool uppercaseBefore = uppercase();
+    m_typingEngine.setSensitiveContext(secure || restricted);
+    m_typingEngine.setAutoCapitalizationAllowed((hint & lowercaseHint) == 0 && !restricted);
+    if (m_secureInput != secure) {
+        m_secureInput = secure;
+        Q_EMIT inputContextChanged();
+    }
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
 }
 
 void KeyboardUiBridge::resetCompositionFromClient()

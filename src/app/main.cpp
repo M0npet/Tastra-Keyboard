@@ -68,11 +68,12 @@ int main(int argc, char **argv)
         &V3Keyboard::KWin::KWinInputMethodV1Connection::contextActiveChanged,
         &view,
         [&view, &bridge](bool active) {
+            // Every activation is a new client context (text-input version,
+            // surrounding-text support, content type); never inherit the old one.
+            bridge.resetInputContext();
             view.setVisible(active);
             if (active) {
                 view.requestActivate();
-            } else {
-                bridge.resetInputContext();
             }
         });
 

@@ -2,6 +2,12 @@
 
 #include "kwininputmethodv1connection.h"
 
+#include <QLoggingCategory>
+
+// Enable with ~/.config/QtProject/qtlogging.ini:  [Rules] v3keyboard.*.debug=true
+// Output goes to stderr, which KWin forwards to the user journal.
+Q_LOGGING_CATEGORY(lcKWinInput, "v3keyboard.input.protocol", QtWarningMsg)
+
 namespace V3Keyboard::KWin
 {
 
@@ -25,6 +31,11 @@ public:
         commit_string(serial, text);
     }
 
+    void deleteSurroundingText(qint32 index, quint32 length) override
+    {
+        delete_surrounding_text(index, length);
+    }
+
     void keySym(
         quint32 serial,
         quint32 time,
@@ -39,17 +50,21 @@ private:
     void zwp_input_method_context_v1_surrounding_text(
         const QString &text, uint32_t cursor, uint32_t anchor) override
     {
+        // Privacy: log sizes and offsets only, never the field contents.
+        qCDebug(lcKWinInput) << "surrounding_text bytes" << text.toUtf8().size() << "cursor" << cursor << "anchor" << anchor;
         Q_EMIT m_owner.surroundingTextChanged(
             text, static_cast<int>(cursor), static_cast<int>(anchor));
     }
 
     void zwp_input_method_context_v1_reset() override
     {
+        qCDebug(lcKWinInput) << "reset";
         Q_EMIT m_owner.contextReset();
     }
 
     void zwp_input_method_context_v1_content_type(uint32_t hint, uint32_t purpose) override
     {
+        qCDebug(lcKWinInput) << "content_type hint" << Qt::hex << hint << "purpose" << Qt::dec << purpose;
         Q_EMIT m_owner.contentTypeChanged(hint, purpose);
     }
 
@@ -60,6 +75,7 @@ private:
 
     void zwp_input_method_context_v1_commit_state(uint32_t serial) override
     {
+        qCDebug(lcKWinInput) << "commit_state" << serial;
         m_session.commitState(serial);
     }
 
@@ -92,6 +108,7 @@ void KWinInputMethodV1Connection::zwp_input_method_v1_activate(::zwp_input_metho
         m_context.reset();
     }
 
+    qCDebug(lcKWinInput) << "activate";
     m_context = std::make_unique<ProtocolInputMethodV1Context>(id, m_session, *this);
     m_session.activate(*m_context);
     Q_EMIT contextActiveChanged(true);
@@ -103,6 +120,7 @@ void KWinInputMethodV1Connection::zwp_input_method_v1_deactivate(::zwp_input_met
         return;
     }
 
+    qCDebug(lcKWinInput) << "deactivate";
     m_session.deactivate(*m_context);
     m_context.reset();
     Q_EMIT contextActiveChanged(false);

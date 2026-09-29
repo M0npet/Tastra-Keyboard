@@ -1,0 +1,9 @@
+SET UTF-8
+TRY esianrtolcdugmphbyfvkwzESIANRTOLCDUGMPHBYFVKWZ'
+
+SFX S Y 1
+SFX S   0     s          .
+
+SFX D Y 2
+SFX D   0     d          e
+SFX D   0     ed         [^e]

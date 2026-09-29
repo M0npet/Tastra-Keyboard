@@ -25,6 +25,7 @@ public:
     void setLearningEnabled(bool enabled);
     void setAutoCapitalizationEnabled(bool enabled);
     void setDoubleSpacePeriodEnabled(bool enabled);
+    void setAutoCapitalizationAllowed(bool allowed);
 
     bool suggestionsEnabled() const;
     bool autocorrectEnabled() const;
@@ -46,6 +47,8 @@ public:
     void enter();
     void chooseSuggestion(const QString &word);
     void resetComposition();
+    void resetInputContext();
+    bool surroundingTextSupported() const;
     void setSensitiveContext(bool sensitive);
     bool syncSurroundingText(const QString &text, int cursorByte, int anchorByte);
     void clearLearning();
@@ -58,10 +61,18 @@ public:
 private:
     QString formatForSentence(const QString &word) const;
     void refreshSuggestions();
-    void replaceCommittedCurrentWord(const QString &replacement);
+    bool replaceBeforeCursor(const QString &existing, const QString &replacement, bool allowUnconfirmed);
     void finalizeCurrentWord(bool updatePrevious = true);
     void observePunctuation(const QString &text);
-    void markLocalEdit();
+
+    // Local model of the text before the cursor, used to tell stale client
+    // echoes (states this keyboard produced earlier) from external edits.
+    void commitLocal(const QString &text);
+    void backspaceLocal();
+    bool deleteLocal(const QString &text);
+    void recordLocalState();
+    void forgetTextState();
+    bool inSyncWithClient() const;
 
     KeyboardController &m_controller;
     LocalLexicon m_lexicon;
@@ -78,7 +89,11 @@ private:
     bool m_lastActionWasSpace = false;
     bool m_sentencePunctuationPending = false;
     bool m_sensitiveContext = false;
-    bool m_localEditPending = false;
+    bool m_autoCapitalizationAllowed = true;
+    bool m_surroundingSupported = false;
+    QString m_model;
+    QString m_confirmed;
+    QStringList m_predicted;
 };
 
 }

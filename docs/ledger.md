@@ -558,3 +558,36 @@ Fixes:
 - word+bigram learning persists once per finalized word
 - repeated backspace updates composition/suggestions once per batch
 - regression tests cover stale echoes, direct punctuation capitalization, signal hot-path behavior, and batched backspace
+
+## 2026-09-29 — Beta 0.2.3 root-cause pass (supersedes 0.2.2)
+
+Baseline:
+- handoff archive checksums verified; `project/` identical to the 0.2.2 payload
+- evidence file named 0.2.1 actually contains the 0.2-final run (10/11)
+- sandbox: Qt 6.4.2; KWin panel shell needs Qt >= 6.5, so the executable and
+  KWin tests are built on-device (KWin input-method layer verified via overlay)
+
+RED (each observed failing before the fix):
+- real en_US Hunspell: `teh -> meh` (3 smarttyping failures on 0.2.2)
+- `externalCursorMoveAdoptsClientState`: 0.2.2 kept "hel" after a cursor move
+- `autocorrectUsesTextChannelOnceClientConfirmedWord`,
+  `unconfirmedWordIsNotRewrittenOnTextInputClients`,
+  `suggestionAndDoubleSpaceUseTextChannel`: Backspace keysyms used
+- bridge: date purpose treated as secret; url/email capitalized; lowercase hint ignored
+- QML: `ReferenceError: root is not defined` on suggestion tap
+- lexicon fixture tests: inflections rewritten, no background load
+
+GREEN:
+- same-channel replacement via delete_surrounding_text (KWin backend, UTF-8 bytes)
+- predicted-state echo reconciliation replaces the 0.2.2 pending flag
+- libhunspell-backed lexicon, background load, compact index, batched learning
+- purpose/hint mapping per text-input-v1 as sent by KWin
+- hermetic tests (fixtures + QStandardPaths test mode)
+- install-time dictionary provisioning with pinned UK dictionary
+
+Design note:
+- 0.2.2 test `staleSurroundingEchoDoesNotClobberLocalWord` now includes the
+  confirming echoes: rewriting an unconfirmed word is deliberately skipped.
+
+Verification (sandbox, Qt 6.4.2): 10/10 CTest + 3/3 KWin tests via overlay,
+static verify OK. On-device (Qt 6.11.2) build/test/live test pending.

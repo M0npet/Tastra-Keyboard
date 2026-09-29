@@ -17,6 +17,10 @@
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 #include "core/keyboardmodel.h"
+#include "core/locallexicon.h"
+
+#include <QRegularExpression>
+#include <QSettings>
 
 namespace
 {
@@ -46,6 +50,16 @@ void collectLetterKeys(QQuickItem *item, QList<QPointer<QQuickItem>> &result)
     for (QQuickItem *child : children) collectLetterKeys(child, result);
 }
 
+QQuickItem *findText(QQuickItem *item, const QString &text)
+{
+    if (item->isVisible() && item->property("text").toString() == text) return item;
+    const auto children = item->childItems();
+    for (QQuickItem *child : children) {
+        if (QQuickItem *found = findText(child, text)) return found;
+    }
+    return nullptr;
+}
+
 QList<QPointer<QQuickItem>> letterKeys(QQuickItem *root)
 {
     QList<QPointer<QQuickItem>> result;
@@ -63,6 +77,44 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setApplicationName(QStringLiteral("tst_qmlkeyboard"));
+        V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+    }
+
+    void init()
+    {
+        QSettings().clear();
+        // Script errors in handlers are silent on device; make them fatal here.
+        QTest::failOnWarning(QRegularExpression(QStringLiteral("ReferenceError|TypeError")));
+    }
+
+    void tappingSuggestionReplacesTheTypedWord()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        QCOMPARE(view.status(), QQuickView::Ready);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+
+        bridge.tapLetter(QStringLiteral("h"));
+        bridge.tapLetter(QStringLiteral("e"));
+        bridge.tapLetter(QStringLiteral("l"));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("hello")));
+
+        QQuickItem *label = findText(view.rootObject(), QStringLiteral("hello"));
+        const QPointF centre = label->mapToScene(QPointF(label->width() / 2, label->height() / 2));
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre.toPoint());
+
+        QTRY_COMPARE(backend.commits.size(), 5);
+        QCOMPARE(backend.backspaces, 3);
+        QCOMPARE(backend.commits.mid(3), QStringList({QStringLiteral("Hello"), QStringLiteral(" ")}));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

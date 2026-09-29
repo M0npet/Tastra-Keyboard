@@ -2,6 +2,9 @@
 
 #include <QtTest/QTest>
 
+#include <QCoreApplication>
+#include <QStandardPaths>
+
 #include "core/clipboardhistory.h"
 #include "core/emojicatalog.h"
 
@@ -10,6 +13,14 @@ class ClipboardEmojiTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        // Never read or write the real user configuration from tests.
+        QStandardPaths::setTestModeEnabled(true);
+        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setApplicationName(QStringLiteral("tst_clipboardemoji"));
+    }
+
     void clipboardHistoryDeduplicatesAndKeepsNewestFirst()
     {
         V3Keyboard::ClipboardHistory history;

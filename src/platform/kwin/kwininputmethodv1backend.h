@@ -15,6 +15,7 @@ public:
     virtual ~InputMethodV1Context() = default;
 
     virtual void commitString(quint32 serial, const QString &text) = 0;
+    virtual void deleteSurroundingText(qint32 index, quint32 length) = 0;
 
     virtual void keySym(
         quint32 serial,
@@ -38,6 +39,7 @@ public:
     void moveHome() override;
     void moveEnd() override;
     void enter() override;
+    bool deleteBeforeCursor(const QString &text) override;
 
 private:
     void sendKeySym(quint32 sym);

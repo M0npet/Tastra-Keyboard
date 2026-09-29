@@ -182,13 +182,33 @@ for _file, _marker in [
 
 # Beta 0.2.2 live-input repair checks.
 require('src/core/typingengine.h', 'bool syncSurroundingText', 'state-aware surrounding-text sync')
-require('src/core/typingengine.cpp', 'm_localEditPending', 'local edit / stale echo guard')
+require('src/core/typingengine.cpp', 'm_predicted', 'predicted-state stale echo reconciliation (0.2.3 replaces the 0.2.2 pending flag)')
 require('src/core/typingengine.cpp', 'void TypingEngine::backspaceRepeated', 'batched repeated backspace')
 require('src/core/locallexicon.cpp', 'learnWordWithContext', 'single-persist contextual learning')
 require('tests/tst_smarttyping.cpp', 'staleSurroundingEchoDoesNotClobberLocalWord')
 require('tests/tst_smarttyping.cpp', 'terminalPunctuationImmediatelyArmsCapitalization')
 require('tests/tst_smarttyping.cpp', 'repeatedBackspaceUpdatesCompositionInOneOperation')
 require('tests/tst_keyboarduibridge.cpp', 'ordinaryTypingDoesNotInvalidateWholeKeyboard')
+
+# Beta 0.2.3 root-cause fixes.
+for path, token, why in (
+    ('src/core/inputmethodbackend.h', 'virtual bool deleteBeforeCursor', 'same-channel deletion seam'),
+    ('src/platform/kwin/kwininputmethodv1backend.cpp', 'deleteSurroundingText(-static_cast<qint32>(bytes), bytes)', 'delete_surrounding_text in UTF-8 bytes'),
+    ('src/core/typingengine.cpp', 'bool TypingEngine::replaceBeforeCursor', 'replacement via text channel'),
+    ('src/core/locallexicon.cpp', '#include <hunspell/hunspell.hxx>', 'affix-aware validity via libhunspell'),
+    ('src/core/locallexicon.cpp', 'std::thread(', 'background dictionary loading'),
+    ('src/core/locallexicon.cpp', 'if (!hasSystemDictionary()) return {};', 'no autocorrect without a validity oracle'),
+    ('src/app/keyboarduibridge.cpp', 'Date = 9', 'text-input-v1 purpose enum (9 is date, not PIN)'),
+    ('src/ui/Main.qml', 'root.toolbarExpanded = false\n                                keyboardBridge.selectSuggestion(modelData)', 'no access after delegate self-destruction'),
+    ('tests/tst_smarttyping.cpp', 'externalCursorMoveAdoptsClientState', 'external edit regression'),
+    ('tests/tst_smarttyping.cpp', 'autocorrectUsesTextChannelOnceClientConfirmedWord', 'text-channel replacement'),
+    ('tests/tst_lexicon.cpp', 'inflectedFormsAreValidAndNeverRewritten', 'no rewriting of valid inflections'),
+    ('tests/tst_qmlkeyboard.cpp', 'tappingSuggestionReplacesTheTypedWord', 'UI-level suggestion tap'),
+    ('tests/tst_keyboarduibridge.cpp', 'dateFieldIsNotTreatedAsSecret', 'purpose mapping'),
+    ('scripts/v3kbd-dictionaries.sh', 'sha256sum', 'pinned dictionary provisioning'),
+):
+    require(path, token, why)
+forbid('src/app/keyboarduibridge.cpp', 'pinPurpose = 9', 'wrong PIN purpose value')
 
 if errors:
     print('STATIC VERIFY: FAILED')
@@ -197,4 +217,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v0.2.2 live-input repair markers are present, stale surrounding-text echoes are guarded, and QML braces are balanced.')
+print('v0.2.3 markers present: same-channel replacement, echo reconciliation, affix-aware lexicon, purpose mapping; QML braces balanced.')

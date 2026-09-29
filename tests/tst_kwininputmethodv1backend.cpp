@@ -2,6 +2,8 @@
 
 #include <QtTest/QTest>
 
+#include <QPair>
+
 #include "platform/kwin/kwininputmethodv1backend.h"
 
 class FakeInputMethodV1Context final : public V3Keyboard::KWin::InputMethodV1Context
@@ -29,6 +31,12 @@ public:
         keyStates.append(state);
     }
 
+    void deleteSurroundingText(qint32 index, quint32 length) override
+    {
+        deletes.append({index, length});
+    }
+
+    QList<QPair<qint32, quint32>> deletes;
     int commitCount = 0;
     quint32 lastSerial = 0;
     QString lastText;
@@ -42,6 +50,23 @@ class KWinInputMethodV1BackendTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void deleteBeforeCursorUsesUtf8ByteLengths()
+    {
+        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        FakeInputMethodV1Context context;
+
+        QVERIFY(!backend.deleteBeforeCursor(QStringLiteral("teh")));   // no context yet
+        backend.setContext(&context);
+        QVERIFY(backend.deleteBeforeCursor(QStringLiteral("teh")));
+        QVERIFY(backend.deleteBeforeCursor(QStringLiteral("прив")));  // 2 bytes per letter
+
+        // input-method-v1: index is relative to the cursor, both in bytes.
+        QCOMPARE(context.deletes.size(), 2);
+        QCOMPARE(context.deletes.at(0), qMakePair(qint32(-3), quint32(3)));
+        QCOMPARE(context.deletes.at(1), qMakePair(qint32(-8), quint32(8)));
+        QVERIFY(context.keySyms.isEmpty());
+    }
+
     void commitUsesLatestSerial()
     {
         V3Keyboard::KWin::KWinInputMethodV1Backend backend;

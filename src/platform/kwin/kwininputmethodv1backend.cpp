@@ -2,8 +2,12 @@
 
 #include "kwininputmethodv1backend.h"
 
+#include <QLoggingCategory>
+
 #include <chrono>
 #include <xkbcommon/xkbcommon-keysyms.h>
+
+Q_LOGGING_CATEGORY(lcKWinBackend, "v3keyboard.input.backend", QtWarningMsg)
 
 namespace V3Keyboard::KWin
 {
@@ -36,7 +40,25 @@ void KWinInputMethodV1Backend::commitText(const QString &text)
         return;
     }
 
+    // Trace lengths only: typed text never reaches the log.
+    qCDebug(lcKWinBackend) << "commit_string serial" << m_latestSerial << "utf8 bytes" << text.toUtf8().size();
     m_context->commitString(m_latestSerial, text);
+}
+
+bool KWinInputMethodV1Backend::deleteBeforeCursor(const QString &text)
+{
+    if (!m_context || text.isEmpty()) {
+        return false;
+    }
+
+    const quint32 bytes = static_cast<quint32>(text.toUtf8().size());
+    // KWin maps (index, length) to text-input-v2/v3 (before, after) as
+    // before = -index, after = index + length; this deletes `bytes` before
+    // the cursor and is applied by the client together with the following
+    // commit_string on the same text-input object.
+    qCDebug(lcKWinBackend) << "delete_surrounding_text bytes before cursor" << bytes;
+    m_context->deleteSurroundingText(-static_cast<qint32>(bytes), bytes);
+    return true;
 }
 
 void KWinInputMethodV1Backend::backspace()
@@ -80,6 +102,7 @@ void KWinInputMethodV1Backend::sendKeySym(quint32 sym)
         return;
     }
 
+    qCDebug(lcKWinBackend) << "keysym" << Qt::hex << sym;
     const quint32 time = monotonicMilliseconds();
     constexpr quint32 released = 0;
     constexpr quint32 pressed = 1;

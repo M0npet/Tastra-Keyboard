@@ -5,6 +5,25 @@
 
 namespace V3Keyboard
 {
+namespace
+{
+
+constexpr int ModelTail = 256;
+constexpr int CompareTail = 64;
+constexpr int MaxPredicted = 64;
+
+QString tail(const QString &text)
+{
+    return text.size() > ModelTail ? text.right(ModelTail) : text;
+}
+
+bool sameTextState(const QString &a, const QString &b)
+{
+    if (a.size() >= CompareTail && b.size() >= CompareTail) return a.right(CompareTail) == b.right(CompareTail);
+    return a == b;
+}
+
+}
 
 TypingEngine::TypingEngine(KeyboardController &controller)
     : m_controller(controller)
@@ -29,13 +48,19 @@ void TypingEngine::setAutocorrectEnabled(bool enabled) { m_autocorrectEnabled = 
 void TypingEngine::setLearningEnabled(bool enabled) { m_learningEnabled = enabled; }
 void TypingEngine::setAutoCapitalizationEnabled(bool enabled) { m_autoCapitalizationEnabled = enabled; }
 void TypingEngine::setDoubleSpacePeriodEnabled(bool enabled) { m_doubleSpacePeriodEnabled = enabled; }
+void TypingEngine::setAutoCapitalizationAllowed(bool allowed) { m_autoCapitalizationAllowed = allowed; }
+bool TypingEngine::surroundingTextSupported() const { return m_surroundingSupported; }
 
 bool TypingEngine::suggestionsEnabled() const { return m_suggestionsEnabled; }
 bool TypingEngine::autocorrectEnabled() const { return m_autocorrectEnabled; }
 bool TypingEngine::learningEnabled() const { return m_learningEnabled; }
 bool TypingEngine::autoCapitalizationEnabled() const { return m_autoCapitalizationEnabled; }
 bool TypingEngine::doubleSpacePeriodEnabled() const { return m_doubleSpacePeriodEnabled; }
-bool TypingEngine::wantsAutoUppercase() const { return !m_sensitiveContext && m_autoCapitalizationEnabled && m_sentenceStart && m_currentWord.isEmpty(); }
+bool TypingEngine::wantsAutoUppercase() const
+{
+    return !m_sensitiveContext && m_autoCapitalizationEnabled && m_autoCapitalizationAllowed
+        && m_sentenceStart && m_currentWord.isEmpty();
+}
 bool TypingEngine::sensitiveContext() const { return m_sensitiveContext; }
 QString TypingEngine::currentWord() const { return m_currentWord; }
 QString TypingEngine::previousWord() const { return m_previousWord; }
@@ -44,7 +69,7 @@ QStringList TypingEngine::glideTrace() const { return m_glideTrace; }
 
 QString TypingEngine::formatForSentence(const QString &word) const
 {
-    if (!m_autoCapitalizationEnabled || !m_sentenceStart || word.isEmpty()) return word;
+    if (!m_autoCapitalizationEnabled || !m_autoCapitalizationAllowed || !m_sentenceStart || word.isEmpty()) return word;
     QString result = word;
     result[0] = result.at(0).toUpper();
     return result;
@@ -53,8 +78,7 @@ QString TypingEngine::formatForSentence(const QString &word) const
 void TypingEngine::typeLetter(const QString &text)
 {
     if (text.isEmpty()) return;
-    markLocalEdit();
-    m_controller.tapText(text);
+    commitLocal(text);
     if (m_sensitiveContext) {
         m_currentWord.clear();
         m_suggestions.clear();
@@ -72,9 +96,8 @@ void TypingEngine::typeLetter(const QString &text)
 void TypingEngine::typeText(const QString &text)
 {
     if (text.isEmpty()) return;
-    markLocalEdit();
     if (m_sensitiveContext) {
-        m_controller.tapText(text);
+        commitLocal(text);
         m_currentWord.clear();
         m_suggestions.clear();
         m_lastActionWasSpace = false;
@@ -86,7 +109,7 @@ void TypingEngine::typeText(const QString &text)
         finalizeCurrentWord();
     }
 
-    m_controller.tapText(text);
+    commitLocal(text);
     observePunctuation(text);
     m_lastActionWasSpace = false;
     refreshSuggestions();
@@ -102,17 +125,67 @@ void TypingEngine::observePunctuation(const QString &text)
     }
 }
 
-void TypingEngine::markLocalEdit()
+void TypingEngine::commitLocal(const QString &text)
 {
-    m_localEditPending = true;
+    m_controller.tapText(text);
+    m_model = tail(m_model + text);
+    recordLocalState();
 }
 
-void TypingEngine::replaceCommittedCurrentWord(const QString &replacement)
+void TypingEngine::backspaceLocal()
 {
-    if (m_currentWord.isEmpty() || replacement.isEmpty()) return;
-    for (int i = 0; i < m_currentWord.size(); ++i) m_controller.backspace();
-    m_controller.tapText(replacement);
-    m_currentWord = replacement;
+    m_controller.backspace();
+    if (!m_model.isEmpty()) {
+        const bool pair = m_model.size() >= 2 && m_model.back().isLowSurrogate();
+        m_model.chop(pair ? 2 : 1);
+    }
+    recordLocalState();
+}
+
+bool TypingEngine::deleteLocal(const QString &text)
+{
+    if (!m_controller.deleteBeforeCursor(text)) return false;
+    m_model.chop(text.size());
+    recordLocalState();
+    return true;
+}
+
+void TypingEngine::recordLocalState()
+{
+    m_predicted.append(m_model);
+    if (m_predicted.size() > MaxPredicted) m_predicted.removeFirst();
+}
+
+void TypingEngine::forgetTextState()
+{
+    m_model.clear();
+    m_confirmed.clear();
+    m_predicted.clear();
+}
+
+bool TypingEngine::inSyncWithClient() const
+{
+    return m_surroundingSupported && m_predicted.isEmpty() && sameTextState(m_model, m_confirmed);
+}
+
+// Replaces `existing` (the text right before the cursor) with `replacement`.
+// On text-input clients the deletion uses delete_surrounding_text so it stays
+// ordered with the commit; Backspace key events travel on a different channel
+// that GTK/Firefox apply after already-received text-input commits.
+bool TypingEngine::replaceBeforeCursor(const QString &existing, const QString &replacement, bool allowUnconfirmed)
+{
+    if (existing.isEmpty()) return false;
+    if (m_surroundingSupported) {
+        const bool confirmed = inSyncWithClient() && m_model.endsWith(existing);
+        if (confirmed && deleteLocal(existing)) {
+            commitLocal(replacement);
+            return true;
+        }
+        if (!confirmed && !allowUnconfirmed) return false;
+    }
+    for (int i = 0; i < existing.size(); ++i) backspaceLocal();
+    commitLocal(replacement);
+    return true;
 }
 
 void TypingEngine::finalizeCurrentWord(bool updatePrevious)
@@ -130,24 +203,22 @@ void TypingEngine::finalizeCurrentWord(bool updatePrevious)
 
 void TypingEngine::space()
 {
-    markLocalEdit();
     if (m_sensitiveContext) {
-        m_controller.tapText(QStringLiteral(" "));
+        commitLocal(QStringLiteral(" "));
         m_currentWord.clear();
         m_suggestions.clear();
         return;
     }
     if (m_currentWord.isEmpty()) {
-        if (m_doubleSpacePeriodEnabled && m_lastActionWasSpace && !m_previousWord.isEmpty()) {
-            m_controller.backspace();
-            m_controller.tapText(QStringLiteral(". "));
+        if (m_doubleSpacePeriodEnabled && m_lastActionWasSpace && !m_previousWord.isEmpty()
+            && replaceBeforeCursor(QStringLiteral(" "), QStringLiteral(". "), false)) {
             m_sentenceStart = true;
             m_sentencePunctuationPending = false;
             m_lastActionWasSpace = false;
             refreshSuggestions();
             return;
         }
-        m_controller.tapText(QStringLiteral(" "));
+        commitLocal(QStringLiteral(" "));
         if (m_sentencePunctuationPending) {
             m_sentenceStart = true;
             m_sentencePunctuationPending = false;
@@ -164,12 +235,12 @@ void TypingEngine::space()
             if (!m_currentWord.isEmpty() && m_currentWord.front().isUpper()) {
                 formatted[0] = formatted.at(0).toUpper();
             }
-            replaceCommittedCurrentWord(formatted);
+            if (replaceBeforeCursor(m_currentWord, formatted, false)) m_currentWord = formatted;
         }
     }
 
     finalizeCurrentWord();
-    m_controller.tapText(QStringLiteral(" "));
+    commitLocal(QStringLiteral(" "));
     m_lastActionWasSpace = true;
     if (m_sentencePunctuationPending) {
         m_sentenceStart = true;
@@ -180,8 +251,7 @@ void TypingEngine::space()
 
 void TypingEngine::backspace()
 {
-    markLocalEdit();
-    m_controller.backspace();
+    backspaceLocal();
     if (m_sensitiveContext) {
         m_currentWord.clear();
         m_suggestions.clear();
@@ -200,8 +270,7 @@ void TypingEngine::backspace()
 void TypingEngine::backspaceRepeated(int count)
 {
     const int bounded = qBound(1, count, 32);
-    markLocalEdit();
-    for (int i = 0; i < bounded; ++i) m_controller.backspace();
+    for (int i = 0; i < bounded; ++i) backspaceLocal();
 
     if (m_sensitiveContext) {
         m_currentWord.clear();
@@ -224,9 +293,10 @@ void TypingEngine::backspaceRepeated(int count)
 
 void TypingEngine::enter()
 {
-    markLocalEdit();
     if (!m_currentWord.isEmpty()) finalizeCurrentWord();
     m_controller.enter();
+    m_model = tail(m_model + QLatin1Char('\n'));
+    recordLocalState();
     m_sentenceStart = true;
     m_sentencePunctuationPending = false;
     m_lastActionWasSpace = false;
@@ -236,7 +306,6 @@ void TypingEngine::enter()
 void TypingEngine::chooseSuggestion(const QString &word)
 {
     if (word.isEmpty() || m_sensitiveContext) return;
-    markLocalEdit();
     QString selected = word;
     if (!m_currentWord.isEmpty() && m_currentWord.front().isUpper()) {
         selected[0] = selected.at(0).toUpper();
@@ -245,13 +314,15 @@ void TypingEngine::chooseSuggestion(const QString &word)
     }
 
     if (!m_currentWord.isEmpty()) {
-        replaceCommittedCurrentWord(selected);
+        // A deliberate tap: fall back to key events if the client has not
+        // confirmed the word yet rather than ignoring the user's choice.
+        replaceBeforeCursor(m_currentWord, selected, true);
     } else {
-        m_controller.tapText(selected);
-        m_currentWord = selected;
+        commitLocal(selected);
     }
+    m_currentWord = selected;
     finalizeCurrentWord();
-    m_controller.tapText(QStringLiteral(" "));
+    commitLocal(QStringLiteral(" "));
     m_lastActionWasSpace = true;
     m_sentenceStart = false;
     refreshSuggestions();
@@ -282,8 +353,16 @@ void TypingEngine::resetComposition()
     m_sentenceStart = true;
     m_lastActionWasSpace = false;
     m_sentencePunctuationPending = false;
-    m_localEditPending = false;
+    forgetTextState();
+    m_lexicon.flushLearning();
     refreshSuggestions();
+}
+
+void TypingEngine::resetInputContext()
+{
+    m_surroundingSupported = false;
+    m_autoCapitalizationAllowed = true;
+    resetComposition();
 }
 
 void TypingEngine::setSensitiveContext(bool sensitive)
@@ -295,63 +374,60 @@ void TypingEngine::setSensitiveContext(bool sensitive)
 
 bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int anchorByte)
 {
-    if (m_sensitiveContext || cursorByte < 0 || anchorByte < 0 || cursorByte != anchorByte) return false;
+    if (cursorByte < 0 || anchorByte < 0) return false;
+    m_surroundingSupported = true;
+    if (m_sensitiveContext) return false;
 
     const QByteArray utf8 = text.toUtf8();
     const int bounded = qBound(0, cursorByte, static_cast<int>(utf8.size()));
-    const QString before = QString::fromUtf8(utf8.left(bounded));
+    const QString before = tail(QString::fromUtf8(utf8.left(bounded)));
 
-    int end = before.size();
-    int start = end;
-    while (start > 0 && before.at(start - 1).isLetter()) --start;
-    const QString trailing = before.mid(start);
+    if (cursorByte == anchorByte) {
+        // Echo of a state this keyboard produced? Earlier states are stale,
+        // the latest one means client and keyboard agree. Either way the local
+        // composition stays authoritative.
+        for (int i = m_predicted.size() - 1; i >= 0; --i) {
+            if (sameTextState(m_predicted.at(i), before)) {
+                m_predicted.erase(m_predicted.begin(), m_predicted.begin() + i + 1);
+                m_confirmed = before;
+                return false;
+            }
+        }
+    }
 
-    int prevEnd = start;
-    while (prevEnd > 0 && !before.at(prevEnd - 1).isLetter()) --prevEnd;
-    int prevStart = prevEnd;
-    while (prevStart > 0 && before.at(prevStart - 1).isLetter()) --prevStart;
+    // A state the keyboard never produced: cursor moved, selection, or the
+    // application changed the text. The client is the source of truth.
+    m_predicted.clear();
+    m_confirmed = before;
+    m_model = before;
 
-    const QString incomingPrevious = before.mid(prevStart, prevEnd - prevStart).toLower();
-    bool incomingSentenceStart = before.trimmed().isEmpty();
-    if (!incomingSentenceStart && trailing.isEmpty()) {
-        const QString trimmed = before.trimmed();
-        if (!trimmed.isEmpty()) {
+    QString trailing;
+    QString incomingPrevious;
+    bool incomingSentenceStart = false;
+    if (cursorByte == anchorByte) {
+        int start = before.size();
+        while (start > 0 && before.at(start - 1).isLetter()) --start;
+        trailing = before.mid(start);
+        int prevEnd = start;
+        while (prevEnd > 0 && !before.at(prevEnd - 1).isLetter()) --prevEnd;
+        int prevStart = prevEnd;
+        while (prevStart > 0 && before.at(prevStart - 1).isLetter()) --prevStart;
+        incomingPrevious = before.mid(prevStart, prevEnd - prevStart).toLower();
+        incomingSentenceStart = before.trimmed().isEmpty();
+        if (!incomingSentenceStart && trailing.isEmpty()) {
+            const QString trimmed = before.trimmed();
             const QChar last = trimmed.back();
             incomingSentenceStart = last == QLatin1Char('.') || last == QLatin1Char('!') || last == QLatin1Char('?');
         }
     }
 
-    // Chromium/Qt clients can echo surrounding-text snapshots from before our
-    // most recent commit. Do not let a stale echo overwrite the authoritative
-    // local composition, otherwise autocorrect/suggestion replacement randomly
-    // loses the word currently being typed.
-    if (m_localEditPending) {
-        if (!m_currentWord.isEmpty()) {
-            if (trailing != m_currentWord) {
-                return false;
-            }
-            m_localEditPending = false;
-        } else if (m_lastActionWasSpace) {
-            if (!trailing.isEmpty()) {
-                return false;
-            }
-            m_localEditPending = false;
-        } else if (!trailing.isEmpty()) {
-            return false;
-        } else {
-            m_localEditPending = false;
-        }
-    }
-
-    if (m_currentWord == trailing
-        && m_previousWord == incomingPrevious
-        && m_sentenceStart == incomingSentenceStart) {
+    if (m_currentWord == trailing && m_previousWord == incomingPrevious && m_sentenceStart == incomingSentenceStart) {
         return false;
     }
-
     m_currentWord = trailing;
     m_previousWord = incomingPrevious;
     m_sentenceStart = incomingSentenceStart;
+    m_lastActionWasSpace = false;
     refreshSuggestions();
     return true;
 }
@@ -365,7 +441,6 @@ void TypingEngine::clearLearning()
 void TypingEngine::beginGlide(const QString &key)
 {
     if (m_sensitiveContext) return;
-    markLocalEdit();
     m_glideTrace.clear();
     glideThrough(key);
 }
@@ -385,11 +460,11 @@ QString TypingEngine::endGlide()
     if (decoded.isEmpty()) return {};
 
     const QString formatted = formatForSentence(decoded);
-    m_controller.tapText(formatted);
+    commitLocal(formatted);
     m_currentWord = formatted;
     m_sentenceStart = false;
     finalizeCurrentWord();
-    m_controller.tapText(QStringLiteral(" "));
+    commitLocal(QStringLiteral(" "));
     m_lastActionWasSpace = true;
     refreshSuggestions();
     return formatted;

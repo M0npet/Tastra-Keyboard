@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 0.2.1
+    VERSION 0.2.3
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -26,6 +26,8 @@ if(NOT TARGET Qt6::WaylandClientPrivate)
 endif()
 find_package(PkgConfig REQUIRED)
 pkg_get_variable(WAYLAND_PROTOCOLS_DATADIR wayland-protocols pkgdatadir)
+pkg_check_modules(HUNSPELL REQUIRED IMPORTED_TARGET hunspell)
+find_package(Threads REQUIRED)
 
 set(
     INPUT_METHOD_V1_PROTOCOL
@@ -49,6 +51,9 @@ target_include_directories(v3keyboard-core
 target_link_libraries(v3keyboard-core
     PUBLIC
         Qt6::Core
+    PRIVATE
+        PkgConfig::HUNSPELL
+        Threads::Threads
 )
 
 add_library(v3keyboard-platform-kwin STATIC
@@ -245,6 +250,7 @@ if(BUILD_TESTING)
         tests/tst_keyboarduibridge.cpp
     )
 
+    target_compile_definitions(tst_keyboarduibridge PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     target_link_libraries(tst_keyboarduibridge
         PRIVATE
             v3keyboard-app
@@ -312,6 +318,7 @@ if(BUILD_TESTING)
     add_executable(tst_smarttyping
         tests/tst_smarttyping.cpp
     )
+    target_compile_definitions(tst_smarttyping PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     target_link_libraries(tst_smarttyping PRIVATE v3keyboard-core Qt6::Test)
     add_test(NAME smarttyping COMMAND tst_smarttyping)
 
@@ -327,8 +334,24 @@ if(BUILD_TESTING)
         tests/tst_qmlkeyboard.cpp
     )
     target_compile_definitions(tst_qmlkeyboard PRIVATE
-        V3KBD_MAIN_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Main.qml")
+        V3KBD_MAIN_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Main.qml"
+        V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    qt_add_resources(tst_qmlkeyboard "tst-qmlkeyboard-icons"
+        PREFIX "/v3keyboard"
+        FILES
+            src/ui/icons/shift.svg
+            src/ui/icons/shift-lock.svg
+            src/ui/icons/backspace.svg
+            src/ui/icons/enter.svg
+    )
     target_link_libraries(tst_qmlkeyboard PRIVATE v3keyboard-app Qt6::Quick Qt6::Qml Qt6::Test)
     add_test(NAME qmlkeyboard COMMAND tst_qmlkeyboard)
     set_tests_properties(qmlkeyboard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+
+if(BUILD_TESTING)
+    add_executable(tst_lexicon tests/tst_lexicon.cpp)
+    target_compile_definitions(tst_lexicon PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_lexicon PRIVATE v3keyboard-core Qt6::Test)
+    add_test(NAME lexicon COMMAND tst_lexicon)
 endif()

@@ -7,6 +7,12 @@
 class FakeContext final : public V3Keyboard::KWin::InputMethodV1Context
 {
 public:
+    void deleteSurroundingText(qint32 index, quint32 length) override
+    {
+        Q_UNUSED(index)
+        Q_UNUSED(length)
+    }
+
     void commitString(quint32 serial, const QString &text) override
     {
         ++commitCount;

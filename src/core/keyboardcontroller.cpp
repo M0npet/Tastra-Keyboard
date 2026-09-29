@@ -51,4 +51,10 @@ void KeyboardController::enter()
     m_backend.enter();
 }
 
+
+bool KeyboardController::deleteBeforeCursor(const QString &text)
+{
+    return m_backend.deleteBeforeCursor(text);
+}
+
 }

@@ -22,6 +22,7 @@ public:
     void moveHome();
     void moveEnd();
     void enter();
+    bool deleteBeforeCursor(const QString &text);
 
 private:
     InputMethodBackend &m_backend;

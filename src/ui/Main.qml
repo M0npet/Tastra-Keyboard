@@ -302,8 +302,10 @@ Rectangle {
                             id: suggestionMouse
                             anchors.fill: parent
                             onClicked: {
-                                keyboardBridge.selectSuggestion(modelData)
+                                // selectSuggestion() replaces the model and
+                                // destroys this delegate; touch nothing after it.
                                 root.toolbarExpanded = false
+                                keyboardBridge.selectSuggestion(modelData)
                             }
                         }
                     }
