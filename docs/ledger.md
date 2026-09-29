@@ -591,3 +591,26 @@ Design note:
 
 Verification (sandbox, Qt 6.4.2): 10/10 CTest + 3/3 KWin tests via overlay,
 static verify OK. On-device (Qt 6.11.2) build/test/live test pending.
+
+## 2026-09-29 — Beta 0.2.4 composition (preedit)
+
+Live result of 0.2.3 in Firefox: "TEH hhello hi  job" (13/13 tests on device).
+Root cause from Firefox/GTK/KWin sources: surrounding-text echoes are one step
+stale by construction (see docs/beta-0.2.4-composition.md).
+
+RED:
+- `oneStepStaleEchoesDoNotFlipCaseOrWord` (0.2.3 adopted stale echoes)
+- composition tests: autocorrect without deletions, double space, suggestion,
+  backspace in preedit, Enter order, secure fields, non-text-input clients
+- bridge: commit composition before cursor moves / language switch; toggle
+- KWin backend: preedit cursor in bytes + commit fallback (compile-RED)
+- QML: fail on "is not declared" (only observable on Qt >= 6.11)
+
+GREEN: composition mode, history-based echo reconciliation, explicit QML
+handler parameters, opt-in file trace.
+
+Design decision: immediate-commit replaced by composition on text-input
+clients (user: "продолжай" after the A/B proposal); immediate mode kept as a
+setting.
+
+Verification (sandbox Qt 6.4.2): 10/10 CTest + 3/3 KWin overlay, static OK.

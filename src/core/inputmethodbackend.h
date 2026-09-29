@@ -29,6 +29,15 @@ public:
         Q_UNUSED(text);
         return false;
     }
+
+    // Shows `text` as the client's preedit (composition), replacing any
+    // previous one; an empty string clears it. The next commitText() replaces
+    // the preedit atomically. Returns false when unsupported.
+    virtual bool setPreedit(const QString &text)
+    {
+        Q_UNUSED(text);
+        return false;
+    }
 };
 
 }

@@ -61,6 +61,20 @@ bool KWinInputMethodV1Backend::deleteBeforeCursor(const QString &text)
     return true;
 }
 
+bool KWinInputMethodV1Backend::setPreedit(const QString &text)
+{
+    if (!m_context) {
+        return false;
+    }
+    // KWin applies the cursor on the next preedit_string (bytes). The commit
+    // argument is committed by KWin itself if keyboard focus moves to another
+    // surface while the word is still unfinished.
+    qCDebug(lcKWinBackend) << "preedit_string utf8 bytes" << text.toUtf8().size();
+    m_context->preeditCursor(static_cast<qint32>(text.toUtf8().size()));
+    m_context->preeditString(m_latestSerial, text, text);
+    return true;
+}
+
 void KWinInputMethodV1Backend::backspace()
 {
     sendKeySym(XKB_KEY_BackSpace);

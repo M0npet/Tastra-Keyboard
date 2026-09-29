@@ -202,12 +202,12 @@ Rectangle {
             anchors.fill: parent
             property bool held: false
 
-            onPressed: {
+            onPressed: (mouse) => {
                 held = false
                 key.consumeRelease = false
                 key.pressStarted(mouse.x, mouse.y)
             }
-            onPositionChanged: {
+            onPositionChanged: (mouse) => {
                 if (pressed) key.pointerMoved(mouse.x, mouse.y)
             }
             onPressAndHold: {
@@ -216,7 +216,7 @@ Rectangle {
                     key.longPressed()
                 }
             }
-            onReleased: key.pressEnded(mouse.x, mouse.y)
+            onReleased: (mouse) => key.pressEnded(mouse.x, mouse.y)
             onClicked: {
                 if (!held && !key.consumeRelease) {
                     key.triggered()
@@ -558,8 +558,8 @@ Rectangle {
                     glideValue: modelData
                     Component.onCompleted: root.registerGlideKey(row1LetterKey)
                     Component.onDestruction: root.unregisterGlideKey(row1LetterKey)
-                    onPressStarted: root.beginGlideCandidate(row1LetterKey, x, y)
-                    onPointerMoved: root.updateGlideCandidate(row1LetterKey, x, y)
+                    onPressStarted: (x, y) => root.beginGlideCandidate(row1LetterKey, x, y)
+                    onPointerMoved: (x, y) => root.updateGlideCandidate(row1LetterKey, x, y)
                     onPressEnded: root.finishGlideCandidate(row1LetterKey)
 
                     onTriggered: {
@@ -592,8 +592,8 @@ Rectangle {
                     glideValue: modelData
                     Component.onCompleted: root.registerGlideKey(row2LetterKey)
                     Component.onDestruction: root.unregisterGlideKey(row2LetterKey)
-                    onPressStarted: root.beginGlideCandidate(row2LetterKey, x, y)
-                    onPointerMoved: root.updateGlideCandidate(row2LetterKey, x, y)
+                    onPressStarted: (x, y) => root.beginGlideCandidate(row2LetterKey, x, y)
+                    onPointerMoved: (x, y) => root.updateGlideCandidate(row2LetterKey, x, y)
                     onPressEnded: root.finishGlideCandidate(row2LetterKey)
 
                     onTriggered: {
@@ -642,8 +642,8 @@ Rectangle {
                     glideValue: modelData
                     Component.onCompleted: root.registerGlideKey(row3LetterKey)
                     Component.onDestruction: root.unregisterGlideKey(row3LetterKey)
-                    onPressStarted: root.beginGlideCandidate(row3LetterKey, x, y)
-                    onPointerMoved: root.updateGlideCandidate(row3LetterKey, x, y)
+                    onPressStarted: (x, y) => root.beginGlideCandidate(row3LetterKey, x, y)
+                    onPointerMoved: (x, y) => root.updateGlideCandidate(row3LetterKey, x, y)
                     onPressEnded: root.finishGlideCandidate(row3LetterKey)
 
                     onTriggered: {
@@ -668,11 +668,11 @@ Rectangle {
                     consumeRelease = true
                     keyboardBridge.backspaceRepeated(3)
                 }
-                onPressStarted: {
+                onPressStarted: (x, y) => {
                     dragStartX = x
                     dragStep = 0
                 }
-                onPointerMoved: {
+                onPointerMoved: (x, y) => {
                     var step = Math.floor((dragStartX - x) / Math.max(18, width * 0.20))
                     if (step > dragStep) {
                         consumeRelease = true
@@ -721,11 +721,11 @@ Rectangle {
                 longPressEnabled: true
                 onTriggered: keyboardBridge.space()
                 onLongPressed: keyboardBridge.openLanguagePanel()
-                onPressStarted: {
+                onPressStarted: (x, y) => {
                     dragStartX = x
                     cursorStep = 0
                 }
-                onPointerMoved: {
+                onPointerMoved: (x, y) => {
                     var nextStep = Math.round((x - dragStartX) / Math.max(24, width * 0.08))
                     var delta = nextStep - cursorStep
                     if (delta !== 0) {
@@ -1125,6 +1125,12 @@ Rectangle {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - autocorrectButton.width - parent.spacing; height: autocorrectButton.height; verticalAlignment: Text.AlignVCenter; text: "Autocorrect"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: autocorrectButton; width: root.portrait ? 170 : 150; label: keyboardBridge.autocorrectEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setAutocorrectEnabled(!keyboardBridge.autocorrectEnabled) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - compositionButton.width - parent.spacing; height: compositionButton.height; verticalAlignment: Text.AlignVCenter; text: "Underline word while typing"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: compositionButton; width: root.portrait ? 170 : 150; label: keyboardBridge.compositionEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setCompositionEnabled(!keyboardBridge.compositionEnabled) }
                     }
 
                     Row {

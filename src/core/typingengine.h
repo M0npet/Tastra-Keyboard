@@ -26,6 +26,9 @@ public:
     void setAutoCapitalizationEnabled(bool enabled);
     void setDoubleSpacePeriodEnabled(bool enabled);
     void setAutoCapitalizationAllowed(bool allowed);
+    void setCompositionEnabled(bool enabled);
+    bool compositionEnabled() const;
+    bool composing() const;
 
     bool suggestionsEnabled() const;
     bool autocorrectEnabled() const;
@@ -48,6 +51,9 @@ public:
     void chooseSuggestion(const QString &word);
     void resetComposition();
     void resetInputContext();
+    // Commits whatever is held in the preedit as-is (before cursor moves,
+    // paste, language switch). resetComposition() instead drops it.
+    void commitComposition();
     bool surroundingTextSupported() const;
     void setSensitiveContext(bool sensitive);
     bool syncSurroundingText(const QString &text, int cursorByte, int anchorByte);
@@ -71,8 +77,12 @@ private:
     void backspaceLocal();
     bool deleteLocal(const QString &text);
     void recordLocalState();
+    void recordState(const QString &state);
     void forgetTextState();
     bool inSyncWithClient() const;
+    bool compositionAvailable() const;
+    bool setPreeditLocal(const QString &text);
+    QString corrected(const QString &word) const;
 
     KeyboardController &m_controller;
     LocalLexicon m_lexicon;
@@ -91,9 +101,13 @@ private:
     bool m_sensitiveContext = false;
     bool m_autoCapitalizationAllowed = true;
     bool m_surroundingSupported = false;
-    QString m_model;
-    QString m_confirmed;
-    QStringList m_predicted;
+    bool m_compositionEnabled = true;
+    bool m_composing = false;       // m_currentWord lives in the client's preedit
+    bool m_pendingSpace = false;    // a space lives in the client's preedit
+    bool m_preeditRejected = false; // backend/client cannot show preedit
+    bool m_inSync = false;
+    QString m_model;                // committed text before the cursor (tail)
+    QStringList m_history;          // recent states produced or confirmed
 };
 
 }

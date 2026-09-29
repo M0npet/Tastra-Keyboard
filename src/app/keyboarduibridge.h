@@ -52,6 +52,7 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool autoCapitalizationEnabled READ autoCapitalizationEnabled WRITE setAutoCapitalizationEnabled NOTIFY typingPreferencesChanged)
     Q_PROPERTY(bool doubleSpacePeriodEnabled READ doubleSpacePeriodEnabled WRITE setDoubleSpacePeriodEnabled NOTIFY typingPreferencesChanged)
     Q_PROPERTY(bool glideEnabled READ glideEnabled WRITE setGlideEnabled NOTIFY typingPreferencesChanged)
+    Q_PROPERTY(bool compositionEnabled READ compositionEnabled WRITE setCompositionEnabled NOTIFY typingPreferencesChanged)
     Q_PROPERTY(bool clipboardHistoryEnabled READ clipboardHistoryEnabled WRITE setClipboardHistoryEnabled NOTIFY clipboardChanged)
 
     Q_PROPERTY(QString clipboardText READ clipboardText NOTIFY clipboardChanged)
@@ -93,6 +94,7 @@ public:
     bool autoCapitalizationEnabled() const;
     bool doubleSpacePeriodEnabled() const;
     bool glideEnabled() const;
+    bool compositionEnabled() const;
     bool secureInput() const;
     bool clipboardHistoryEnabled() const;
 
@@ -147,6 +149,7 @@ public:
     Q_INVOKABLE void setAutoCapitalizationEnabled(bool enabled);
     Q_INVOKABLE void setDoubleSpacePeriodEnabled(bool enabled);
     Q_INVOKABLE void setGlideEnabled(bool enabled);
+    Q_INVOKABLE void setCompositionEnabled(bool enabled);
     Q_INVOKABLE void setClipboardHistoryEnabled(bool enabled);
     Q_INVOKABLE void clearLearnedWords();
 

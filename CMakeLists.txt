@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 0.2.3
+    VERSION 0.2.4
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -99,6 +99,7 @@ target_link_libraries(v3keyboard-platform-kwin
 add_library(v3keyboard-app STATIC
     src/app/keyboarduibridge.cpp
     src/app/keyboardlayoutmetrics.cpp
+    src/app/tracelog.cpp
 )
 
 target_include_directories(v3keyboard-app

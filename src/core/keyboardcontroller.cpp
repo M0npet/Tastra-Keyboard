@@ -57,4 +57,10 @@ bool KeyboardController::deleteBeforeCursor(const QString &text)
     return m_backend.deleteBeforeCursor(text);
 }
 
+
+bool KeyboardController::setPreedit(const QString &text)
+{
+    return m_backend.setPreedit(text);
+}
+
 }

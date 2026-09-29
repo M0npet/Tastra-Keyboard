@@ -13,6 +13,18 @@ public:
         Q_UNUSED(length)
     }
 
+    void preeditString(quint32 serial, const QString &text, const QString &commit) override
+    {
+        Q_UNUSED(serial)
+        Q_UNUSED(text)
+        Q_UNUSED(commit)
+    }
+
+    void preeditCursor(qint32 index) override
+    {
+        Q_UNUSED(index)
+    }
+
     void commitString(quint32 serial, const QString &text) override
     {
         ++commitCount;

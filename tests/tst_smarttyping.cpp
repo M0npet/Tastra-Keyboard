@@ -14,19 +14,34 @@
 class FakeBackend final : public V3Keyboard::InputMethodBackend
 {
 public:
-    void commitText(const QString &text) override { commits.append(text); }
-    void backspace() override { ++backspaces; }
+    void commitText(const QString &text) override
+    {
+        // Contract (as KWin does it): a commit replaces the preedit atomically.
+        preedit.clear();
+        commits.append(text);
+        events.append(QStringLiteral("commit:") + text);
+    }
+    void backspace() override { ++backspaces; events.append(QStringLiteral("bs")); }
     void deleteForward() override {}
     void moveLeft() override {}
     void moveRight() override {}
     void moveHome() override {}
     void moveEnd() override {}
-    void enter() override { ++enters; }
+    void enter() override { ++enters; events.append(QStringLiteral("enter")); }
 
     bool deleteBeforeCursor(const QString &text) override
     {
         if (!textChannel) return false;
         deletions.append(text);
+        events.append(QStringLiteral("del:") + text);
+        return true;
+    }
+
+    bool setPreedit(const QString &text) override
+    {
+        if (!preeditSupport) return false;
+        preedit = text;
+        events.append(QStringLiteral("pre:") + text);
         return true;
     }
 
@@ -35,6 +50,9 @@ public:
     int backspaces = 0;
     int enters = 0;
     bool textChannel = false;
+    bool preeditSupport = false;
+    QString preedit;
+    QStringList events;
 };
 
 namespace
@@ -200,6 +218,169 @@ private Q_SLOTS:
         engine.space();
         QCOMPARE(backend.backspaces, 3);
         QCOMPARE(backend.commits.mid(3), QStringList({QStringLiteral("the"), QStringLiteral(" ")}));
+    }
+
+
+    // ---- Composition (preedit): the current word never leaves the keyboard
+    // until it is final, so no deletions and no Backspace keys are needed to
+    // correct it. Works even when the client echoes stale text (Firefox).
+    static void composing(FakeBackend &backend, V3Keyboard::TypingEngine &engine)
+    {
+        backend.textChannel = true;
+        backend.preeditSupport = true;
+        echo(engine, QString());   // text-input client with an empty field
+    }
+
+    void compositionCommitsCorrectedWordWithoutDeletions()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        engine.typeLetter(QStringLiteral("t"));
+        engine.typeLetter(QStringLiteral("e"));
+        engine.typeLetter(QStringLiteral("h"));
+        QCOMPARE(backend.preedit, QStringLiteral("teh"));
+        QVERIFY(backend.commits.isEmpty());
+        engine.space();
+
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("the")}));
+        QCOMPARE(backend.preedit, QStringLiteral(" "));      // pending space
+        QCOMPARE(backend.backspaces, 0);
+        QVERIFY(backend.deletions.isEmpty());
+    }
+
+    void compositionDoubleSpaceAndNextWord()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        engine.typeLetter(QStringLiteral("h"));
+        engine.typeLetter(QStringLiteral("i"));
+        engine.space();
+        engine.space();
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("hi"), QStringLiteral(". ")}));
+        QCOMPARE(backend.preedit, QString());
+        QVERIFY(engine.wantsAutoUppercase());
+
+        engine.typeLetter(QStringLiteral("J"));
+        engine.typeLetter(QStringLiteral("o"));
+        engine.space();
+        engine.typeLetter(QStringLiteral("b"));
+        QCOMPARE(backend.commits.mid(2), QStringList({QStringLiteral("Jo"), QStringLiteral(" ")}));
+        QCOMPARE(backend.preedit, QStringLiteral("b"));
+        QCOMPARE(backend.backspaces, 0);
+        QVERIFY(backend.deletions.isEmpty());
+    }
+
+    void compositionSuggestionTapCommitsOnce()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        engine.typeLetter(QStringLiteral("h"));
+        engine.chooseSuggestion(QStringLiteral("hello"));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("hello")}));
+        QCOMPARE(backend.preedit, QStringLiteral(" "));
+        QCOMPARE(backend.backspaces, 0);
+    }
+
+    void compositionBackspaceEditsPreeditFirst()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        engine.typeLetter(QStringLiteral("h"));
+        engine.typeLetter(QStringLiteral("e"));
+        engine.backspace();
+        QCOMPARE(backend.preedit, QStringLiteral("h"));
+        QCOMPARE(engine.currentWord(), QStringLiteral("h"));
+        engine.backspace();
+        QCOMPARE(backend.preedit, QString());
+        QCOMPARE(backend.backspaces, 0);
+        engine.backspace();                                  // now a real key
+        QCOMPARE(backend.backspaces, 1);
+    }
+
+    void compositionEnterCommitsWordBeforeReturn()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        engine.typeLetter(QStringLiteral("o"));
+        engine.typeLetter(QStringLiteral("k"));
+        engine.enter();
+        // commit first, key second: GTK applies text-input commits before
+        // queued key events, so this order is never inverted.
+        QCOMPARE(backend.events.mid(backend.events.indexOf(QStringLiteral("commit:ok"))),
+                 QStringList({QStringLiteral("commit:ok"), QStringLiteral("enter")}));
+    }
+
+    void compositionIgnoresEchoesAndClientResetDropsIt()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        engine.typeLetter(QStringLiteral("w"));
+        engine.typeLetter(QStringLiteral("o"));
+        echo(engine, QStringLiteral("wo"));     // client includes its preedit
+        QCOMPARE(engine.currentWord(), QStringLiteral("wo"));
+        engine.resetComposition();              // client reset: it owns the text now
+        QCOMPARE(engine.currentWord(), QString());
+        QVERIFY(!backend.commits.contains(QStringLiteral("wo")));
+    }
+
+    void secureFieldsNeverUsePreedit()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setSensitiveContext(true);
+        echo(engine, QString());
+
+        engine.typeLetter(QStringLiteral("s"));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("s")}));
+        QVERIFY(!backend.events.contains(QStringLiteral("pre:s")));
+    }
+
+    void clientsWithoutTextInputKeepImmediateCommits()
+    {
+        FakeBackend backend;
+        backend.preeditSupport = true;          // backend could, client cannot
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+
+        engine.typeLetter(QStringLiteral("a"));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("a")}));
+    }
+
+    void oneStepStaleEchoesDoNotFlipCaseOrWord()
+    {
+        FakeBackend backend;
+        backend.textChannel = true;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        echo(engine, QStringLiteral("hi. "));          // field content on focus
+        // Firefox-like: each commit is followed by an echo of the state
+        // *before* that commit (GTK re-reads immediately, content lags).
+        engine.typeLetter(QStringLiteral("J")); echo(engine, QStringLiteral("hi. "));
+        QCOMPARE(engine.currentWord(), QStringLiteral("J"));
+        QVERIFY(!engine.wantsAutoUppercase());
+        engine.typeLetter(QStringLiteral("o")); echo(engine, QStringLiteral("hi. J"));
+        QCOMPARE(engine.currentWord(), QStringLiteral("Jo"));
+        QVERIFY(!engine.wantsAutoUppercase());
     }
 
     void externalCursorMoveAdoptsClientState()

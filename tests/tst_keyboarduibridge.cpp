@@ -7,7 +7,15 @@
 #include <QSettings>
 #include <QStandardPaths>
 
+#include "app/tracelog.h"
 #include "core/locallexicon.h"
+
+#include <QFile>
+#include <QLoggingCategory>
+#include <QTemporaryDir>
+
+Q_LOGGING_CATEGORY(lcTraceProbe, "v3keyboard.test", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcOtherProbe, "other.test", QtWarningMsg)
 
 #include "app/keyboarduibridge.h"
 #include "core/inputmethodbackend.h"
@@ -18,7 +26,9 @@ class FakeBackend final : public V3Keyboard::InputMethodBackend
 public:
     void commitText(const QString &text) override
     {
+        preedit.clear();
         commits.append(text);
+        events.append(QStringLiteral("commit:") + text);
     }
 
     void backspace() override
@@ -34,7 +44,18 @@ public:
     void moveLeft() override
     {
         ++moveLeftCount;
+        events.append(QStringLiteral("left"));
     }
+
+    bool setPreedit(const QString &text) override
+    {
+        preedit = text;
+        events.append(QStringLiteral("pre:") + text);
+        return true;
+    }
+
+    QString preedit;
+    QStringList events;
 
     void moveRight() override
     {
@@ -128,6 +149,60 @@ private Q_SLOTS:
         QVERIFY(!bridge.uppercase());
         bridge.resetInputContext();
         QVERIFY(bridge.uppercase());
+    }
+
+    void cursorMovesAndLanguageSwitchCommitTheComposedWordFirst()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setSurroundingText(QString(), 0, 0);        // text-input client
+
+        bridge.tapLetter(QStringLiteral("o"));
+        bridge.tapLetter(QStringLiteral("k"));
+        QCOMPARE(backend.preedit, QStringLiteral("Ok"));
+        bridge.moveLeft();
+        QCOMPARE(backend.events.mid(backend.events.size() - 2),
+                 QStringList({QStringLiteral("commit:Ok"), QStringLiteral("left")}));
+
+        bridge.setSurroundingText(QStringLiteral("x"), 1, 1);
+        bridge.tapLetter(QStringLiteral("n"));
+        bridge.nextLanguage();
+        QCOMPARE(backend.commits.last(), QStringLiteral("n"));
+    }
+
+    void compositionCanBeSwitchedOff()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setSurroundingText(QString(), 0, 0);
+
+        QVERIFY(bridge.compositionEnabled());
+        bridge.setCompositionEnabled(false);
+        bridge.tapLetter(QStringLiteral("a"));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("A")}));
+        QVERIFY(backend.preedit.isEmpty());
+    }
+
+    void traceIsOptInAndOnlyCapturesKeyboardCategories()
+    {
+        QTemporaryDir dir;
+        QVERIFY(!V3Keyboard::enableTraceIfRequested(dir.path()));   // no flag file
+        QFile flag(dir.path() + QStringLiteral("/trace.enable"));
+        QVERIFY(flag.open(QIODevice::WriteOnly));
+        flag.close();
+        QVERIFY(V3Keyboard::enableTraceIfRequested(dir.path()));
+
+        qCDebug(lcTraceProbe) << "probe bytes" << 3;
+        qCWarning(lcOtherProbe) << "not ours";
+        QFile log(dir.path() + QStringLiteral("/trace.log"));
+        QVERIFY(log.open(QIODevice::ReadOnly));
+        const QByteArray content = log.readAll();
+        QVERIFY(content.contains("v3keyboard.test: probe bytes 3"));
+        QVERIFY(!content.contains("not ours"));
     }
 
     void tapTextReachesController()

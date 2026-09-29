@@ -182,7 +182,7 @@ for _file, _marker in [
 
 # Beta 0.2.2 live-input repair checks.
 require('src/core/typingengine.h', 'bool syncSurroundingText', 'state-aware surrounding-text sync')
-require('src/core/typingengine.cpp', 'm_predicted', 'predicted-state stale echo reconciliation (0.2.3 replaces the 0.2.2 pending flag)')
+require('src/core/typingengine.cpp', 'm_history', 'history-based stale echo reconciliation (0.2.4 replaces 0.2.3 predicted states)')
 require('src/core/typingengine.cpp', 'void TypingEngine::backspaceRepeated', 'batched repeated backspace')
 require('src/core/locallexicon.cpp', 'learnWordWithContext', 'single-persist contextual learning')
 require('tests/tst_smarttyping.cpp', 'staleSurroundingEchoDoesNotClobberLocalWord')
@@ -210,6 +210,21 @@ for path, token, why in (
     require(path, token, why)
 forbid('src/app/keyboarduibridge.cpp', 'pinPurpose = 9', 'wrong PIN purpose value')
 
+# Beta 0.2.4: composition (preedit) + history-based echo reconciliation.
+for path, token, why in (
+    ('src/core/inputmethodbackend.h', 'virtual bool setPreedit', 'preedit seam'),
+    ('src/platform/kwin/kwininputmethodv1backend.cpp', 'm_context->preeditString(m_latestSerial, text, text)', 'preedit with commit fallback for KWin commitPendingText'),
+    ('src/core/typingengine.cpp', 'm_pendingSpace', 'double-space without deletion'),
+    ('src/core/typingengine.cpp', 'm_history', 'stale echoes of older states are never adopted'),
+    ('src/core/typingengine.cpp', '!m_sensitiveContext && !m_preeditRejected', 'no preedit in secret fields'),
+    ('src/app/tracelog.cpp', 'trace.enable', 'opt-in file trace'),
+    ('tests/tst_smarttyping.cpp', 'oneStepStaleEchoesDoNotFlipCaseOrWord', 'Firefox stale-echo regression'),
+    ('tests/tst_smarttyping.cpp', 'compositionCommitsCorrectedWordWithoutDeletions', 'composition autocorrect'),
+    ('tests/tst_qmlkeyboard.cpp', 'is not declared', 'no implicit handler parameters'),
+):
+    require(path, token, why)
+forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
+
 if errors:
     print('STATIC VERIFY: FAILED')
     for error in errors:
@@ -217,4 +232,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v0.2.3 markers present: same-channel replacement, echo reconciliation, affix-aware lexicon, purpose mapping; QML braces balanced.')
+print('v0.2.4 markers present: composition (preedit), stale-echo history, same-channel replacement, affix-aware lexicon, opt-in trace; QML braces balanced.')

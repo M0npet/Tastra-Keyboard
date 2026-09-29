@@ -16,6 +16,8 @@ public:
 
     virtual void commitString(quint32 serial, const QString &text) = 0;
     virtual void deleteSurroundingText(qint32 index, quint32 length) = 0;
+    virtual void preeditString(quint32 serial, const QString &text, const QString &commit) = 0;
+    virtual void preeditCursor(qint32 index) = 0;
 
     virtual void keySym(
         quint32 serial,
@@ -40,6 +42,7 @@ public:
     void moveEnd() override;
     void enter() override;
     bool deleteBeforeCursor(const QString &text) override;
+    bool setPreedit(const QString &text) override;
 
 private:
     void sendKeySym(quint32 sym);

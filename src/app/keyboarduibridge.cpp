@@ -49,6 +49,7 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_typingEngine.setLearningEnabled(settings.value(QStringLiteral("learningEnabled"), true).toBool());
     m_typingEngine.setAutoCapitalizationEnabled(settings.value(QStringLiteral("autoCapitalizationEnabled"), true).toBool());
     m_typingEngine.setDoubleSpacePeriodEnabled(settings.value(QStringLiteral("doubleSpacePeriodEnabled"), true).toBool());
+    m_typingEngine.setCompositionEnabled(settings.value(QStringLiteral("compositionEnabled"), true).toBool());
 
     if (auto *clipboard = systemClipboard()) {
         captureClipboard();
@@ -98,6 +99,7 @@ bool KeyboardUiBridge::learningEnabled() const { return m_typingEngine.learningE
 bool KeyboardUiBridge::autoCapitalizationEnabled() const { return m_typingEngine.autoCapitalizationEnabled(); }
 bool KeyboardUiBridge::doubleSpacePeriodEnabled() const { return m_typingEngine.doubleSpacePeriodEnabled(); }
 bool KeyboardUiBridge::glideEnabled() const { return m_glideEnabled; }
+bool KeyboardUiBridge::compositionEnabled() const { return m_typingEngine.compositionEnabled(); }
 bool KeyboardUiBridge::secureInput() const { return m_secureInput; }
 bool KeyboardUiBridge::clipboardHistoryEnabled() const { return m_clipboardHistory.enabled(); }
 
@@ -208,6 +210,7 @@ void KeyboardUiBridge::toggleSymbols()
 
 void KeyboardUiBridge::nextLanguage()
 {
+    m_typingEngine.commitComposition();
     m_model.nextLanguage();
     m_typingEngine.setLanguage(m_model.languageCode());
     persistLanguage();
@@ -216,6 +219,7 @@ void KeyboardUiBridge::nextLanguage()
 
 void KeyboardUiBridge::setLanguage(const QString &code)
 {
+    m_typingEngine.commitComposition();
     m_model.setLanguage(code);
     m_typingEngine.setLanguage(m_model.languageCode());
     persistLanguage();
@@ -266,6 +270,7 @@ void KeyboardUiBridge::backspaceRepeated(int count)
 
 void KeyboardUiBridge::deleteForward()
 {
+    m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.deleteForward();
     typingStateDidChange();
@@ -273,6 +278,7 @@ void KeyboardUiBridge::deleteForward()
 
 void KeyboardUiBridge::moveLeft()
 {
+    m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveLeft();
     typingStateDidChange();
@@ -280,6 +286,7 @@ void KeyboardUiBridge::moveLeft()
 
 void KeyboardUiBridge::moveRight()
 {
+    m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveRight();
     typingStateDidChange();
@@ -287,6 +294,7 @@ void KeyboardUiBridge::moveRight()
 
 void KeyboardUiBridge::moveCursor(int delta)
 {
+    m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     const int bounded = qBound(-48, delta, 48);
     if (bounded < 0) for (int i = 0; i < -bounded; ++i) m_controller.moveLeft();
@@ -296,6 +304,7 @@ void KeyboardUiBridge::moveCursor(int delta)
 
 void KeyboardUiBridge::moveHome()
 {
+    m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveHome();
     typingStateDidChange();
@@ -303,6 +312,7 @@ void KeyboardUiBridge::moveHome()
 
 void KeyboardUiBridge::moveEnd()
 {
+    m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveEnd();
     typingStateDidChange();
@@ -347,6 +357,7 @@ void KeyboardUiBridge::pasteClipboard()
 {
     const QString text = clipboardText();
     if (!text.isEmpty()) {
+        m_typingEngine.commitComposition();
         m_typingEngine.resetComposition();
         m_controller.tapText(text);
         Q_EMIT suggestionsChanged();
@@ -357,6 +368,7 @@ void KeyboardUiBridge::pasteClipboardHistory(int index)
 {
     const auto items = m_clipboardHistory.items();
     if (index < 0 || index >= items.size()) return;
+    m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.tapText(items.at(index));
     Q_EMIT suggestionsChanged();
@@ -461,6 +473,15 @@ void KeyboardUiBridge::setGlideEnabled(bool enabled)
     m_glideEnabled = enabled;
     persistPreference(QStringLiteral("glideEnabled"), enabled);
     Q_EMIT typingPreferencesChanged();
+}
+
+void KeyboardUiBridge::setCompositionEnabled(bool enabled)
+{
+    if (m_typingEngine.compositionEnabled() == enabled) return;
+    m_typingEngine.setCompositionEnabled(enabled);
+    persistPreference(QStringLiteral("compositionEnabled"), enabled);
+    Q_EMIT typingPreferencesChanged();
+    Q_EMIT suggestionsChanged();
 }
 
 void KeyboardUiBridge::setClipboardHistoryEnabled(bool enabled)

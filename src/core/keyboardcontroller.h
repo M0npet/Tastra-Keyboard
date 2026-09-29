@@ -23,6 +23,7 @@ public:
     void moveEnd();
     void enter();
     bool deleteBeforeCursor(const QString &text);
+    bool setPreedit(const QString &text);
 
 private:
     InputMethodBackend &m_backend;

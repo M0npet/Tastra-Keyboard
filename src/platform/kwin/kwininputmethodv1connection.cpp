@@ -36,6 +36,16 @@ public:
         delete_surrounding_text(index, length);
     }
 
+    void preeditString(quint32 serial, const QString &text, const QString &commit) override
+    {
+        preedit_string(serial, text, commit);
+    }
+
+    void preeditCursor(qint32 index) override
+    {
+        preedit_cursor(index);
+    }
+
     void keySym(
         quint32 serial,
         quint32 time,

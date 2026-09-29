@@ -3,6 +3,11 @@
 #include "typingengine.h"
 #include "keyboardcontroller.h"
 
+#include <QLoggingCategory>
+
+// Decisions and sizes only; typed text never reaches the log.
+Q_LOGGING_CATEGORY(lcEngine, "v3keyboard.engine", QtWarningMsg)
+
 namespace V3Keyboard
 {
 namespace
@@ -10,7 +15,7 @@ namespace
 
 constexpr int ModelTail = 256;
 constexpr int CompareTail = 64;
-constexpr int MaxPredicted = 64;
+constexpr int MaxHistory = 64;
 
 QString tail(const QString &text)
 {
@@ -50,6 +55,51 @@ void TypingEngine::setAutoCapitalizationEnabled(bool enabled) { m_autoCapitaliza
 void TypingEngine::setDoubleSpacePeriodEnabled(bool enabled) { m_doubleSpacePeriodEnabled = enabled; }
 void TypingEngine::setAutoCapitalizationAllowed(bool allowed) { m_autoCapitalizationAllowed = allowed; }
 bool TypingEngine::surroundingTextSupported() const { return m_surroundingSupported; }
+void TypingEngine::setCompositionEnabled(bool enabled) { if (!enabled) commitComposition(); m_compositionEnabled = enabled; }
+bool TypingEngine::compositionEnabled() const { return m_compositionEnabled; }
+bool TypingEngine::composing() const { return m_composing || m_pendingSpace; }
+
+bool TypingEngine::compositionAvailable() const
+{
+    // Preedit needs a text-input client (KWin drops it for the fake-key path)
+    // and must never show secrets in clear text.
+    return m_compositionEnabled && m_surroundingSupported && !m_sensitiveContext && !m_preeditRejected;
+}
+
+bool TypingEngine::setPreeditLocal(const QString &text)
+{
+    if (!m_controller.setPreedit(text)) {
+        qCDebug(lcEngine) << "preedit rejected -> immediate commits for this context";
+        m_preeditRejected = true;
+        return false;
+    }
+    // Clients such as Firefox include the preedit in their surrounding text.
+    if (!text.isEmpty()) recordState(tail(m_model + text));
+    return true;
+}
+
+QString TypingEngine::corrected(const QString &word) const
+{
+    if (!m_autocorrectEnabled || word.isEmpty()) return word;
+    const QString correction = m_lexicon.bestCorrection(word, m_previousWord);
+    if (correction.isEmpty()) return word;
+    QString formatted = correction;
+    if (word.front().isUpper()) formatted[0] = formatted.at(0).toUpper();
+    return formatted;
+}
+
+void TypingEngine::commitComposition()
+{
+    if (m_composing && !m_currentWord.isEmpty()) {
+        const QString word = m_currentWord;
+        finalizeCurrentWord();
+        commitLocal(word);
+    } else if (m_pendingSpace) {
+        commitLocal(QStringLiteral(" "));
+    }
+    m_composing = false;
+    m_pendingSpace = false;
+}
 
 bool TypingEngine::suggestionsEnabled() const { return m_suggestionsEnabled; }
 bool TypingEngine::autocorrectEnabled() const { return m_autocorrectEnabled; }
@@ -78,15 +128,28 @@ QString TypingEngine::formatForSentence(const QString &word) const
 void TypingEngine::typeLetter(const QString &text)
 {
     if (text.isEmpty()) return;
-    commitLocal(text);
     if (m_sensitiveContext) {
+        commitLocal(text);
         m_currentWord.clear();
         m_suggestions.clear();
         m_sentenceStart = false;
         m_lastActionWasSpace = false;
         return;
     }
+    if (m_pendingSpace) {
+        m_pendingSpace = false;
+        commitLocal(QStringLiteral(" "));
+    }
+    // Composition starts only at a word boundary so a word is never split
+    // between committed text and preedit.
+    if (!m_composing && m_currentWord.isEmpty() && compositionAvailable()) m_composing = true;
     m_currentWord += text;
+    if (m_composing && !setPreeditLocal(m_currentWord)) {
+        m_composing = false;
+        commitLocal(m_currentWord);
+    } else if (!m_composing) {
+        commitLocal(text);
+    }
     m_sentenceStart = false;
     m_sentencePunctuationPending = false;
     m_lastActionWasSpace = false;
@@ -105,11 +168,21 @@ void TypingEngine::typeText(const QString &text)
     }
 
     const bool punctuation = text.size() == 1 && QStringLiteral(".,!?;:").contains(text);
-    if (punctuation && !m_currentWord.isEmpty()) {
+    if (m_composing) {
+        // Word and punctuation leave in one commit; the word is corrected first.
+        const QString word = punctuation ? corrected(m_currentWord) : m_currentWord;
+        m_currentWord = word;
         finalizeCurrentWord();
+        m_composing = false;
+        commitLocal(word + text);
+    } else if (m_pendingSpace) {
+        m_pendingSpace = false;
+        // "word" Space "," -> "word," : the pending space is simply dropped.
+        commitLocal(punctuation ? text : QStringLiteral(" ") + text);
+    } else {
+        if (punctuation && !m_currentWord.isEmpty()) finalizeCurrentWord();
+        commitLocal(text);
     }
-
-    commitLocal(text);
     observePunctuation(text);
     m_lastActionWasSpace = false;
     refreshSuggestions();
@@ -152,20 +225,27 @@ bool TypingEngine::deleteLocal(const QString &text)
 
 void TypingEngine::recordLocalState()
 {
-    m_predicted.append(m_model);
-    if (m_predicted.size() > MaxPredicted) m_predicted.removeFirst();
+    m_inSync = false;
+    recordState(m_model);
+}
+
+void TypingEngine::recordState(const QString &state)
+{
+    if (!m_history.isEmpty() && m_history.back() == state) return;
+    m_history.append(state);
+    if (m_history.size() > MaxHistory) m_history.removeFirst();
 }
 
 void TypingEngine::forgetTextState()
 {
     m_model.clear();
-    m_confirmed.clear();
-    m_predicted.clear();
+    m_history = {QString()};
+    m_inSync = false;
 }
 
 bool TypingEngine::inSyncWithClient() const
 {
-    return m_surroundingSupported && m_predicted.isEmpty() && sameTextState(m_model, m_confirmed);
+    return m_surroundingSupported && m_inSync;
 }
 
 // Replaces `existing` (the text right before the cursor) with `replacement`.
@@ -177,6 +257,8 @@ bool TypingEngine::replaceBeforeCursor(const QString &existing, const QString &r
     if (existing.isEmpty()) return false;
     if (m_surroundingSupported) {
         const bool confirmed = inSyncWithClient() && m_model.endsWith(existing);
+        qCDebug(lcEngine) << "replace len" << existing.size() << "->" << replacement.size()
+                          << (confirmed ? "text-channel" : (allowUnconfirmed ? "key-fallback" : "skipped"));
         if (confirmed && deleteLocal(existing)) {
             commitLocal(replacement);
             return true;
@@ -207,6 +289,41 @@ void TypingEngine::space()
         commitLocal(QStringLiteral(" "));
         m_currentWord.clear();
         m_suggestions.clear();
+        return;
+    }
+    if (m_composing) {
+        const QString word = corrected(m_currentWord);
+        m_currentWord = word;
+        finalizeCurrentWord();
+        m_composing = false;
+        commitLocal(word);
+        // Hold the space in the preedit: a second Space can then become ". "
+        // with a plain commit, no deletion needed.
+        if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
+        else commitLocal(QStringLiteral(" "));
+        m_lastActionWasSpace = true;
+        if (m_sentencePunctuationPending) {
+            m_sentenceStart = true;
+            m_sentencePunctuationPending = false;
+        }
+        refreshSuggestions();
+        return;
+    }
+    if (m_pendingSpace) {
+        m_pendingSpace = false;
+        if (m_doubleSpacePeriodEnabled && m_lastActionWasSpace && !m_previousWord.isEmpty()) {
+            commitLocal(QStringLiteral(". "));
+            m_sentenceStart = true;
+            m_sentencePunctuationPending = false;
+            m_lastActionWasSpace = false;
+            refreshSuggestions();
+            return;
+        }
+        commitLocal(QStringLiteral(" "));
+        if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
+        else commitLocal(QStringLiteral(" "));
+        m_lastActionWasSpace = true;
+        refreshSuggestions();
         return;
     }
     if (m_currentWord.isEmpty()) {
@@ -251,6 +368,20 @@ void TypingEngine::space()
 
 void TypingEngine::backspace()
 {
+    if (m_pendingSpace) {
+        m_pendingSpace = false;
+        setPreeditLocal(QString());
+        m_lastActionWasSpace = false;
+        refreshSuggestions();
+        return;
+    }
+    if (m_composing && !m_currentWord.isEmpty()) {
+        m_currentWord.chop(1);
+        setPreeditLocal(m_currentWord);
+        if (m_currentWord.isEmpty()) m_composing = false;
+        refreshSuggestions();
+        return;
+    }
     backspaceLocal();
     if (m_sensitiveContext) {
         m_currentWord.clear();
@@ -269,7 +400,24 @@ void TypingEngine::backspace()
 
 void TypingEngine::backspaceRepeated(int count)
 {
-    const int bounded = qBound(1, count, 32);
+    int bounded = qBound(1, count, 32);
+    if (m_pendingSpace && bounded > 0) {
+        m_pendingSpace = false;
+        setPreeditLocal(QString());
+        --bounded;
+    }
+    if (m_composing && bounded > 0) {
+        const int fromPreedit = qMin(bounded, int(m_currentWord.size()));
+        m_currentWord.chop(fromPreedit);
+        setPreeditLocal(m_currentWord);
+        bounded -= fromPreedit;
+        if (m_currentWord.isEmpty()) m_composing = false;
+        if (bounded == 0) {
+            m_lastActionWasSpace = false;
+            refreshSuggestions();
+            return;
+        }
+    }
     for (int i = 0; i < bounded; ++i) backspaceLocal();
 
     if (m_sensitiveContext) {
@@ -293,6 +441,13 @@ void TypingEngine::backspaceRepeated(int count)
 
 void TypingEngine::enter()
 {
+    if (m_pendingSpace) {
+        m_pendingSpace = false;
+        setPreeditLocal(QString());
+    }
+    // Commit before the Return key: GTK applies text-input commits before
+    // queued key events, so this order can never be inverted.
+    if (m_composing) commitComposition();
     if (!m_currentWord.isEmpty()) finalizeCurrentWord();
     m_controller.enter();
     m_model = tail(m_model + QLatin1Char('\n'));
@@ -313,7 +468,15 @@ void TypingEngine::chooseSuggestion(const QString &word)
         selected = formatForSentence(selected);
     }
 
-    if (!m_currentWord.isEmpty()) {
+    const bool composed = m_composing;
+    if (m_pendingSpace) {
+        m_pendingSpace = false;
+        commitLocal(QStringLiteral(" "));
+    }
+    if (m_composing) {
+        m_composing = false;
+        commitLocal(selected);               // replaces the preedit atomically
+    } else if (!m_currentWord.isEmpty()) {
         // A deliberate tap: fall back to key events if the client has not
         // confirmed the word yet rather than ignoring the user's choice.
         replaceBeforeCursor(m_currentWord, selected, true);
@@ -322,7 +485,11 @@ void TypingEngine::chooseSuggestion(const QString &word)
     }
     m_currentWord = selected;
     finalizeCurrentWord();
-    commitLocal(QStringLiteral(" "));
+    if (!(composed || compositionAvailable()) || !setPreeditLocal(QStringLiteral(" "))) {
+        commitLocal(QStringLiteral(" "));
+    } else {
+        m_pendingSpace = true;
+    }
     m_lastActionWasSpace = true;
     m_sentenceStart = false;
     refreshSuggestions();
@@ -346,6 +513,8 @@ void TypingEngine::refreshSuggestions()
 
 void TypingEngine::resetComposition()
 {
+    m_composing = false;
+    m_pendingSpace = false;
     m_currentWord.clear();
     m_previousWord.clear();
     m_suggestions.clear();
@@ -361,6 +530,7 @@ void TypingEngine::resetComposition()
 void TypingEngine::resetInputContext()
 {
     m_surroundingSupported = false;
+    m_preeditRejected = false;
     m_autoCapitalizationAllowed = true;
     resetComposition();
 }
@@ -383,23 +553,29 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
     const QString before = tail(QString::fromUtf8(utf8.left(bounded)));
 
     if (cursorByte == anchorByte) {
-        // Echo of a state this keyboard produced? Earlier states are stale,
-        // the latest one means client and keyboard agree. Either way the local
-        // composition stays authoritative.
-        for (int i = m_predicted.size() - 1; i >= 0; --i) {
-            if (sameTextState(m_predicted.at(i), before)) {
-                m_predicted.erase(m_predicted.begin(), m_predicted.begin() + i + 1);
-                m_confirmed = before;
+        // Any state this keyboard produced recently (including states with
+        // its preedit) is an echo. Clients such as Firefox answer from a
+        // lagging cache, so stale echoes of *older* states are normal and
+        // must never be mistaken for user edits.
+        for (int i = m_history.size() - 1; i >= 0; --i) {
+            if (sameTextState(m_history.at(i), before)) {
+                m_inSync = !composing() && i == m_history.size() - 1 && sameTextState(m_model, before);
+                qCDebug(lcEngine) << "echo bytes" << bounded << "known state" << i + 1 << "of" << m_history.size()
+                                  << (m_inSync ? "in-sync" : "stale/composing");
                 return false;
             }
         }
     }
 
     // A state the keyboard never produced: cursor moved, selection, or the
-    // application changed the text. The client is the source of truth.
-    m_predicted.clear();
-    m_confirmed = before;
+    // application changed the text. The client is the source of truth; if a
+    // composition was active the client has already committed or dropped it.
+    qCDebug(lcEngine) << "echo bytes" << bounded << "unknown state -> adopt; composition was" << composing();
+    m_composing = false;
+    m_pendingSpace = false;
+    m_history = {before};
     m_model = before;
+    m_inSync = true;
 
     QString trailing;
     QString incomingPrevious;
@@ -415,8 +591,7 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
         incomingPrevious = before.mid(prevStart, prevEnd - prevStart).toLower();
         incomingSentenceStart = before.trimmed().isEmpty();
         if (!incomingSentenceStart && trailing.isEmpty()) {
-            const QString trimmed = before.trimmed();
-            const QChar last = trimmed.back();
+            const QChar last = before.trimmed().back();
             incomingSentenceStart = last == QLatin1Char('.') || last == QLatin1Char('!') || last == QLatin1Char('?');
         }
     }
@@ -441,6 +616,7 @@ void TypingEngine::clearLearning()
 void TypingEngine::beginGlide(const QString &key)
 {
     if (m_sensitiveContext) return;
+    commitComposition();
     m_glideTrace.clear();
     glideThrough(key);
 }

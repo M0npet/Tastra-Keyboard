@@ -86,7 +86,7 @@ private Q_SLOTS:
     {
         QSettings().clear();
         // Script errors in handlers are silent on device; make them fatal here.
-        QTest::failOnWarning(QRegularExpression(QStringLiteral("ReferenceError|TypeError")));
+        QTest::failOnWarning(QRegularExpression(QStringLiteral("ReferenceError|TypeError|is not declared")));
     }
 
     void tappingSuggestionReplacesTheTypedWord()
@@ -115,6 +115,29 @@ private Q_SLOTS:
         QTRY_COMPARE(backend.commits.size(), 5);
         QCOMPARE(backend.backspaces, 3);
         QCOMPARE(backend.commits.mid(3), QStringList({QStringLiteral("Hello"), QStringLiteral(" ")}));
+    }
+
+    void tappingARealKeyCommitsTheLetter()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+
+        // Press/move/release exercise every Key handler (glide, drag, popup).
+        QQuickItem *key = findText(view.rootObject(), QStringLiteral("Q"));
+        QVERIFY(key);
+        const QPoint centre = key->mapToScene(QPointF(key->width() / 2, key->height() / 2)).toPoint();
+        QTest::mousePress(&view, Qt::LeftButton, {}, centre);
+        QTest::mouseMove(&view, centre + QPoint(1, 0));
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, centre + QPoint(1, 0));
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("Q")}));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

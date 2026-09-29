@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+#include "tracelog.h"
 
 #include "core/keyboardcontroller.h"
 #include "core/keyboardmodel.h"
@@ -18,6 +19,9 @@ int main(int argc, char **argv)
     QGuiApplication app(argc, argv);
     app.setOrganizationName(QStringLiteral("V3Keyboard"));
     app.setApplicationName(QStringLiteral("V3 Keyboard"));
+    // touch ~/.local/state/v3-keyboard/trace.enable to capture a privacy-safe
+    // protocol/engine trace in ~/.local/state/v3-keyboard/trace.log
+    V3Keyboard::enableTraceIfRequested(V3Keyboard::defaultStateDir());
 
     V3Keyboard::KWin::KWinInputMethodV1Backend backend;
     V3Keyboard::KeyboardController controller(backend);

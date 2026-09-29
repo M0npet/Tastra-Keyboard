@@ -36,6 +36,22 @@ public:
         deletes.append({index, length});
     }
 
+    void preeditString(quint32 serial, const QString &text, const QString &commit) override
+    {
+        preedits.append({text, commit});
+        order.append(QStringLiteral("string"));
+        lastSerial = serial;
+    }
+
+    void preeditCursor(qint32 index) override
+    {
+        cursors.append(index);
+        order.append(QStringLiteral("cursor"));
+    }
+
+    QList<QPair<QString, QString>> preedits;
+    QList<qint32> cursors;
+    QStringList order;
     QList<QPair<qint32, quint32>> deletes;
     int commitCount = 0;
     quint32 lastSerial = 0;
@@ -65,6 +81,26 @@ private Q_SLOTS:
         QCOMPARE(context.deletes.at(0), qMakePair(qint32(-3), quint32(3)));
         QCOMPARE(context.deletes.at(1), qMakePair(qint32(-8), quint32(8)));
         QVERIFY(context.keySyms.isEmpty());
+    }
+
+    void preeditCarriesCommitFallbackAndByteCursor()
+    {
+        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        FakeInputMethodV1Context context;
+        QVERIFY(!backend.setPreedit(QStringLiteral("x")));   // no context
+        backend.setContext(&context);
+        backend.setLatestSerial(7);
+
+        QVERIFY(backend.setPreedit(QStringLiteral("при")));
+        QVERIFY(backend.setPreedit(QString()));
+
+        // The commit argument is what KWin commits by itself when keyboard
+        // focus moves to another surface, so an unfinished word is kept.
+        QCOMPARE(context.preedits.at(0), qMakePair(QStringLiteral("при"), QStringLiteral("при")));
+        QCOMPARE(context.cursors.at(0), 6);                       // bytes, cursor at end
+        QCOMPARE(context.order.mid(0, 2), QStringList({QStringLiteral("cursor"), QStringLiteral("string")}));
+        QCOMPARE(context.preedits.at(1), qMakePair(QString(), QString()));
+        QCOMPARE(context.lastSerial, quint32(7));
     }
 
     void commitUsesLatestSerial()
