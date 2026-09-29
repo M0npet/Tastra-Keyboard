@@ -26,3 +26,20 @@ The Alpha 0.1 integration adds a compact tools row (Clipboard, Emoji, Text editi
 Settings), persistent language/appearance preferences, language-specific long-press
 alternates, and editing navigation while keeping language switching on Globe/Space.
 See `docs/alpha-0.1.md` for the exact scope.
+
+## Current state (Beta 0.2.7)
+
+- Words are composed in the client's preedit (underlined while typing); Space,
+  punctuation, suggestions and glide commit them in one step. This is what
+  makes autocorrect reliable in Firefox/GTK. Can be switched off in Settings
+  ("Underline word while typing").
+- Autocorrect uses libhunspell (affix-aware) and is conservative; Backspace
+  right after a correction undoes it and remembers the word.
+- Two-thumb typing: each key tracks its own touch point.
+- Dictionaries: `v3kbd-dictionaries` (installed by the deploy script)
+  provisions EN/DE/RU via pacman and UK from a pinned, checksummed upstream
+  file. The keyboard itself never uses the network.
+- Diagnostics: `touch ~/.local/state/v3-keyboard/trace.enable`, relaunch,
+  read `~/.local/state/v3-keyboard/trace.log` (sizes/decisions only).
+
+See docs/beta-0.2.7-completion.md and docs/HANDOFF.md.

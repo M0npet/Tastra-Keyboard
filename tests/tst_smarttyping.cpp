@@ -245,10 +245,61 @@ private Q_SLOTS:
         QVERIFY(backend.commits.isEmpty());
         engine.space();
 
-        QCOMPARE(backend.commits, QStringList({QStringLiteral("the")}));
-        QCOMPARE(backend.preedit, QStringLiteral(" "));      // pending space
+        // The correction stays revertible (in the preedit) until the next key.
+        QVERIFY(backend.commits.isEmpty());
+        QCOMPARE(backend.preedit, QStringLiteral("the "));
+        engine.typeLetter(QStringLiteral("x"));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("the ")}));
+        QCOMPARE(backend.preedit, QStringLiteral("x"));
         QCOMPARE(backend.backspaces, 0);
         QVERIFY(backend.deletions.isEmpty());
+    }
+
+    void backspaceRightAfterAutocorrectRevertsAndRemembers()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+
+        for (const QChar ch : QStringLiteral("teh")) engine.typeLetter(QString(ch));
+        engine.space();
+        QCOMPARE(backend.preedit, QStringLiteral("the "));
+        engine.backspace();                                   // undo the correction
+        QCOMPARE(backend.preedit, QStringLiteral("teh"));
+        QCOMPARE(engine.currentWord(), QStringLiteral("teh"));
+        engine.space();                                       // keep what was typed
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("teh")}));
+
+        // Reverted words are learned and no longer autocorrected.
+        for (const QChar ch : QStringLiteral("teh")) engine.typeLetter(QString(ch));
+        engine.space();
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("teh"), QStringLiteral(" "), QStringLiteral("teh")}));
+        QCOMPARE(backend.preedit, QStringLiteral(" "));
+    }
+
+    void correctionThenDoubleSpaceOrEnterOrPunctuation()
+    {
+        for (const QString &finish : {QStringLiteral("space"), QStringLiteral("enter"), QStringLiteral(",")}) {
+            FakeBackend backend;
+            V3Keyboard::KeyboardController controller(backend);
+            V3Keyboard::TypingEngine engine(controller);
+            composing(backend, engine);
+            for (const QChar ch : QStringLiteral("teh")) engine.typeLetter(QString(ch));
+            engine.space();
+            if (finish == QStringLiteral("space")) {
+                engine.space();
+                QCOMPARE(backend.commits, QStringList({QStringLiteral("the. ")}));
+            } else if (finish == QStringLiteral("enter")) {
+                engine.enter();
+                QCOMPARE(backend.events.mid(backend.events.size() - 2),
+                         QStringList({QStringLiteral("commit:the"), QStringLiteral("enter")}));
+            } else {
+                engine.typeText(finish);
+                QCOMPARE(backend.commits, QStringList({QStringLiteral("the,")}));
+            }
+            QCOMPARE(backend.preedit, QString());
+        }
     }
 
     void compositionDoubleSpaceAndNextWord()
@@ -326,6 +377,24 @@ private Q_SLOTS:
         now += 1000;                                // a human-speed external edit
         echo(engine, QStringLiteral("hello wor"));
         QCOMPARE(engine.currentWord(), QStringLiteral("wor"));
+    }
+
+    void glidedWordBehavesLikeASuggestion()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+
+        engine.beginGlide(QStringLiteral("h"));
+        for (const QString &k : {QStringLiteral("e"), QStringLiteral("l"), QStringLiteral("o")}) engine.glideThrough(k);
+        QCOMPARE(engine.endGlide(), QStringLiteral("hello"));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("hello")}));
+        QCOMPARE(backend.preedit, QStringLiteral(" "));     // auto space, held
+        engine.space();                                     // confirms it, no period
+        engine.typeLetter(QStringLiteral("w"));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("hello"), QStringLiteral(" ")}));
     }
 
     void spaceAfterSuggestionIsNotADoubleSpace()

@@ -26,6 +26,17 @@ public:
     {
     }
 
+    ~ProtocolInputMethodV1Context() override
+    {
+        // input-method-v1: after deactivate the client must destroy the
+        // context. The generated wrapper's destructor does not, which leaked
+        // one proxy per focus change and left its listener pointing at this
+        // freed object.
+        if (object()) {
+            destroy();
+        }
+    }
+
     void commitString(quint32 serial, const QString &text) override
     {
         commit_string(serial, text);

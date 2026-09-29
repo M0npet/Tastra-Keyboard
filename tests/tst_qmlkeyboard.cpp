@@ -19,6 +19,8 @@
 #include "core/keyboardmodel.h"
 #include "core/locallexicon.h"
 
+#include <QPointingDevice>
+#include <QStyleHints>
 #include <QRegularExpression>
 #include <QSettings>
 
@@ -138,6 +140,87 @@ private Q_SLOTS:
         QTest::mouseMove(&view, centre + QPoint(1, 0));
         QTest::mouseRelease(&view, Qt::LeftButton, {}, centre + QPoint(1, 0));
         QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("Q")}));
+    }
+
+    void overlappingTwoThumbTapsAreBothCommitted()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+
+        auto centreOf = [&](const QString &label) {
+            QQuickItem *key = findText(view.rootObject(), label);
+            return key ? key->mapToScene(QPointF(key->width() / 2, key->height() / 2)).toPoint() : QPoint(-1, -1);
+        };
+        const QPoint left = centreOf(QStringLiteral("a"));
+        const QPoint right = centreOf(QStringLiteral("l"));
+        QVERIFY(left.x() >= 0 && right.x() >= 0);
+
+        static QPointingDevice *touch = QTest::createTouchDevice();
+        // Fast two-thumb typing: the right thumb lands before the left lifts.
+        QTest::touchEvent(&view, touch).press(0, left);
+        QTest::touchEvent(&view, touch).stationary(0).press(1, right);
+        QTest::touchEvent(&view, touch).release(0, left).stationary(1);
+        QTest::touchEvent(&view, touch).release(1, right);
+
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("a"), QStringLiteral("l")}));
+    }
+
+    void singleFingerGlideAndLongPressStillWork()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto centreOf = [&](const QString &label) {
+            QQuickItem *key = findText(view.rootObject(), label);
+            return key ? key->mapToScene(QPointF(key->width() / 2, key->height() / 2)).toPoint() : QPoint(-1, -1);
+        };
+
+        static QPointingDevice *touch = QTest::createTouchDevice();
+        // Glide h-e-l-o with one finger.
+        const QList<QPoint> path = {centreOf(QStringLiteral("h")), centreOf(QStringLiteral("e")),
+                                    centreOf(QStringLiteral("l")), centreOf(QStringLiteral("o"))};
+        QTest::touchEvent(&view, touch).press(0, path.first());
+        for (int i = 1; i < path.size(); ++i) {
+            const QPoint from = path.at(i - 1);
+            const QPoint to = path.at(i);
+            for (int step = 1; step <= 6; ++step) {
+                QTest::touchEvent(&view, touch).move(0, from + (to - from) * step / 6);
+            }
+        }
+        QTest::touchEvent(&view, touch).release(0, path.last());
+        QTRY_COMPARE(backend.commits.value(0), QStringLiteral("hello"));
+
+        // Long press on a key with an alternate commits the alternate (DE s -> ß).
+        bridge.setLanguage(QStringLiteral("de"));
+        // Let the old EN key delegates finish deleting so lookups hit DE keys.
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("ä")));
+        const QString alternate = bridge.alternateForKey(QStringLiteral("s"));
+        QCOMPARE(alternate, QStringLiteral("ß"));
+        backend.commits.clear();
+        const QPoint q = centreOf(QStringLiteral("s"));
+        QTest::touchEvent(&view, touch).press(0, q);
+        QTest::qWait(qApp->styleHints()->mousePressAndHoldInterval() + 200);
+        QTest::touchEvent(&view, touch).release(0, q);
+        QTRY_COMPARE(backend.commits, QStringList({alternate}));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

@@ -1,0 +1,23 @@
+# Handoff — V3 Keyboard (state at Beta 0.2.7 packaging, 2026-09-29)
+
+Device: Minisforum V3, Arch, Qt 6.11.2, KWin 6.7.5, hunspell 1.7.3,
+dictionaries en/de/ru (pacman) + uk (pinned LibreOffice upstream, user dir).
+Test browser: Firefox (GTK3, text-input-v3).
+
+Last live-tested install: Beta 0.2.5 (13/13 on device). 0.2.6 and 0.2.7 were
+built/tested in a Qt 6.4 sandbox only (panel shell needs Qt >= 6.5, so the
+binary itself is built by the deploy script on the device).
+
+Key design facts (read docs/ledger.md for evidence):
+- Firefox/GTK surrounding-text echoes are stale by construction; the keyboard
+  composes the current word in the preedit and never deletes text there.
+- Echoes never abandon a live preedit; KWin's reset ends it; unknown echoes
+  within 150 ms of an own operation are self-caused.
+- Corrections stay revertible in the preedit until the next key.
+- Keys use one touch point each; glide is bound to its finger.
+- Privacy-safe opt-in trace: ~/.local/state/v3-keyboard/trace.enable.
+
+User requirements: native only (no Java/Electron/Chromium), maximally
+economical, offline at runtime, dictionaries provisioned automatically at
+install time, root-cause debugging, TDD, coherent release slices; the user
+prefers finishing a slice fully and testing it all at once.

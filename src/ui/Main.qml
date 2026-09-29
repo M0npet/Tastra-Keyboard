@@ -73,6 +73,14 @@ Rectangle {
 
     function beginGlideCandidate(item, x, y) {
         if (!keyboardBridge.glideEnabled || keyboardBridge.symbolsActive || !item.glideEligible) return
+        if (glideStartItem && glideStartItem !== item) {
+            // A second finger is down: this is two-thumb tapping, not a glide.
+            if (!glideActive) {
+                glideStartItem = null
+                glideLastValue = ""
+            }
+            return
+        }
         var p = item.mapToItem(root, x, y)
         glideStartItem = item
         glideStartX = p.x
@@ -82,7 +90,9 @@ Rectangle {
     }
 
     function updateGlideCandidate(item, x, y) {
-        if (!glideStartItem || !keyboardBridge.glideEnabled) return
+        // Only the finger that started the candidate can turn it into a glide
+        // (its key keeps the touch grab and reports every move).
+        if (!glideStartItem || item !== glideStartItem || !keyboardBridge.glideEnabled) return
         var p = item.mapToItem(root, x, y)
         var dx = p.x - glideStartX
         var dy = p.y - glideStartY
@@ -103,6 +113,7 @@ Rectangle {
     }
 
     function finishGlideCandidate(item) {
+        if (item !== glideStartItem) return
         if (glideActive) {
             item.consumeRelease = true
             keyboardBridge.endGlide()
@@ -197,30 +208,64 @@ Rectangle {
             }
         }
 
-        MouseArea {
+        // One touch point per key: overlapping two-thumb taps land on
+        // different keys and are handled independently (MouseArea only ever
+        // sees the first touch). Mouse input keeps working (mouseEnabled).
+        MultiPointTouchArea {
             id: mouse
             anchors.fill: parent
+            mouseEnabled: true
+            maximumTouchPoints: 1
             property bool held: false
+            property bool pressed: false
+            property real lastX: 0
+            property real lastY: 0
 
-            onPressed: (mouse) => {
-                held = false
-                key.consumeRelease = false
-                key.pressStarted(mouse.x, mouse.y)
-            }
-            onPositionChanged: (mouse) => {
-                if (pressed) key.pointerMoved(mouse.x, mouse.y)
-            }
-            onPressAndHold: {
-                if (key.longPressEnabled) {
-                    held = true
-                    key.longPressed()
+            function inside(x, y) { return x >= 0 && y >= 0 && x <= width && y <= height }
+
+            Timer {
+                id: holdTimer
+                interval: Qt.styleHints.mousePressAndHoldInterval
+                onTriggered: {
+                    if (mouse.pressed && key.longPressEnabled && mouse.inside(mouse.lastX, mouse.lastY)) {
+                        mouse.held = true
+                        key.longPressed()
+                    }
                 }
             }
-            onReleased: (mouse) => key.pressEnded(mouse.x, mouse.y)
-            onClicked: {
-                if (!held && !key.consumeRelease) {
+
+            onPressed: (touchPoints) => {
+                const point = touchPoints[0]
+                pressed = true
+                held = false
+                lastX = point.x
+                lastY = point.y
+                key.consumeRelease = false
+                holdTimer.restart()
+                key.pressStarted(point.x, point.y)
+            }
+            onUpdated: (touchPoints) => {
+                if (!pressed || touchPoints.length === 0) return
+                lastX = touchPoints[0].x
+                lastY = touchPoints[0].y
+                key.pointerMoved(lastX, lastY)
+            }
+            onReleased: (touchPoints) => {
+                if (!pressed) return
+                const point = touchPoints.length > 0 ? touchPoints[0] : null
+                const x = point ? point.x : lastX
+                const y = point ? point.y : lastY
+                pressed = false
+                holdTimer.stop()
+                key.pressEnded(x, y)
+                if (inside(x, y) && !held && !key.consumeRelease) {
                     key.triggered()
                 }
+            }
+            onCanceled: (touchPoints) => {
+                pressed = false
+                held = false
+                holdTimer.stop()
             }
         }
     }

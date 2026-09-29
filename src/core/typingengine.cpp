@@ -96,11 +96,27 @@ bool TypingEngine::setPreeditLocal(const QString &text)
 QString TypingEngine::corrected(const QString &word) const
 {
     if (!m_autocorrectEnabled || word.isEmpty()) return word;
+    if (!m_noCorrectionFor.isEmpty() && word.compare(m_noCorrectionFor, Qt::CaseInsensitive) == 0) return word;
     const QString correction = m_lexicon.bestCorrection(word, m_previousWord);
     if (correction.isEmpty()) return word;
     QString formatted = correction;
     if (word.front().isUpper()) formatted[0] = formatted.at(0).toUpper();
     return formatted;
+}
+
+// Returns what is held in the preedit after a word (corrected word, if any,
+// plus the space) and clears that state. The caller commits it.
+QString TypingEngine::takePendingText()
+{
+    QString text = m_pendingWord;
+    if (!m_pendingWord.isEmpty()) {
+        m_currentWord = m_pendingWord;
+        finalizeCurrentWord();
+    }
+    m_pendingWord.clear();
+    m_pendingOriginal.clear();
+    m_pendingSpace = false;
+    return text;
 }
 
 void TypingEngine::commitComposition()
@@ -110,7 +126,7 @@ void TypingEngine::commitComposition()
         finalizeCurrentWord();
         commitLocal(word);
     } else if (m_pendingSpace) {
-        commitLocal(QStringLiteral(" "));
+        commitLocal(takePendingText() + QLatin1Char(' '));
     }
     m_composing = false;
     m_pendingSpace = false;
@@ -152,10 +168,7 @@ void TypingEngine::typeLetter(const QString &text)
         m_lastActionWasSpace = false;
         return;
     }
-    if (m_pendingSpace) {
-        m_pendingSpace = false;
-        commitLocal(QStringLiteral(" "));
-    }
+    if (m_pendingSpace) commitLocal(takePendingText() + QLatin1Char(' '));
     // Composition starts only at a word boundary so a word is never split
     // between committed text and preedit.
     if (!m_composing && m_currentWord.isEmpty() && compositionAvailable()) m_composing = true;
@@ -193,9 +206,9 @@ void TypingEngine::typeText(const QString &text)
         m_composing = false;
         commitLocal(word + text);
     } else if (m_pendingSpace) {
-        m_pendingSpace = false;
         // "word" Space "," -> "word," : the pending space is simply dropped.
-        commitLocal(punctuation ? text : QStringLiteral(" ") + text);
+        const QString held = takePendingText();
+        commitLocal(held + (punctuation ? text : QStringLiteral(" ") + text));
     } else {
         if (punctuation && !m_currentWord.isEmpty()) finalizeCurrentWord();
         commitLocal(text);
@@ -324,15 +337,26 @@ void TypingEngine::space()
         return;
     }
     if (m_composing) {
-        const QString word = corrected(m_currentWord);
-        m_currentWord = word;
-        finalizeCurrentWord();
+        const QString original = m_currentWord;
+        const QString word = corrected(original);
         m_composing = false;
-        commitLocal(word);
-        // Hold the space in the preedit: a second Space can then become ". "
-        // with a plain commit, no deletion needed.
-        if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
-        else commitLocal(QStringLiteral(" "));
+        m_noCorrectionFor.clear();
+        if (word != original && setPreeditLocal(word + QLatin1Char(' '))) {
+            // Keep the correction revertible: Backspace right now restores
+            // what was typed; any other key commits it. Nothing is deleted.
+            m_pendingWord = word;
+            m_pendingOriginal = original;
+            m_pendingSpace = true;
+            m_currentWord.clear();
+        } else {
+            m_currentWord = word;
+            finalizeCurrentWord();
+            commitLocal(word);
+            // Hold the space in the preedit: a second Space can then become
+            // ". " with a plain commit, no deletion needed.
+            if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
+            else commitLocal(QStringLiteral(" "));
+        }
         m_lastActionWasSpace = true;
         if (m_sentencePunctuationPending) {
             m_sentenceStart = true;
@@ -342,16 +366,16 @@ void TypingEngine::space()
         return;
     }
     if (m_pendingSpace) {
-        m_pendingSpace = false;
+        const QString held = takePendingText();
         if (m_doubleSpacePeriodEnabled && m_lastActionWasSpace && !m_previousWord.isEmpty()) {
-            commitLocal(QStringLiteral(". "));
+            commitLocal(held + QStringLiteral(". "));
             m_sentenceStart = true;
             m_sentencePunctuationPending = false;
             m_lastActionWasSpace = false;
             refreshSuggestions();
             return;
         }
-        commitLocal(QStringLiteral(" "));
+        commitLocal(held + QLatin1Char(' '));
         if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
         else commitLocal(QStringLiteral(" "));
         m_lastActionWasSpace = true;
@@ -401,6 +425,21 @@ void TypingEngine::space()
 void TypingEngine::backspace()
 {
     m_spaceFromSuggestion = false;
+    if (m_pendingSpace && !m_pendingWord.isEmpty()) {
+        // Undo the autocorrection: back to exactly what was typed, still
+        // composing, and do not correct that word again.
+        const QString original = m_pendingOriginal;
+        m_pendingWord.clear();
+        m_pendingOriginal.clear();
+        m_pendingSpace = false;
+        m_noCorrectionFor = original;
+        m_currentWord = original;
+        m_composing = true;
+        setPreeditLocal(original);
+        m_lastActionWasSpace = false;
+        refreshSuggestions();
+        return;
+    }
     if (m_pendingSpace) {
         m_pendingSpace = false;
         setPreeditLocal(QString());
@@ -436,8 +475,15 @@ void TypingEngine::backspaceRepeated(int count)
     m_spaceFromSuggestion = false;
     int bounded = qBound(1, count, 32);
     if (m_pendingSpace && bounded > 0) {
+        if (!m_pendingWord.isEmpty()) {
+            m_currentWord = m_pendingOriginal;   // revert, then keep deleting
+            m_noCorrectionFor = m_pendingOriginal;
+            m_pendingWord.clear();
+            m_pendingOriginal.clear();
+            m_composing = true;
+        }
         m_pendingSpace = false;
-        setPreeditLocal(QString());
+        setPreeditLocal(m_composing ? m_currentWord : QString());
         --bounded;
     }
     if (m_composing && bounded > 0) {
@@ -477,8 +523,9 @@ void TypingEngine::enter()
 {
     m_spaceFromSuggestion = false;
     if (m_pendingSpace) {
-        m_pendingSpace = false;
-        setPreeditLocal(QString());
+        const QString held = takePendingText();
+        if (!held.isEmpty()) commitLocal(held);      // corrected word, no trailing space
+        else setPreeditLocal(QString());
     }
     // Commit before the Return key: GTK applies text-input commits before
     // queued key events, so this order can never be inverted.
@@ -505,10 +552,7 @@ void TypingEngine::chooseSuggestion(const QString &word)
     }
 
     const bool composed = m_composing;
-    if (m_pendingSpace) {
-        m_pendingSpace = false;
-        commitLocal(QStringLiteral(" "));
-    }
+    if (m_pendingSpace) commitLocal(takePendingText() + QLatin1Char(' '));
     if (m_composing) {
         m_composing = false;
         commitLocal(selected);               // replaces the preedit atomically
@@ -551,6 +595,8 @@ void TypingEngine::refreshSuggestions()
 void TypingEngine::resetComposition()
 {
     m_spaceFromSuggestion = false;
+    m_pendingWord.clear();
+    m_pendingOriginal.clear();
     m_composing = false;
     m_pendingSpace = false;
     m_currentWord.clear();
@@ -629,6 +675,8 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
     m_composing = false;
     m_pendingSpace = false;
     m_spaceFromSuggestion = false;
+    m_pendingWord.clear();
+    m_pendingOriginal.clear();
     m_history = {before};
     m_model = before;
     m_inSync = true;
@@ -692,13 +740,9 @@ QString TypingEngine::endGlide()
     if (decoded.isEmpty()) return {};
 
     const QString formatted = formatForSentence(decoded);
-    commitLocal(formatted);
-    m_currentWord = formatted;
-    m_sentenceStart = false;
-    finalizeCurrentWord();
-    commitLocal(QStringLiteral(" "));
-    m_lastActionWasSpace = true;
-    refreshSuggestions();
+    // Same flow as tapping a suggestion: commit the word, hold the automatic
+    // space so a following Space confirms it instead of making ". ".
+    chooseSuggestion(formatted);
     return formatted;
 }
 

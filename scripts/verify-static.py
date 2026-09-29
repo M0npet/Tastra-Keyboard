@@ -226,6 +226,12 @@ for path, token, why in (
     ('src/core/typingengine.cpp', 'ignored while composing', 'echoes never abandon a live preedit (0.2.6)'),
     ('src/core/typingengine.cpp', 'constexpr qint64 SettleMs = 150;', 'settle window sized from device trace'),
     ('tests/tst_smarttyping.cpp', 'placeholderEchoDuringCompositionKeepsPendingSpace', '0.2.6 trace regression'),
+    ('src/ui/Main.qml', 'maximumTouchPoints: 1', 'per-key touch handling for two-thumb typing (0.2.7)'),
+    ('src/ui/Main.qml', 'if (item !== glideStartItem) return', 'glide bound to the finger that started it'),
+    ('tests/tst_qmlkeyboard.cpp', 'overlappingTwoThumbTapsAreBothCommitted', 'two-thumb regression'),
+    ('src/core/typingengine.cpp', 'm_pendingOriginal', 'revertible autocorrection'),
+    ('tests/tst_smarttyping.cpp', 'backspaceRightAfterAutocorrectRevertsAndRemembers', 'undo autocorrect'),
+    ('src/platform/kwin/kwininputmethodv1connection.cpp', '~ProtocolInputMethodV1Context() override', 'contexts destroyed after deactivate'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')

@@ -87,6 +87,7 @@ private:
     bool compositionAvailable() const;
     bool setPreeditLocal(const QString &text);
     QString corrected(const QString &word) const;
+    QString takePendingText();
 
     KeyboardController &m_controller;
     LocalLexicon m_lexicon;
@@ -109,6 +110,9 @@ private:
     bool m_composing = false;       // m_currentWord lives in the client's preedit
     bool m_pendingSpace = false;    // a space lives in the client's preedit
     bool m_spaceFromSuggestion = false; // that space was added by a suggestion
+    QString m_pendingWord;          // autocorrected word held with the pending space (revertible)
+    QString m_pendingOriginal;      // what the user actually typed
+    QString m_noCorrectionFor;      // word the user just reverted
     bool m_preeditRejected = false; // backend/client cannot show preedit
     bool m_inSync = false;
     std::function<qint64()> m_clock;

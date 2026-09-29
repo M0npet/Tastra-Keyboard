@@ -115,6 +115,16 @@ private Q_SLOTS:
         QVERIFY(lexicon.bestCorrection(QStringLiteral("form")).isEmpty());
     }
 
+    void learnedWordsBeatTheCuratedTypoList()
+    {
+        useNoDictionaries();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("teh")), QStringLiteral("the"));
+        lexicon.learnWordWithContext(QStringLiteral("teh"), {});   // the user kept it
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("teh")).isEmpty());
+    }
+
     void prefixCompletionsUseDictionaryAndCoreWords()
     {
         useFixtureDictionaries();

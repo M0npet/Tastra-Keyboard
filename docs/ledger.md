@@ -653,3 +653,22 @@ leaving stale context (bridge test cursorMovesAndLanguageSwitch... RED: "N"
 instead of "n"). Fix: forgetting the text state (cursor move, paste, client
 reset) disables the settle window for the next echo. Process note: the first
 0.2.6 commit was made while that test was red; it was amended after GREEN.
+
+## 2026-09-29 — Beta 0.2.7 v0.2 completion slice
+
+User: "finish the project, then we test". Scope = make the approved v0.2
+milestone solid on the tablet; deferred spec items untouched.
+RED (observed before each fix):
+- overlappingTwoThumbTapsAreBothCommitted: 1 of 2 letters (MouseArea sees only
+  the first touch); after switching to MultiPointTouchArea: 0 of 2 — the glide
+  candidate treated two fingers as a swipe; fixed by binding glide to its
+  finger. singleFingerGlideAndLongPressStillWork guards the gestures (test
+  itself needed a fix: stale EN delegate lookup after a language switch).
+- compositionCommitsCorrectedWordWithoutDeletions (updated design),
+  backspaceRightAfterAutocorrectRevertsAndRemembers,
+  correctionThenDoubleSpaceOrEnterOrPunctuation; revert exposed that the
+  curated typo list overrode learned words (learnedWordsBeatTheCuratedTypoList).
+- glidedWordBehavesLikeASuggestion.
+- Context destroy after deactivate: compile-verified only (no compositor in
+  the sandbox); exercised on device by every focus change.
+Sandbox: 10/10 CTest + 3/3 KWin overlay, static verify OK.

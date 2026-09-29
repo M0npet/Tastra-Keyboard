@@ -578,6 +578,9 @@ QString LocalLexicon::bestCorrection(const QString &word, const QString &previou
     const QString typed = normalize(word);
     // Two-character tokens are too ambiguous for automatic replacement.
     if (typed.size() < 3) return {};
+    // Words the user has kept (typed and committed, or restored by undoing a
+    // correction) are never rewritten, not even from the curated typo list.
+    if (m_personalFrequency.value(typed) > 0) return {};
     const auto typo = m_typoMap.constFind(typed);
     if (typo != m_typoMap.constEnd()) return typo.value();
 
