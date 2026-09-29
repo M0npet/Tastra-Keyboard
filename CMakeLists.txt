@@ -16,8 +16,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(CTest)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Test WaylandClient)
-find_package(Qt6GuiPrivate CONFIG REQUIRED)
-find_package(Qt6WaylandClientPrivate CONFIG REQUIRED)
+# Qt >= 6.9 ships private modules as separate CMake packages (Arch: Qt 6.11).
+# Older Qt defines the private targets together with the public module.
+if(NOT TARGET Qt6::GuiPrivate)
+    find_package(Qt6GuiPrivate CONFIG REQUIRED)
+endif()
+if(NOT TARGET Qt6::WaylandClientPrivate)
+    find_package(Qt6WaylandClientPrivate CONFIG REQUIRED)
+endif()
 find_package(PkgConfig REQUIRED)
 pkg_get_variable(WAYLAND_PROTOCOLS_DATADIR wayland-protocols pkgdatadir)
 
@@ -54,9 +60,15 @@ add_library(v3keyboard-platform-kwin STATIC
     src/platform/kwin/kwininputpanelsurface.cpp
 )
 
+# PRIVATE_CODE exists since Qt 6.8; older Qt only knows the (default) public code.
+set(V3KBD_WAYLAND_CODE_VISIBILITY)
+if(Qt6WaylandClient_VERSION VERSION_GREATER_EQUAL 6.8)
+    set(V3KBD_WAYLAND_CODE_VISIBILITY PRIVATE_CODE)
+endif()
+
 qt_generate_wayland_protocol_client_sources(
     v3keyboard-platform-kwin
-    PRIVATE_CODE
+    ${V3KBD_WAYLAND_CODE_VISIBILITY}
     NO_INCLUDE_CORE_ONLY
     FILES
         "${INPUT_METHOD_V1_PROTOCOL}"
@@ -308,4 +320,15 @@ if(BUILD_TESTING)
     )
     target_link_libraries(tst_clipboardemoji PRIVATE v3keyboard-core Qt6::Test)
     add_test(NAME clipboardemoji COMMAND tst_clipboardemoji)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(tst_qmlkeyboard
+        tests/tst_qmlkeyboard.cpp
+    )
+    target_compile_definitions(tst_qmlkeyboard PRIVATE
+        V3KBD_MAIN_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Main.qml")
+    target_link_libraries(tst_qmlkeyboard PRIVATE v3keyboard-app Qt6::Quick Qt6::Qml Qt6::Test)
+    add_test(NAME qmlkeyboard COMMAND tst_qmlkeyboard)
+    set_tests_properties(qmlkeyboard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
