@@ -6,6 +6,7 @@
 
 #include <QtTest/QTest>
 
+#include <QColor>
 #include <QGuiApplication>
 #include <QPointer>
 #include <QQmlContext>
@@ -455,6 +456,35 @@ private Q_SLOTS:
         backend.commits.clear();                 // insertEmoji above committed one already
         QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findNamed(view.rootObject(), QStringLiteral("emojiRowKey_😀"))));
         QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("😀")}));
+    }
+
+    void lightDarkAndAmoledPalettes()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        QCOMPARE(view.status(), QQuickView::Ready);
+        auto colour = [&](const char *name) { return view.rootObject()->property(name).value<QColor>(); };
+        bridge.setTheme(QStringLiteral("light"));
+        QCOMPARE(colour("backgroundColor"), QColor(QStringLiteral("#e8eaed")));
+        QCOMPARE(colour("keyColor"), QColor(QStringLiteral("#ffffff")));
+        QCOMPARE(colour("textColor"), QColor(QStringLiteral("#202124")));
+        bridge.setTheme(QStringLiteral("dark"));
+        QCOMPARE(colour("backgroundColor"), QColor(QStringLiteral("#202124")));
+        bridge.setTheme(QStringLiteral("amoled"));
+        QCOMPARE(colour("backgroundColor"), QColor(QStringLiteral("#000000")));
+        QCOMPARE(colour("textColor"), QColor(QStringLiteral("#f1f3f4")));
+
+        // Settings show version and data attributions.
+        bridge.activateToolbarAction(QStringLiteral("settings"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("aboutText")));
+        const QString about = findNamed(view.rootObject(), QStringLiteral("aboutText"))->property("text").toString();
+        QVERIFY(about.contains(bridge.version()));
+        QVERIFY(about.contains(QStringLiteral("CC BY-SA 4.0")));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

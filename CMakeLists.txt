@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 0.7.0
+    VERSION 1.0.0
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -118,6 +118,7 @@ target_include_directories(v3keyboard-app
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+target_compile_definitions(v3keyboard-app PRIVATE V3KBD_VERSION="${PROJECT_VERSION}")
 target_link_libraries(v3keyboard-app
     PUBLIC
         v3keyboard-core

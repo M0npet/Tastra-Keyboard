@@ -1,75 +1,66 @@
-# V3 Keyboard
+# V3 Keyboard 1.0
 
-A privacy-first, highly customizable virtual keyboard for Wayland.
+A Gboard-like on-screen keyboard for KDE Plasma 6 on Wayland (KWin), made for
+the Minisforum V3 tablet. Native C++/Qt 6/QML — no Java, Electron or browser
+engine — fully offline, economical (one language in memory, data loaded in the
+background). GPL-3.0-or-later (see COPYING).
 
-## Goals
+## Install / update
 
-- First-class KDE Plasma / KWin integration
-- Portable Wayland compositor backends
-- Gboard-class customization
-- Offline prediction and personalization
-- No Google services
-- No telemetry
-- No mandatory network access
+From a release bundle:
 
-## Architecture
+    mkdir -p ~/Downloads/v3kbd && tar --zstd -xf v3-keyboard-*-bundle.tar.zst -C ~/Downloads/v3kbd
+    cd ~/Downloads/v3kbd && sha256sum -c SHA256SUMS && ./v3kbd-*-deploy.sh
+    kcmshell6 kcm_virtualkeyboard      # None -> Apply -> V3 Keyboard -> Apply
 
-Plasma-first, Wayland-native, compositor-agnostic core.
+The deploy script builds in an isolated git worktree, runs the full test suite
+and installs only when everything is green (the previous binary is backed up).
 
-First development milestone:
+- Dictionaries: `v3kbd-dictionaries [--status]` (EN/DE/RU via pacman, UK from a
+  pinned, checksummed upstream file).
+- Voice (optional): `v3kbd-voice-setup [--status|--remove]`, then re-run deploy.
+- Roll back to the previous build: `v3kbd-rollback`.
+- Uninstall: `v3kbd-uninstall [--purge]`.
 
-touch key -> keyboard model -> KWin input-method-v1 -> real Wayland text field
+## Typing
 
-## Alpha 0.1 live-test surface
+- Words are composed underlined (preedit) and committed by Space, punctuation,
+  a suggestion or glide — reliable autocorrect even in Firefox.
+- Autocorrect (libhunspell + word frequency + neighbouring keys), conservative;
+  Backspace right after a correction undoes it and remembers the word.
+- Suggestion strip: “typed” word, **correction** (what Space inserts), next
+  best; first-letter completions; next-word predictions from your own typing;
+  emoji suggestions; long-press a suggestion to remove it; offensive words are
+  never suggested (Settings).
+- Glide typing with trail; two-thumb typing; long-press for symbols with key
+  hints and a picker (accents, ß/ё/ґ, digits); period long-press for 16 marks.
+- Gestures: Space drag moves the cursor, Backspace drag deletes, `?123` slide
+  for a quick symbol, Shift slide for one capital, double-space for ". ".
+- Field-aware: number pad in number/phone fields, `@`/`/` and `.com` in
+  e-mail/URL fields, no autocorrect/learning in passwords, URLs, e-mail.
+- Text shortcuts: `~/.config/v3-keyboard/shortcuts.txt` (`omw = on my way`).
+- Emoji panel with search in EN/DE/RU/UK, recent emoji, optional fast-access row.
+- Clipboard history, text-editing panel, compact (one-handed) layout, number
+  row, themes (System/Light/Dark/AMOLED), offline voice input (optional).
 
-The Alpha 0.1 integration adds a compact tools row (Clipboard, Emoji, Text editing,
-Settings), persistent language/appearance preferences, language-specific long-press
-alternates, and editing navigation while keeping language switching on Globe/Space.
-See `docs/alpha-0.1.md` for the exact scope.
+## Privacy
 
-## Current state (Beta 0.2.7)
+Nothing leaves the device. Learned words stay in `~/.config/V3Keyboard`.
+Dictation audio stays in memory only (max 30 s) and is erased after
+recognition. The optional trace (`touch ~/.local/state/v3-keyboard/trace.enable`)
+records sizes and decisions only, never text.
 
-- Words are composed in the client's preedit (underlined while typing); Space,
-  punctuation, suggestions and glide commit them in one step. This is what
-  makes autocorrect reliable in Firefox/GTK. Can be switched off in Settings
-  ("Underline word while typing").
-- Autocorrect uses libhunspell (affix-aware) and is conservative; Backspace
-  right after a correction undoes it and remembers the word.
-- Two-thumb typing: each key tracks its own touch point.
-- Dictionaries: `v3kbd-dictionaries` (installed by the deploy script)
-  provisions EN/DE/RU via pacman and UK from a pinned, checksummed upstream
-  file. The keyboard itself never uses the network.
-- Diagnostics: `touch ~/.local/state/v3-keyboard/trace.enable`, relaunch,
-  read `~/.local/state/v3-keyboard/trace.log` (sizes/decisions only).
+## Third-party data
 
-See docs/beta-0.2.7-completion.md and docs/HANDOFF.md.
+FrequencyWords (CC BY-SA 4.0), Unicode CLDR annotations (Unicode License V3),
+LDNOOBW word lists (CC BY 4.0), Hunspell dictionaries (system packages),
+LibreOffice uk_UA dictionary (MPL-1.1), optional whisper.cpp + ggml model
+(MIT). Details: `data/*/ATTRIBUTION.md`, installed to
+`~/.local/share/doc/v3-keyboard`.
 
-## 0.3.0 additions
+## Development
 
-- Frequency-ranked suggestions and autocorrect prior (bundled word lists,
-  filtered through Hunspell; attribution in data/frequency/ATTRIBUTION.md).
-- Emoji search with CLDR keywords in EN/DE/RU/UK (data/emoji/ATTRIBUTION.md).
-- Compact layout (left/right) in Settings.
+    cmake -S . -B build -G Ninja && cmake --build build && ctest --test-dir build
+    python3 scripts/verify-static.py
 
-## 0.4.0 addition: offline voice input (opt-in)
-
-`v3kbd-voice-setup` installs whisper.cpp + Qt Multimedia and a 60 MB model;
-the keyboard then shows a 🎤 key. Everything runs locally. See docs/release-0.4.0.md.
-
-## 0.5.0: Gboard behaviours
-
-Long-press symbols with key hints and a slide picker, period punctuation,
-number row, emoji suggestions, offensive-word filter (on by default),
-long-press a suggestion to remove it. See docs/release-0.5.0.md.
-
-## 0.6.0: more Gboard logic
-
-Neighbour-key corrections, Gboard-style strip (“typed” + bold correction),
-number pad / @ / / / .com by field type, long-press comma for emoji, text
-shortcuts (~/.config/v3-keyboard/shortcuts.txt), recent emoji, gesture trail.
-
-## 0.7.0: Gboard gestures
-
-?123 slide for fast symbols, Shift slide for a capital, apostrophe returns to
-letters, auto-space after punctuation (opt-in), emoji fast-access row (opt-in),
-16 marks on period long-press.
+History, evidence and decisions: `docs/ledger.md`, `CHANGELOG.md`, `docs/HANDOFF.md`.

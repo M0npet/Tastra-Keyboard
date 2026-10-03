@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+
+#include <QGuiApplication>
+#include <QStyleHints>
 #include <QStandardPaths>
 #include <QFile>
 #include "voicecontroller.h"
@@ -45,6 +48,21 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
+    {
+        const QString stored = settings.value(QStringLiteral("theme")).toString();
+        if (stored == QStringLiteral("system") || stored == QStringLiteral("light")
+            || stored == QStringLiteral("dark") || stored == QStringLiteral("amoled")) {
+            m_theme = stored;
+        } else if (m_amoled) {
+            m_theme = QStringLiteral("amoled");        // migrate the pre-1.0 toggle
+        }
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    if (qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
+        connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged,
+                this, &KeyboardUiBridge::uiPreferencesChanged);
+    }
+#endif
     loadShortcuts();
     m_emojiSuggestions = settings.value(QStringLiteral("emojiSuggestions"), true).toBool();
     m_autoSpaceAfterPunctuation = settings.value(QStringLiteral("autoSpaceAfterPunctuation"), false).toBool();
@@ -271,7 +289,38 @@ QVariantList KeyboardUiBridge::toolbarActions() const
     return result;
 }
 
-bool KeyboardUiBridge::amoled() const { return m_amoled; }
+bool KeyboardUiBridge::amoled() const { return effectiveTheme() == QStringLiteral("amoled"); }
+QString KeyboardUiBridge::theme() const { return m_theme; }
+QString KeyboardUiBridge::version() const { return QStringLiteral(V3KBD_VERSION); }
+
+QString KeyboardUiBridge::effectiveTheme() const
+{
+    if (m_theme != QStringLiteral("system")) return m_theme;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    if (qobject_cast<QGuiApplication *>(QCoreApplication::instance())
+        && QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Light) {
+        return QStringLiteral("light");
+    }
+#endif
+    return QStringLiteral("dark");
+}
+
+void KeyboardUiBridge::setTheme(const QString &theme)
+{
+    if (theme != QStringLiteral("system") && theme != QStringLiteral("light")
+        && theme != QStringLiteral("dark") && theme != QStringLiteral("amoled")) return;
+    if (m_theme == theme) return;
+    m_theme = theme;
+    persistPreference(QStringLiteral("theme"), theme);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::cycleTheme()
+{
+    static const QStringList order = {QStringLiteral("system"), QStringLiteral("light"),
+                                      QStringLiteral("dark"), QStringLiteral("amoled")};
+    setTheme(order.at((order.indexOf(m_theme) + 1) % order.size()));
+}
 QString KeyboardUiBridge::layoutMode() const { return m_layoutMode; }
 bool KeyboardUiBridge::voiceBuilt() const { return m_voice != nullptr; }
 QString KeyboardUiBridge::voiceState() const { return m_voice ? m_voice->state() : QStringLiteral("unavailable"); }
@@ -618,10 +667,8 @@ void KeyboardUiBridge::clearClipboardHistory()
 
 void KeyboardUiBridge::setAmoled(bool enabled)
 {
-    if (m_amoled == enabled) return;
-    m_amoled = enabled;
-    persistPreference(QStringLiteral("amoled"), enabled);
-    Q_EMIT uiPreferencesChanged();
+    // Kept for compatibility; themes are chosen with setTheme().
+    setTheme(enabled ? QStringLiteral("amoled") : QStringLiteral("dark"));
 }
 
 void KeyboardUiBridge::setLayoutMode(const QString &mode)

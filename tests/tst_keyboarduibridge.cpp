@@ -339,6 +339,33 @@ private Q_SLOTS:
         QVERIFY(bridge.alternatesForKey(QStringLiteral(".")).contains(QStringLiteral("%")));
     }
 
+    void themesFollowGboardIncludingSystem()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        {
+            QSettings().setValue(QStringLiteral("amoled"), true);       // pre-1.0 setting
+            V3Keyboard::KeyboardUiBridge migrated(controller, model);
+            QCOMPARE(migrated.theme(), QStringLiteral("amoled"));
+            QSettings().clear();
+        }
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QCOMPARE(bridge.theme(), QStringLiteral("system"));
+        QVERIFY(bridge.effectiveTheme() == QStringLiteral("dark") || bridge.effectiveTheme() == QStringLiteral("light"));
+        const QStringList order = {QStringLiteral("light"), QStringLiteral("dark"), QStringLiteral("amoled"), QStringLiteral("system")};
+        for (const QString &next : order) {
+            bridge.cycleTheme();
+            QCOMPARE(bridge.theme(), next);
+        }
+        bridge.setTheme(QStringLiteral("light"));
+        QCOMPARE(bridge.effectiveTheme(), QStringLiteral("light"));
+        QVERIFY(!bridge.amoled());
+        bridge.setTheme(QStringLiteral("bogus"));
+        QCOMPARE(bridge.theme(), QStringLiteral("light"));
+        QVERIFY(!bridge.version().isEmpty());
+    }
+
     void tapTextReachesController()
     {
         FakeBackend backend;

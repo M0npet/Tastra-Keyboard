@@ -47,6 +47,10 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool secureInput READ secureInput NOTIFY inputContextChanged)
 
     Q_PROPERTY(bool amoled READ amoled WRITE setAmoled NOTIFY uiPreferencesChanged)
+    // "system" (follows Plasma light/dark), "light", "dark" or "amoled".
+    Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(QString effectiveTheme READ effectiveTheme NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(bool symbolHints READ symbolHints WRITE setSymbolHints NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool numberRow READ numberRow WRITE setNumberRow NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool autoSpaceAfterPunctuation READ autoSpaceAfterPunctuation WRITE setAutoSpaceAfterPunctuation NOTIFY typingPreferencesChanged)
@@ -103,6 +107,9 @@ public:
     QStringList suggestions() const;
 
     bool amoled() const;
+    QString theme() const;
+    QString effectiveTheme() const;
+    QString version() const;
     bool emojiSuggestionsEnabled() const;
     bool autoSpaceAfterPunctuation() const;
     bool emojiRow() const;
@@ -171,6 +178,8 @@ public:
     Q_INVOKABLE void clearClipboardHistory();
 
     Q_INVOKABLE void setAmoled(bool enabled);
+    Q_INVOKABLE void setTheme(const QString &theme);
+    Q_INVOKABLE void cycleTheme();
     Q_INVOKABLE void setEmojiSuggestionsEnabled(bool enabled);
     Q_INVOKABLE void setAutoSpaceAfterPunctuation(bool enabled);
     Q_INVOKABLE void setEmojiRow(bool enabled);
@@ -234,6 +243,7 @@ private:
     PanelManager m_panelManager;
 
     bool m_amoled = false;
+    QString m_theme = QStringLiteral("system");
     bool m_emojiSuggestions = true;
     bool m_autoSpaceAfterPunctuation = false;
     bool m_emojiRow = false;

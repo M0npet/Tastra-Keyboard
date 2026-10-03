@@ -761,3 +761,20 @@ assertion vacuous (insertEmoji had already committed the glyph) — fixed to
 assert the click's own commit. A QML property typo (glyphValue vs glideValue)
 was caught by reading the diff before running.
 Sandbox: voice ON 12/12, voice OFF 11/11, KWin 3/3, static verify OK.
+
+## 2026-10-03 — 1.0.0 (user: "push to 1.0, then test")
+
+1.0 = ready for daily use rather than new features:
+- Themes: added System/Light (Gboard-like Material palette) next to Dark and
+  AMOLED; ~10 hard-coded colours moved onto the palette; pre-1.0 "amoled"
+  setting migrated. System follows QStyleHints::colorScheme (Qt >= 6.5; Qt 6.4
+  falls back to dark).
+- Found: the repository had no license text despite SPDX headers; added the
+  official GPL-3.0-or-later text from SPDX's license-list-data (COPYING).
+- About block in Settings; docs + attributions installed; Release build.
+- v3kbd-rollback / v3kbd-uninstall [--purge], exercised against a fake home.
+- Settings panel was checked for overflow: it already scrolls (Flickable).
+RED->GREEN: themesFollowGboardIncludingSystem (compile-RED), palette/about UI
+test. A scripted QML edit aborted on a wrong occurrence count (no file
+written); redone with occurrence-agnostic replacement scoped to the body.
+Process note: the 1.0 commit was made before the final full run; the run afterwards (Release, voice ON 12/12, OFF 11/11, KWin 3/3, static OK) confirmed it.

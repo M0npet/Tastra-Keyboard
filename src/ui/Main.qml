@@ -23,13 +23,21 @@ Rectangle {
         metrics.maxContentWidth
     ) * (compact ? 0.62 : 1.0)
     readonly property real baseKeyWidth: (contentWidth - keyGap * 9) / 10
-    readonly property color backgroundColor: keyboardBridge.amoled ? "#000000" : "#202124"
-    readonly property color panelColor: keyboardBridge.amoled ? "#080808" : "#292a2d"
-    readonly property color keyColor: keyboardBridge.amoled ? "#171717" : "#3c4043"
-    readonly property color specialKeyColor: keyboardBridge.amoled ? "#242424" : "#5f6368"
-    readonly property color borderColor: keyboardBridge.amoled ? "#333333" : "#56595e"
-    readonly property color textColor: "#f1f3f4"
-    readonly property color accentColor: "#8ab4f8"
+    // Palette: Gboard-like light and dark themes; "system" follows Plasma.
+    readonly property string themeName: keyboardBridge.effectiveTheme
+    readonly property bool lightTheme: themeName === "light"
+    readonly property bool amoledTheme: themeName === "amoled"
+    readonly property color backgroundColor: lightTheme ? "#e8eaed" : amoledTheme ? "#000000" : "#202124"
+    readonly property color panelColor: lightTheme ? "#f1f3f4" : amoledTheme ? "#080808" : "#292a2d"
+    readonly property color keyColor: lightTheme ? "#ffffff" : amoledTheme ? "#171717" : "#3c4043"
+    readonly property color specialKeyColor: lightTheme ? "#cdd0d4" : amoledTheme ? "#242424" : "#5f6368"
+    readonly property color borderColor: lightTheme ? "#c4c7c5" : amoledTheme ? "#333333" : "#56595e"
+    readonly property color textColor: lightTheme ? "#202124" : "#f1f3f4"
+    readonly property color secondaryTextColor: lightTheme ? "#5f6368" : "#9aa0a6"
+    readonly property color accentColor: lightTheme ? "#1a73e8" : "#8ab4f8"
+    readonly property color pressedColor: lightTheme ? "#d2d5d9" : "#60656a"
+    readonly property color accentPressedColor: lightTheme ? "#8ab4f8" : "#9fc3ff"
+    readonly property color selectedColor: lightTheme ? "#d2e3fc" : "#465c78"
     property bool toolbarExpanded: false
     property string emojiCategory: "All"
     property var glideKeys: []
@@ -226,7 +234,7 @@ Rectangle {
         border.color: root.borderColor
 
         color: mouse.pressed
-            ? (accent ? "#9fc3ff" : "#60656a")
+            ? (accent ? root.accentPressedColor : root.pressedColor)
             : (accent
                 ? root.accentColor
                 : (special ? root.specialKeyColor : root.keyColor))
@@ -286,7 +294,7 @@ Rectangle {
                         Text {
                             anchors.centerIn: parent
                             text: modelData
-                            color: index === key.choiceIndex ? root.backgroundColor : "#ffffff"
+                            color: index === key.choiceIndex ? root.backgroundColor : root.textColor
                             font.pixelSize: root.metrics.fontSize + 3
                             font.weight: Font.Medium
                         }
@@ -327,7 +335,7 @@ Rectangle {
             Text {
                 anchors.centerIn: parent
                 text: mouse.held && key.alternate.length > 0 ? key.alternate : key.label
-                color: "#ffffff"
+                color: root.textColor
                 font.pixelSize: root.metrics.fontSize + 5
                 font.weight: Font.Medium
             }
@@ -420,7 +428,7 @@ Rectangle {
         radius: 12
         opacity: enabled ? 1.0 : 0.42
         color: panelButtonMouse.pressed
-            ? "#60656a"
+            ? root.pressedColor
             : (accent ? root.accentColor : root.specialKeyColor)
         border.width: keyboardBridge.keyBorders ? 1 : 0
         border.color: root.borderColor
@@ -606,7 +614,7 @@ Rectangle {
                         radius: 12
                         color: toolbarMouse.pressed
                             ? root.specialKeyColor
-                            : (selected ? "#465c78" : "transparent")
+                            : (selected ? root.selectedColor : "transparent")
                         border.width: selected && keyboardBridge.keyBorders ? 1 : 0
                         border.color: root.accentColor
                         opacity: modelData.enabled ? 1.0 : 0.40
@@ -714,7 +722,7 @@ Rectangle {
                     height: root.portrait ? 58 : 50
                     radius: 13
                     color: keyboardBridge.languageCode === modelData
-                        ? "#465c78"
+                        ? root.selectedColor
                         : (languageMouse.pressed ? root.keyColor : "transparent")
 
                     Rectangle {
@@ -724,7 +732,7 @@ Rectangle {
                         width: root.portrait ? 38 : 34
                         height: width
                         radius: width / 2
-                        color: keyboardBridge.languageCode === modelData ? "#4f7db8" : root.keyColor
+                        color: keyboardBridge.languageCode === modelData ? root.selectedColor : root.keyColor
 
                         Text {
                             anchors.centerIn: parent
@@ -1202,7 +1210,7 @@ Rectangle {
                         text: keyboardBridge.clipboardText.length > 0
                             ? keyboardBridge.clipboardText
                             : "Clipboard is empty"
-                        color: keyboardBridge.clipboardText.length > 0 ? root.textColor : "#9aa0a6"
+                        color: keyboardBridge.clipboardText.length > 0 ? root.textColor : root.secondaryTextColor
                         font.pixelSize: root.portrait ? 15 : 13
                         wrapMode: Text.Wrap
                         elide: Text.ElideRight
@@ -1273,7 +1281,7 @@ Rectangle {
                             Text {
                                 anchors.centerIn: parent
                                 text: "×"
-                                color: "#bdc1c6"
+                                color: root.secondaryTextColor
                                 font.pixelSize: root.portrait ? 22 : 19
                             }
                             MouseArea {
@@ -1324,7 +1332,7 @@ Rectangle {
                             visible: emojiSearchInput.text.length === 0
                             anchors.verticalCenter: parent.verticalCenter
                             text: "Search emoji (physical keyboard or category chips)"
-                            color: "#9aa0a6"
+                            color: root.secondaryTextColor
                             font.pixelSize: root.portrait ? 15 : 13
                         }
                     }
@@ -1346,7 +1354,7 @@ Rectangle {
                                 height: root.portrait ? 40 : 34
                                 width: categoryText.implicitWidth + 24
                                 radius: height / 2
-                                color: root.emojiCategory === modelData ? "#465c78" : root.keyColor
+                                color: root.emojiCategory === modelData ? root.selectedColor : root.keyColor
                                 Text {
                                     id: categoryText
                                     anchors.centerIn: parent
@@ -1448,7 +1456,7 @@ Rectangle {
                     Row {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - themeButton.width - parent.spacing; height: themeButton.height; verticalAlignment: Text.AlignVCenter; text: "Theme"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: themeButton; width: root.portrait ? 170 : 150; label: keyboardBridge.amoled ? "AMOLED" : "Dark"; onTriggered: keyboardBridge.setAmoled(!keyboardBridge.amoled) }
+                        PanelButton { id: themeButton; width: root.portrait ? 170 : 150; label: keyboardBridge.theme === "system" ? "System" : keyboardBridge.theme === "light" ? "Light" : keyboardBridge.theme === "amoled" ? "AMOLED" : "Dark"; onTriggered: keyboardBridge.cycleTheme() }
                     }
 
                     Row {
@@ -1571,6 +1579,21 @@ Rectangle {
                         width: root.portrait ? 230 : 210
                         label: "Clear learned words"
                         onTriggered: keyboardBridge.clearLearnedWords()
+                    }
+                
+                    Text {
+                        // About: version, license and data sources (1.0).
+                        objectName: "aboutText"
+                        width: parent.width
+                        topPadding: 12
+                        wrapMode: Text.WordWrap
+                        color: root.secondaryTextColor
+                        font.pixelSize: root.portrait ? 14 : 12
+                        text: "V3 Keyboard " + keyboardBridge.version + " · GPL-3.0-or-later · works offline\n"
+                            + "Data: FrequencyWords (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), "
+                            + "LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), "
+                            + "LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).\n"
+                            + "Full texts: ~/.local/share/doc/v3-keyboard"
                     }
                 }
             }
