@@ -105,7 +105,8 @@ QStringList KeyboardModel::alternatesForKey(const QString &text) const
     if (text == QStringLiteral(".")) {
         return {QStringLiteral(","), QStringLiteral("?"), QStringLiteral("!"), QStringLiteral("'"),
                 QStringLiteral("\""), QStringLiteral(":"), QStringLiteral(";"), QStringLiteral("-"),
-                QStringLiteral("("), QStringLiteral(")"), QStringLiteral("@"), QStringLiteral("&")};
+                QStringLiteral("("), QStringLiteral(")"), QStringLiteral("@"), QStringLiteral("&"),
+                QStringLiteral("%"), QStringLiteral("/"), QStringLiteral("#"), QStringLiteral("*")};
     }
     const QString lower = text.toLower();
     QStringList result;

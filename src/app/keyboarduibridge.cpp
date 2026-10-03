@@ -47,6 +47,9 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
     loadShortcuts();
     m_emojiSuggestions = settings.value(QStringLiteral("emojiSuggestions"), true).toBool();
+    m_autoSpaceAfterPunctuation = settings.value(QStringLiteral("autoSpaceAfterPunctuation"), false).toBool();
+    m_typingEngine.setAutoSpaceAfterPunctuation(m_autoSpaceAfterPunctuation);
+    m_emojiRow = settings.value(QStringLiteral("emojiRow"), false).toBool();
     m_symbolHints = settings.value(QStringLiteral("symbolHints"), true).toBool();
     m_numberRow = settings.value(QStringLiteral("numberRow"), false).toBool();
     m_blockOffensive = settings.value(QStringLiteral("blockOffensive"), true).toBool();
@@ -157,6 +160,26 @@ QStringList KeyboardUiBridge::suggestions() const
 }
 
 bool KeyboardUiBridge::emojiSuggestionsEnabled() const { return m_emojiSuggestions; }
+bool KeyboardUiBridge::autoSpaceAfterPunctuation() const { return m_autoSpaceAfterPunctuation; }
+bool KeyboardUiBridge::emojiRow() const { return m_emojiRow; }
+QStringList KeyboardUiBridge::recentEmojis() const { return m_emojiCatalog.glyphs(QStringLiteral("Recent")).mid(0, 10); }
+
+void KeyboardUiBridge::setAutoSpaceAfterPunctuation(bool enabled)
+{
+    if (m_autoSpaceAfterPunctuation == enabled) return;
+    m_autoSpaceAfterPunctuation = enabled;
+    m_typingEngine.setAutoSpaceAfterPunctuation(enabled);
+    persistPreference(QStringLiteral("autoSpaceAfterPunctuation"), enabled);
+    Q_EMIT typingPreferencesChanged();
+}
+
+void KeyboardUiBridge::setEmojiRow(bool enabled)
+{
+    if (m_emojiRow == enabled) return;
+    m_emojiRow = enabled;
+    persistPreference(QStringLiteral("emojiRow"), enabled);
+    Q_EMIT uiPreferencesChanged();
+}
 bool KeyboardUiBridge::symbolHints() const { return m_symbolHints; }
 bool KeyboardUiBridge::numberRow() const { return m_numberRow; }
 
@@ -367,6 +390,12 @@ void KeyboardUiBridge::tapText(const QString &text)
 {
     const bool uppercaseBefore = uppercase();
     m_typingEngine.typeText(text);
+    // Gboard (16.7+, on by default): an apostrophe on the symbols layer
+    // switches straight back to letters to finish "don't" / "it's".
+    if (text == QStringLiteral("'") && m_model.symbolsActive()) {
+        toggleSymbols();
+        return;
+    }
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
     Q_EMIT suggestionsChanged();
 }

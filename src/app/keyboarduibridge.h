@@ -49,6 +49,10 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool amoled READ amoled WRITE setAmoled NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool symbolHints READ symbolHints WRITE setSymbolHints NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool numberRow READ numberRow WRITE setNumberRow NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(bool autoSpaceAfterPunctuation READ autoSpaceAfterPunctuation WRITE setAutoSpaceAfterPunctuation NOTIFY typingPreferencesChanged)
+    // Gboard "Emoji fast-access row": recent emoji above the keys.
+    Q_PROPERTY(bool emojiRow READ emojiRow WRITE setEmojiRow NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(QStringList recentEmojis READ recentEmojis NOTIFY emojiChanged)
     Q_PROPERTY(bool emojiSuggestionsEnabled READ emojiSuggestionsEnabled WRITE setEmojiSuggestionsEnabled NOTIFY typingPreferencesChanged)
     Q_PROPERTY(bool blockOffensive READ blockOffensive WRITE setBlockOffensive NOTIFY typingPreferencesChanged)
     Q_PROPERTY(QString layoutMode READ layoutMode WRITE setLayoutMode NOTIFY uiPreferencesChanged)
@@ -100,6 +104,9 @@ public:
 
     bool amoled() const;
     bool emojiSuggestionsEnabled() const;
+    bool autoSpaceAfterPunctuation() const;
+    bool emojiRow() const;
+    QStringList recentEmojis() const;
     bool symbolHints() const;
     bool numberRow() const;
     bool blockOffensive() const;
@@ -165,6 +172,8 @@ public:
 
     Q_INVOKABLE void setAmoled(bool enabled);
     Q_INVOKABLE void setEmojiSuggestionsEnabled(bool enabled);
+    Q_INVOKABLE void setAutoSpaceAfterPunctuation(bool enabled);
+    Q_INVOKABLE void setEmojiRow(bool enabled);
     Q_INVOKABLE void insertEmoji(const QString &glyph);
     Q_INVOKABLE void setSymbolHints(bool enabled);
     Q_INVOKABLE void setNumberRow(bool enabled);
@@ -226,6 +235,8 @@ private:
 
     bool m_amoled = false;
     bool m_emojiSuggestions = true;
+    bool m_autoSpaceAfterPunctuation = false;
+    bool m_emojiRow = false;
     QString m_inputPurpose = QStringLiteral("text");
     QHash<QString, QString> m_shortcuts;
     void loadShortcuts();

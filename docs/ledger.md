@@ -747,3 +747,17 @@ gesture-trail assertions in the glide test (written with the QML, not observed R
 Process: one test edit referenced a non-existent fake counter; the "15 passed"
 seen at that moment was a stale binary — re-run after the fix: 16/16.
 Sandbox: voice ON 12/12, voice OFF 11/11, KWin 3/3, static verify OK.
+
+## 2026-10-03 — 0.7.0 Gboard gestures and shortcuts
+
+Sources: Computerworld (fast symbols from ?123, Shift slide, emoji fast-access
+row), 9to5Google (auto-space after punctuation off by default; apostrophe
+auto-switch on by default since 16.7), HelpDeskGeek/Hongkiat (16 period marks).
+RED->GREEN: autoSpaceAfterPunctuationIsOptInLikeGboard (compile-RED),
+apostropheOnSymbolsReturnsToLetters (a first version asserted period choices
+while the symbols layer was active — test bug, fixed). UI test
+gboardSlideGesturesAndEmojiRow written with the QML; review found its emoji-row
+assertion vacuous (insertEmoji had already committed the glyph) — fixed to
+assert the click's own commit. A QML property typo (glyphValue vs glideValue)
+was caught by reading the diff before running.
+Sandbox: voice ON 12/12, voice OFF 11/11, KWin 3/3, static verify OK.

@@ -320,6 +320,25 @@ private Q_SLOTS:
         qunsetenv("V3KBD_SHORTCUTS_FILE");
     }
 
+    void apostropheOnSymbolsReturnsToLetters()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.toggleSymbols();
+        QVERIFY(bridge.symbolsActive());
+        bridge.tapText(QStringLiteral("'"));
+        QVERIFY(!bridge.symbolsActive());                // Gboard 16.7 default
+        QCOMPARE(backend.commits.last(), QStringLiteral("'"));
+        bridge.toggleSymbols();
+        bridge.tapText(QStringLiteral("5"));
+        QVERIFY(bridge.symbolsActive());                 // other symbols keep the layer
+        bridge.toggleSymbols();
+        QVERIFY(bridge.alternatesForKey(QStringLiteral(".")).size() >= 16);   // Gboard: 16 marks
+        QVERIFY(bridge.alternatesForKey(QStringLiteral(".")).contains(QStringLiteral("%")));
+    }
+
     void tapTextReachesController()
     {
         FakeBackend backend;

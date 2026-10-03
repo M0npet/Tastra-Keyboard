@@ -1,4 +1,4 @@
-# Handoff — V3 Keyboard (state at 0.6.0 packaging, 2026-10-03)
+# Handoff — V3 Keyboard (state at 0.7.0 packaging, 2026-10-03)
 
 Device: Minisforum V3, Arch, Qt 6.11.2, KWin 6.7.5, hunspell 1.7.3,
 dictionaries en/de/ru (pacman) + uk (pinned LibreOffice upstream, user dir).
@@ -42,3 +42,6 @@ shortcuts; recent emoji; gesture trail. Branch wip/latinime-scoring holds an
 unfinished LatinIME-normalized scoring that regressed real-data suggestions
 (kept for reference, not shipped). Remaining Gboard ideas: fast symbols
 gesture from ?123, emoji fast-access row, auto-space after punctuation.
+
+0.7.0: ?123/Shift slide gestures, apostrophe auto-switch, auto-space after
+punctuation (opt-in), emoji fast-access row, 16 period marks.

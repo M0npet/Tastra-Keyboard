@@ -67,3 +67,9 @@ long-press a suggestion to remove it. See docs/release-0.5.0.md.
 Neighbour-key corrections, Gboard-style strip (“typed” + bold correction),
 number pad / @ / / / .com by field type, long-press comma for emoji, text
 shortcuts (~/.config/v3-keyboard/shortcuts.txt), recent emoji, gesture trail.
+
+## 0.7.0: Gboard gestures
+
+?123 slide for fast symbols, Shift slide for a capital, apostrophe returns to
+letters, auto-space after punctuation (opt-in), emoji fast-access row (opt-in),
+16 marks on period long-press.

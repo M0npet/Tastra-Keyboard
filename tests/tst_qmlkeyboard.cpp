@@ -412,6 +412,51 @@ private Q_SLOTS:
         QVERIFY(findText(view.rootObject(), QStringLiteral("q")));     // letters back (no auto-cap)
     }
 
+    void gboardSlideGesturesAndEmojiRow()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
+        static QPointingDevice *touch = QTest::createTouchDevice();
+        auto slide = [&](const QPoint &from, const QPoint &to) {
+            QTest::touchEvent(&view, touch).press(0, from);
+            for (int i = 1; i <= 8; ++i) {
+                QTest::touchEvent(&view, touch).move(0, from + (to - from) * i / 8);
+                QTest::qWait(10);
+            }
+            QTest::touchEvent(&view, touch).release(0, to);
+        };
+
+        // 1. Shift slide onto "d" -> one capital, then lowercase again.
+        const QPoint d = centre(findText(view.rootObject(), QStringLiteral("d")));
+        slide(centre(findNamed(view.rootObject(), QStringLiteral("shiftKey"))), d);
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("D")}));
+        QTRY_VERIFY(!bridge.uppercase());
+
+        // 2. ?123 slide onto the key where "5" appears (same place as "t").
+        const QPoint t = centre(findText(view.rootObject(), QStringLiteral("t")));
+        slide(centre(findNamed(view.rootObject(), QStringLiteral("symbolsKey"))), t);
+        QTRY_COMPARE(backend.commits.last(), QStringLiteral("5"));
+        QTRY_VERIFY(!bridge.symbolsActive());
+
+        // 3. Emoji fast-access row.
+        bridge.insertEmoji(QStringLiteral("😀"));
+        bridge.setEmojiRow(true);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("emojiRowKey_😀")));
+        QTest::qWait(100);
+        backend.commits.clear();                 // insertEmoji above committed one already
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findNamed(view.rootObject(), QStringLiteral("emojiRowKey_😀"))));
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("😀")}));
+    }
+
     void caseChangesDoNotRecreateLetterKeys()
     {
         FakeBackend backend;

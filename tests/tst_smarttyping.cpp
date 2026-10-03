@@ -419,6 +419,34 @@ private Q_SLOTS:
         QVERIFY(!engine.wantsAutoUppercase());
     }
 
+    void autoSpaceAfterPunctuationIsOptInLikeGboard()
+    {
+        for (const bool composition : {false, true}) {
+            FakeBackend backend;
+            V3Keyboard::KeyboardController controller(backend);
+            V3Keyboard::TypingEngine engine(controller);
+            if (composition) composing(backend, engine);
+            engine.setAutoCapitalizationEnabled(false);
+
+            engine.typeLetter(QStringLiteral("h"));
+            engine.typeText(QStringLiteral(","));
+            engine.typeLetter(QStringLiteral("o"));                // default: off
+            QVERIFY(!backend.events.join(QString()).contains(QStringLiteral(", ")));
+
+            engine.setAutoSpaceAfterPunctuation(true);
+            engine.space();
+            engine.typeLetter(QStringLiteral("k"));
+            engine.typeText(QStringLiteral("."));
+            engine.typeLetter(QStringLiteral("n"));
+            engine.typeText(QStringLiteral("3"));
+            engine.typeText(QStringLiteral("."));                  // "3." is a number:
+            engine.typeText(QStringLiteral("5"));                  // no space inside "3.5"
+            const QString all = backend.commits.join(QString()) + backend.preedit;
+            QVERIFY2(all.contains(QStringLiteral("k. n")), qPrintable(all));
+            QVERIFY2(all.contains(QStringLiteral("3.5")), qPrintable(all));
+        }
+    }
+
     void spaceAfterSuggestionIsNotADoubleSpace()
     {
         FakeBackend backend;

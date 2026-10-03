@@ -259,6 +259,11 @@ for path, token, why in (
     ('src/ui/Main.qml', 'numpadShown', 'number pad in number/phone fields'),
     ('src/ui/Main.qml', 'id: glideTrail', 'gesture trail'),
     ('tests/tst_qmlkeyboard.cpp', 'numberFieldsShowANumpadEmailFieldsAnAt', 'field-type layouts'),
+    ('src/core/typingengine.cpp', 'm_autoSpacePending', 'auto-space after punctuation (0.7.0)'),
+    ('src/app/keyboarduibridge.cpp', 'text == QStringLiteral("\'") && m_model.symbolsActive()', 'apostrophe returns to letters'),
+    ('src/ui/Main.qml', 'function keyAt(x, y)', 'slide gestures hit-test'),
+    ('src/ui/Main.qml', 'objectName: "emojiRowKey_" + modelData', 'emoji fast-access row'),
+    ('tests/tst_qmlkeyboard.cpp', 'gboardSlideGesturesAndEmojiRow', 'slide gestures UI test'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -270,4 +275,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v0.6.0 markers present: proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.7.0 markers present: slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

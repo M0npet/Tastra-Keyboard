@@ -33,6 +33,8 @@ public:
     void setClockForTesting(std::function<qint64()> clock);
     void setBlockOffensive(bool enabled);
     void setKeyboardRows(const QStringList &rows);
+    // Gboard "Auto-space after punctuation" (off by default).
+    void setAutoSpaceAfterPunctuation(bool enabled);
     void forgetWord(const QString &word);
     bool compositionEnabled() const;
     bool composing() const;
@@ -121,6 +123,8 @@ private:
     QString m_pendingOriginal;      // what the user actually typed
     QString m_noCorrectionFor;      // word the user just reverted
     QString m_autocorrectTarget;
+    bool m_autoSpaceAfterPunctuation = false;
+    bool m_autoSpacePending = false;
     bool m_preeditRejected = false; // backend/client cannot show preedit
     bool m_inSync = false;
     std::function<qint64()> m_clock;

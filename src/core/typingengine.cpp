@@ -70,6 +70,7 @@ bool TypingEngine::surroundingTextSupported() const { return m_surroundingSuppor
 void TypingEngine::setClockForTesting(std::function<qint64()> clock) { m_clock = std::move(clock); }
 void TypingEngine::setBlockOffensive(bool enabled) { m_lexicon.setBlockOffensive(enabled); refreshSuggestions(); }
 void TypingEngine::setKeyboardRows(const QStringList &rows) { m_lexicon.setKeyboardRows(rows); }
+void TypingEngine::setAutoSpaceAfterPunctuation(bool enabled) { m_autoSpaceAfterPunctuation = enabled; m_autoSpacePending = false; }
 void TypingEngine::forgetWord(const QString &word) { m_lexicon.forgetWord(word); refreshSuggestions(); }
 
 void TypingEngine::setCompositionEnabled(bool enabled) { if (!enabled) commitComposition(); m_compositionEnabled = enabled; }
@@ -194,6 +195,10 @@ void TypingEngine::typeLetter(const QString &text)
         return;
     }
     if (m_pendingSpace) commitLocal(takePendingText() + QLatin1Char(' '));
+    if (m_autoSpacePending) {
+        m_autoSpacePending = false;
+        commitLocal(QStringLiteral(" "));
+    }
     // Composition starts only at a word boundary so a word is never split
     // between committed text and preedit.
     if (!m_composing && m_currentWord.isEmpty() && compositionAvailable()) m_composing = true;
@@ -223,6 +228,10 @@ void TypingEngine::typeText(const QString &text)
     }
 
     const bool punctuation = text.size() == 1 && QStringLiteral(".,!?;:").contains(text);
+    m_autoSpacePending = false;
+    // Only after words: "3.5" or "e.g" style tokens stay intact.
+    const bool afterLetter = !m_currentWord.isEmpty() || (!m_model.isEmpty() && m_model.back().isLetter());
+    const bool armAutoSpace = m_autoSpaceAfterPunctuation && punctuation && afterLetter && !m_sensitiveContext;
     if (m_composing) {
         // Word and punctuation leave in one commit; the word is corrected first.
         const QString word = punctuation ? corrected(m_currentWord) : m_currentWord;
@@ -240,6 +249,7 @@ void TypingEngine::typeText(const QString &text)
     }
     observePunctuation(text);
     m_lastActionWasSpace = false;
+    m_autoSpacePending = armAutoSpace;
     refreshSuggestions();
 }
 
@@ -347,6 +357,7 @@ void TypingEngine::finalizeCurrentWord(bool updatePrevious)
 
 void TypingEngine::space()
 {
+    m_autoSpacePending = false;
     if (m_spaceFromSuggestion) {
         // The suggestion already added a space. This Space confirms it and
         // counts as the user's first Space; only the next one makes ". ".
@@ -449,6 +460,7 @@ void TypingEngine::space()
 
 void TypingEngine::backspace()
 {
+    m_autoSpacePending = false;
     m_spaceFromSuggestion = false;
     if (m_pendingSpace && !m_pendingWord.isEmpty()) {
         // Undo the autocorrection: back to exactly what was typed, still
@@ -546,6 +558,7 @@ void TypingEngine::backspaceRepeated(int count)
 
 void TypingEngine::enter()
 {
+    m_autoSpacePending = false;
     m_spaceFromSuggestion = false;
     if (m_pendingSpace) {
         const QString held = takePendingText();

@@ -43,7 +43,9 @@ Rectangle {
     // Gboard shows a number pad in number/phone fields.
     readonly property bool numpadShown: keyboardBridge.inputPurpose === "number" || keyboardBridge.inputPurpose === "phone"
     readonly property bool numberRowShown: keyboardBridge.numberRow && !keyboardBridge.symbolsActive && !numpadShown
+    readonly property bool emojiRowShown: keyboardBridge.emojiRow && keyboardBridge.recentEmojis.length > 0 && !numpadShown
     height: toolbarHeight + metrics.panelHeight + (numberRowShown ? keyHeight + keyGap : 0)
+            + (emojiRowShown ? keyHeight + keyGap : 0)
     color: backgroundColor
 
     function dynamicKeyWidth(count) {
@@ -93,6 +95,20 @@ Rectangle {
         glideStartY = p.y
         glideActive = false
         glideLastValue = ""
+    }
+
+    // Finds the character key under a point in root coordinates.
+    function keyAt(x, y) {
+        var item = keyboardRows
+        var p = root.mapToItem(keyboardRows, x, y)
+        for (var depth = 0; depth < 8 && item; ++depth) {
+            var child = item.childAt(p.x, p.y)
+            if (!child) return null
+            if (child.label !== undefined && child.special === false && child.label.length > 0) return child
+            p = item.mapToItem(child, p.x, p.y)
+            item = child
+        }
+        return null
     }
 
     property var glidePoints: []
@@ -764,6 +780,22 @@ Rectangle {
         spacing: root.keyGap
 
         Row {
+            // Gboard "Emoji fast-access row": recently used emoji.
+            visible: root.emojiRowShown
+            spacing: root.keyGap
+            Repeater {
+                model: keyboardBridge.recentEmojis
+                delegate: Key {
+                    required property string modelData
+                    objectName: "emojiRowKey_" + modelData
+                    preferredWidth: root.dynamicKeyWidth(10)
+                    label: modelData
+                    special: true
+                    onTriggered: keyboardBridge.insertEmoji(modelData)
+                }
+            }
+        }
+        Row {
             // Gboard "Number row" preference.
             visible: root.numberRowShown
             spacing: root.keyGap
@@ -887,6 +919,8 @@ Rectangle {
             spacing: root.keyGap
 
             Key {
+                id: shiftKey
+                objectName: "shiftKey"
                 visible: !keyboardBridge.symbolsActive
                 preferredWidth: root.baseKeyWidth * 1.25
                 special: true
@@ -894,6 +928,24 @@ Rectangle {
                 iconSource: keyboardBridge.capsLock
                     ? "qrc:/v3keyboard/icons/shift-lock.svg"
                     : "qrc:/v3keyboard/icons/shift.svg"
+                // Gboard: touch Shift and slide onto a letter for one capital.
+                property bool sliding: false
+                onPressStarted: (x, y) => { sliding = false }
+                onPointerMoved: (x, y) => {
+                    if (!sliding && (x < 0 || x > width || y < 0 || y > height)) {
+                        sliding = true
+                        consumeRelease = true
+                        if (!keyboardBridge.uppercase) keyboardBridge.shift()
+                    }
+                }
+                onPressEnded: (x, y) => {
+                    if (!sliding) return
+                    sliding = false
+                    var p = mapToItem(root, x, y)
+                    var target = root.keyAt(p.x, p.y)
+                    if (target && target.glideValue && target.glideValue.length > 0) keyboardBridge.tapLetter(target.glideValue)
+                    else if (keyboardBridge.uppercase && !keyboardBridge.capsLock) keyboardBridge.shift()
+                }
                 onTriggered: keyboardBridge.shift()
             }
 
@@ -968,10 +1020,29 @@ Rectangle {
             spacing: root.keyGap
 
             Key {
+                objectName: "symbolsKey"
                 preferredWidth: root.baseKeyWidth * 1.35
                 special: true
                 popupEnabled: false
                 label: keyboardBridge.symbolsActive ? "ABC" : "?123"
+                // Gboard fast symbols: touch ?123, slide onto a symbol, release.
+                property bool sliding: false
+                onPressStarted: (x, y) => { sliding = false }
+                onPointerMoved: (x, y) => {
+                    if (!sliding && !keyboardBridge.symbolsActive && (y < -8 || x > width + 8)) {
+                        sliding = true
+                        consumeRelease = true
+                        keyboardBridge.toggleSymbols()
+                    }
+                }
+                onPressEnded: (x, y) => {
+                    if (!sliding) return
+                    sliding = false
+                    var p = mapToItem(root, x, y)
+                    var target = root.keyAt(p.x, p.y)
+                    if (target) keyboardBridge.tapText(target.label)
+                    if (keyboardBridge.symbolsActive) keyboardBridge.toggleSymbols()
+                }
                 onTriggered: keyboardBridge.toggleSymbols()
             }
 
@@ -1439,6 +1510,18 @@ Rectangle {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - offensiveButton.width - parent.spacing; height: offensiveButton.height; verticalAlignment: Text.AlignVCenter; text: "Block offensive words"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: offensiveButton; width: root.portrait ? 170 : 150; label: keyboardBridge.blockOffensive ? "On" : "Off"; onTriggered: keyboardBridge.setBlockOffensive(!keyboardBridge.blockOffensive) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - autoSpaceButton.width - parent.spacing; height: autoSpaceButton.height; verticalAlignment: Text.AlignVCenter; text: "Auto-space after punctuation"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: autoSpaceButton; width: root.portrait ? 170 : 150; label: keyboardBridge.autoSpaceAfterPunctuation ? "On" : "Off"; onTriggered: keyboardBridge.setAutoSpaceAfterPunctuation(!keyboardBridge.autoSpaceAfterPunctuation) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - emojiRowButton.width - parent.spacing; height: emojiRowButton.height; verticalAlignment: Text.AlignVCenter; text: "Emoji fast-access row"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: emojiRowButton; width: root.portrait ? 170 : 150; label: keyboardBridge.emojiRow ? "On" : "Off"; onTriggered: keyboardBridge.setEmojiRow(!keyboardBridge.emojiRow) }
                     }
 
                     Row {
