@@ -40,6 +40,7 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_model.setLanguage(settings.value(QStringLiteral("language"), QStringLiteral("en")).toString());
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
+    m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
     m_emojiSuggestions = settings.value(QStringLiteral("emojiSuggestions"), true).toBool();
@@ -338,6 +339,7 @@ void KeyboardUiBridge::nextLanguage()
     m_model.nextLanguage();
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
+    m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     persistLanguage();
     typingStateDidChange();
@@ -349,6 +351,7 @@ void KeyboardUiBridge::setLanguage(const QString &code)
     m_model.setLanguage(code);
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
+    m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     persistLanguage();
     typingStateDidChange();

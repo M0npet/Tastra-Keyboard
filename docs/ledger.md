@@ -717,3 +717,20 @@ disappears, panel height grows, commit "7", no commit on suggestion forget).
 A scripted edit aborted on a stale line number (no file written); redone with
 content-based positioning.
 Sandbox: voice ON 12/12, voice OFF 11/11, KWin 3/3, static verify OK.
+
+## 2026-10-03 — Neighbour-key correction (LatinIME ProximityInfo idea)
+
+Found uncommitted work in the tree (13:22–13:27, not visible in my current
+context; most likely an interrupted earlier turn): LatinIME-style normalized
+scoring, a re-scaled frequency format and proximity. Its own tests passed, but
+the real-data bench regressed badly (sch -> ich/ach/sich, ha -> ja/da/hi,
+дя -> до/де/ця, привте -> приюте, wiel -> will). Preserved untouched on branch
+wip/latinime-scoring; not shipped.
+Re-implemented on the verified 0.5.0 ranking: key centres from the layout
+rows; a substitution by a neighbouring key (<= 1.5 key widths) gets the same
+bonus as a repeated letter. The two spec tests from the WIP were kept
+(neighbouringKeysMakeTheCheapestCorrection, latinImeThresholdGatesAutocorrection).
+Acceptance bench (real dictionaries + frequency lists): no regression vs 0.5.0;
+new fixes tge/thw/yhe->the, hsus->haus, nivht->nicht, пртвет->привет,
+сппсибо->спасибо. Behaviour change: "helo" is no longer auto-corrected (hello
+and help are now equally likely: o neighbours p); both are suggested.

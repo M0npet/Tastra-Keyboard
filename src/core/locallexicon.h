@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QHash>
+#include <QPointF>
 #include <QSet>
 #include <QString>
 #include <QStringList>
@@ -45,6 +46,9 @@ public:
     static QStringList blocklistSearchPaths();
 
     void setBlockOffensive(bool enabled);
+    // Rows of the on-screen layout. Like LatinIME's ProximityInfo, a typo on a
+    // neighbouring key is a cheaper (more likely) error than a distant one.
+    void setKeyboardRows(const QStringList &rows);
     // Gboard-style "remove suggestion": unlearn and never suggest it again.
     void forgetWord(const QString &word);
 
@@ -66,7 +70,7 @@ public:
     int dictionarySize() const;
 
 private:
-    enum class Edit { Other, RepeatedLetter, Transposition };
+    enum class Edit { Other, RepeatedLetter, Transposition, NeighbourKey };
     struct Candidate {
         QString word;
         int score = 0;
@@ -84,6 +88,7 @@ private:
     int priorScore(const QString &candidate, const QString &previousWord) const;
     int frequencyRank(const QString &word) const;
     bool suggestible(const QString &word) const;
+    bool neighbours(QChar a, QChar b) const;
     void loadBlocklist();
     QString bigramKey(const QString &previousWord, const QString &word) const;
 
@@ -99,6 +104,7 @@ private:
     bool m_blockOffensive = true;
     QSet<QString> m_offensive;
     QSet<QString> m_forgotten;
+    QHash<QChar, QPointF> m_keyCentres;
 };
 
 }

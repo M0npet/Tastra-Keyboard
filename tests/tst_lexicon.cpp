@@ -191,6 +191,39 @@ private Q_SLOTS:
         QVERIFY(!reloaded.suggestions(QStringLiteral("hel"), {}, 5).contains(QStringLiteral("helsinki")));
     }
 
+    void neighbouringKeysMakeTheCheapestCorrection()
+    {
+        // AOSP LatinIME: substituting a neighbouring key costs 0.0694, a
+        // distant one 0.3806. "tge": g is next to h on QWERTY, far from i/o.
+        useFixtureDictionaries();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        lexicon.setKeyboardRows({QStringLiteral("qwertyuiop"), QStringLiteral("asdfghjkl"), QStringLiteral("zxcvbnm")});
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("tge")), QStringLiteral("the"));
+        QCOMPARE(lexicon.suggestions(QStringLiteral("tge"), {}, 3).value(0), QStringLiteral("the"));
+        // Geometry decides between equally rare words: p is next to o, far
+        // from i, so "toe" outranks "tie" (alphabetical order would not).
+        const QStringList list = lexicon.suggestions(QStringLiteral("tpe"), {}, 6);
+        QVERIFY2(list.contains(QStringLiteral("toe")) && list.contains(QStringLiteral("tie")), qPrintable(list.join(',')));
+        QVERIFY2(list.indexOf(QStringLiteral("toe")) < list.indexOf(QStringLiteral("tie")), qPrintable(list.join(',')));
+        lexicon.setKeyboardRows({});                               // no geometry -> no preference
+        const QStringList flat = lexicon.suggestions(QStringLiteral("tpe"), {}, 6);
+        QVERIFY2(flat.indexOf(QStringLiteral("tie")) < flat.indexOf(QStringLiteral("toe")), qPrintable(flat.join(',')));
+    }
+
+    void latinImeThresholdGatesAutocorrection()
+    {
+        useFixtureDictionaries();
+        useFrequencies();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        lexicon.setKeyboardRows({QStringLiteral("qwertyuiop"), QStringLiteral("asdfghjkl"), QStringLiteral("zxcvbnm")});
+        // Clear transposition of a frequent word: corrected.
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("wnats")), QStringLiteral("wants"));
+        // Distant substitution towards rare words: below the modest threshold.
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("tex")).isEmpty());
+    }
+
     void prefixCompletionsUseDictionaryAndCoreWords()
     {
         useFixtureDictionaries();

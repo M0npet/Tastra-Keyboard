@@ -457,6 +457,30 @@ QStringList LocalLexicon::blocklistSearchPaths()
 
 void LocalLexicon::setBlockOffensive(bool enabled) { m_blockOffensive = enabled; }
 
+void LocalLexicon::setKeyboardRows(const QStringList &rows)
+{
+    // Key centres in key-width units: the first two rows span the full width,
+    // the third sits between Shift and Backspace (as on the on-screen layout).
+    m_keyCentres.clear();
+    for (int r = 0; r < rows.size(); ++r) {
+        const QString row = rows.at(r).toLower();
+        const int n = int(row.size());
+        for (int i = 0; i < n; ++i) {
+            const qreal x = r < 2 ? (i + 0.5) * (10.0 / n) : 1.25 + (i + 0.5) * (7.5 / n);
+            m_keyCentres.insert(row.at(i), QPointF(x, r));
+        }
+    }
+}
+
+bool LocalLexicon::neighbours(QChar a, QChar b) const
+{
+    const auto pa = m_keyCentres.constFind(a.toLower());
+    const auto pb = m_keyCentres.constFind(b.toLower());
+    if (pa == m_keyCentres.constEnd() || pb == m_keyCentres.constEnd()) return false;
+    const QPointF d = *pa - *pb;
+    return d.x() * d.x() + d.y() * d.y() <= 1.5 * 1.5;
+}
+
 void LocalLexicon::loadBlocklist()
 {
     m_offensive.clear();
@@ -650,9 +674,18 @@ QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString 
         c.word = v;
         if (isAdjacentTransposition(typed, v)) c.edit = Edit::Transposition;
         else if (differsByRepeatedLetter(typed, v) || differsByRepeatedLetter(v, typed)) c.edit = Edit::RepeatedLetter;
+        else if (v.size() == typed.size()) {
+            for (int k = 0; k < v.size(); ++k) {
+                if (v.at(k) != typed.at(k)) {
+                    if (neighbours(v.at(k), typed.at(k))) c.edit = Edit::NeighbourKey;
+                    break;
+                }
+            }
+        }
         c.score = 800 + priorScore(v, previousWord) - qAbs(v.size() - typed.size()) * 8;
         if (c.edit == Edit::Transposition) c.score += 150;
         if (c.edit == Edit::RepeatedLetter) c.score += 100;
+        if (c.edit == Edit::NeighbourKey) c.score += 100;      // a finger slip to the next key
         result.append(c);
     }
     std::sort(result.begin(), result.end(), [](const Candidate &a, const Candidate &b) {

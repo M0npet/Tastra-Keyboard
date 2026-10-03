@@ -32,6 +32,7 @@ public:
     void setCompositionEnabled(bool enabled);
     void setClockForTesting(std::function<qint64()> clock);
     void setBlockOffensive(bool enabled);
+    void setKeyboardRows(const QStringList &rows);
     void forgetWord(const QString &word);
     bool compositionEnabled() const;
     bool composing() const;
