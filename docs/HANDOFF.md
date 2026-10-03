@@ -1,4 +1,4 @@
-# Handoff — V3 Keyboard (state at 0.5.0 packaging, 2026-09-29)
+# Handoff — V3 Keyboard (state at 0.6.0 packaging, 2026-10-03)
 
 Device: Minisforum V3, Arch, Qt 6.11.2, KWin 6.7.5, hunspell 1.7.3,
 dictionaries en/de/ru (pacman) + uk (pinned LibreOffice upstream, user dir).
@@ -36,3 +36,9 @@ wlroots backend, floating panel (KWin controls placement).
 suggestions, offensive filter, remove suggestion). Gboard ideas not done yet:
 text shortcuts (personal dictionary), emoji fast-access row, fast symbols
 gesture from ?123, .com on long-press period in URL fields.
+
+0.6.0: neighbour-key corrections; Gboard strip; field-type layouts; text
+shortcuts; recent emoji; gesture trail. Branch wip/latinime-scoring holds an
+unfinished LatinIME-normalized scoring that regressed real-data suggestions
+(kept for reference, not shipped). Remaining Gboard ideas: fast symbols
+gesture from ?123, emoji fast-access row, auto-space after punctuation.

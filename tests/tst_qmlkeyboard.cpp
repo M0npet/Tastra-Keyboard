@@ -217,8 +217,11 @@ private Q_SLOTS:
                 QTest::touchEvent(&view, touch).move(0, from + (to - from) * step / 6);
             }
         }
+        QQuickItem *trail = findNamed(view.rootObject(), QStringLiteral("glideTrail"));
+        QVERIFY2(trail && trail->isVisible(), "gesture trail is drawn while gliding");
         QTest::touchEvent(&view, touch).release(0, path.last());
         QTRY_COMPARE(backend.commits.value(0), QStringLiteral("hello"));
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("glideTrail")));   // hidden after
 
         // Long press on a key with an alternate commits the alternate (DE s -> ß).
         bridge.setLanguage(QStringLiteral("de"));
@@ -361,6 +364,52 @@ private Q_SLOTS:
         QTest::mouseRelease(&view, Qt::LeftButton, {}, h);
         QTRY_VERIFY(!bridge.suggestions().contains(QStringLiteral("hello")));
         QCOMPARE(backend.commits.size(), commitsBefore);
+    }
+
+    void stripQuotesTypedWordAndBoldsTheCorrection()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        for (const QChar ch : QStringLiteral("teh")) bridge.tapLetter(QString(ch));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("\u201Cteh\u201D")));
+        QQuickItem *correction = findText(view.rootObject(), QStringLiteral("the"));
+        QVERIFY(correction);
+        QCOMPARE(correction->property("font").value<QFont>().weight(), QFont::Bold);
+    }
+
+    void numberFieldsShowANumpadEmailFieldsAnAt()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
+
+        bridge.setContentType(0, 4);                                  // phone
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("numpadKey_5")));
+        QVERIFY(findNamed(view.rootObject(), QStringLiteral("numpadKey_+")));
+        QVERIFY(!findText(view.rootObject(), QStringLiteral("Q")));    // letters hidden
+        QTest::qWait(100);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findNamed(view.rootObject(), QStringLiteral("numpadKey_5"))));
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("5")}));
+
+        bridge.setContentType(0, 6);                                  // e-mail
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("@")));
+        QVERIFY(!findNamed(view.rootObject(), QStringLiteral("numpadKey_5")));
+        QVERIFY(findText(view.rootObject(), QStringLiteral("q")));     // letters back (no auto-cap)
     }
 
     void caseChangesDoNotRecreateLetterKeys()

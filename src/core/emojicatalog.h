@@ -29,6 +29,9 @@ public:
     // Emoji whose keyword is exactly `word` (keyboard language first, then
     // English), e.g. "pizza" -> 🍕. Empty if none.
     QString emojiForWord(const QString &word) const;
+    // Gboard-style "recently used" category (newest first, persisted).
+    void noteUsed(const QString &glyph);
+    void clearRecent();
     int size() const;
 
 private:
@@ -38,6 +41,7 @@ private:
     QString categoryForName(const QString &name) const;
 
     QVector<EmojiEntry> m_entries;
+    QStringList m_recent;
     QString m_keywordLanguage;
     // glyph without U+FE0F -> keywords joined by '|'; loaded lazily.
     mutable QHash<QString, QString> m_englishKeywords;

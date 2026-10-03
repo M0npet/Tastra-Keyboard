@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+#include <QStandardPaths>
+#include <QFile>
 #include "voicecontroller.h"
 #include "keyboardlayoutmetrics.h"
 
@@ -43,6 +45,7 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
+    loadShortcuts();
     m_emojiSuggestions = settings.value(QStringLiteral("emojiSuggestions"), true).toBool();
     m_symbolHints = settings.value(QStringLiteral("symbolHints"), true).toBool();
     m_numberRow = settings.value(QStringLiteral("numberRow"), false).toBool();
@@ -86,9 +89,63 @@ QStringList KeyboardUiBridge::toolbarActionIds() const { return m_toolbarModel.v
 QStringList KeyboardUiBridge::languageCodes() const { return m_model.languageCodes(); }
 QStringList KeyboardUiBridge::languageLabels() const { return m_model.languageLabels(); }
 QString KeyboardUiBridge::currentWord() const { return m_typingEngine.currentWord(); }
+QString KeyboardUiBridge::autocorrectSuggestion() const { return m_typingEngine.autocorrectTarget(); }
+QString KeyboardUiBridge::inputPurpose() const { return m_inputPurpose; }
+
+void KeyboardUiBridge::insertEmoji(const QString &glyph)
+{
+    tapText(glyph);
+    m_emojiCatalog.noteUsed(glyph);
+    Q_EMIT emojiChanged();
+}
+
+// Gboard "personal dictionary" shortcuts: one "shortcut<TAB>expansion" or
+// "shortcut = expansion" per line in ~/.config/v3-keyboard/shortcuts.txt.
+void KeyboardUiBridge::loadShortcuts()
+{
+    m_shortcuts.clear();
+    QString path = qEnvironmentVariable("V3KBD_SHORTCUTS_FILE");
+    if (path.isEmpty()) {
+        path = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+            + QStringLiteral("/v3-keyboard/shortcuts.txt");
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+    const QString text = QString::fromUtf8(file.readAll());
+    for (QString line : text.split(QLatin1Char('\n'))) {
+        line = line.trimmed();
+        if (line.isEmpty() || line.startsWith(QLatin1Char('#'))) continue;
+        qsizetype sep = line.indexOf(QLatin1Char('\t'));
+        if (sep < 0) sep = line.indexOf(QLatin1Char('='));
+        if (sep <= 0) continue;
+        const QString key = line.left(sep).trimmed().toLower();
+        const QString value = line.mid(sep + 1).trimmed();
+        if (!key.isEmpty() && !value.isEmpty()) m_shortcuts.insert(key, value);
+    }
+}
+
 QStringList KeyboardUiBridge::suggestions() const
 {
     QStringList list = m_typingEngine.suggestions();
+    const QString expansion = m_shortcuts.value(m_typingEngine.currentWord().toLower());
+    if (!expansion.isEmpty()) {
+        list.removeAll(expansion);
+        list.prepend(expansion);
+        while (list.size() > 3) list.removeLast();
+        return list;
+    }
+    const QString target = m_typingEngine.autocorrectTarget();
+    if (!target.isEmpty()) {
+        // Gboard order: what was typed (kept on tap), then the correction in
+        // the middle, then the best remaining alternative.
+        const QString typed = m_typingEngine.currentWord();
+        QStringList ordered = {typed, target};
+        for (const QString &item : list) {
+            if (ordered.size() >= 3) break;
+            if (!ordered.contains(item)) ordered.append(item);
+        }
+        list = ordered;
+    }
     if (m_emojiSuggestions && !m_typingEngine.currentWord().isEmpty()) {
         const QString emoji = m_emojiCatalog.emojiForWord(m_typingEngine.currentWord());
         if (!emoji.isEmpty()) {
@@ -121,7 +178,14 @@ void KeyboardUiBridge::setNumberRow(bool enabled)
 
 QStringList KeyboardUiBridge::alternatesForKey(const QString &key) const
 {
-    return m_model.alternatesForKey(key);
+    QStringList list = m_model.alternatesForKey(key);
+    if (key == QStringLiteral(".") && (m_inputPurpose == QStringLiteral("url") || m_inputPurpose == QStringLiteral("email"))) {
+        // Gboard: long-press the period in address fields for domains.
+        const QStringList domains = {QStringLiteral(".com"), QStringLiteral(".de"), QStringLiteral(".ru"),
+                                     QStringLiteral(".ua"), QStringLiteral(".org"), QStringLiteral(".net")};
+        list = domains + list;
+    }
+    return list;
 }
 
 QString KeyboardUiBridge::symbolHintForKey(const QString &key) const
@@ -647,6 +711,11 @@ void KeyboardUiBridge::clearLearnedWords()
 void KeyboardUiBridge::resetInputContext()
 {
     if (m_voice) m_voice->cancel();                 // never type into a new field
+    loadShortcuts();                                 // pick up edits without a restart
+    if (m_inputPurpose != QStringLiteral("text")) {
+        m_inputPurpose = QStringLiteral("text");
+        Q_EMIT inputContextChanged();
+    }
     m_typingEngine.setSensitiveContext(false);
     m_typingEngine.resetInputContext();
     if (m_secureInput) {
@@ -683,10 +752,18 @@ void KeyboardUiBridge::setContentType(quint32 hint, quint32 purpose)
         || purpose == Url || purpose == Email || purpose == Date || purpose == Time
         || purpose == DateTime || purpose == Terminal;
 
+    const QString purposeName = (purpose == Digits || purpose == Number) ? QStringLiteral("number")
+        : purpose == Phone ? QStringLiteral("phone")
+        : purpose == Url ? QStringLiteral("url")
+        : purpose == Email ? QStringLiteral("email")
+        : QStringLiteral("text");
+    const bool purposeChanged = purposeName != m_inputPurpose;
+    m_inputPurpose = purposeName;
+
     const bool uppercaseBefore = uppercase();
     m_typingEngine.setSensitiveContext(secure || restricted);
     m_typingEngine.setAutoCapitalizationAllowed((hint & lowercaseHint) == 0 && !restricted);
-    if (m_secureInput != secure) {
+    if (m_secureInput != secure || purposeChanged) {
         m_secureInput = secure;
         Q_EMIT inputContextChanged();
     }

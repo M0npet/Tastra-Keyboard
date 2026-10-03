@@ -3,6 +3,7 @@
 #include "emojicatalog.h"
 
 #include <QFile>
+#include <QSettings>
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QSet>
@@ -32,6 +33,7 @@ EmojiCatalog::EmojiCatalog()
 {
     loadSystemEmojiData();
     if (m_entries.size() < 50) loadFallback();
+    m_recent = QSettings().value(QStringLiteral("emoji/recent")).toStringList();
 }
 
 void EmojiCatalog::add(const QString &glyph, const QString &name, const QString &category)
@@ -156,6 +158,7 @@ QStringList EmojiCatalog::categories() const
         QStringLiteral("Nature"), QStringLiteral("Food"), QStringLiteral("Travel"),
         QStringLiteral("Activities"), QStringLiteral("Symbols"), QStringLiteral("Flags")};
     QStringList result;
+    if (!m_recent.isEmpty()) result.append(QStringLiteral("Recent"));
     for (const QString &category : order) {
         if (category == QStringLiteral("All")) { result.append(category); continue; }
         for (const auto &entry : m_entries) {
@@ -204,6 +207,21 @@ int keywordMatch(const QString &keywords, const QString &query)
 
 }
 
+void EmojiCatalog::noteUsed(const QString &glyph)
+{
+    if (glyph.isEmpty()) return;
+    m_recent.removeAll(glyph);
+    m_recent.prepend(glyph);
+    while (m_recent.size() > 30) m_recent.removeLast();
+    QSettings().setValue(QStringLiteral("emoji/recent"), m_recent);
+}
+
+void EmojiCatalog::clearRecent()
+{
+    m_recent.clear();
+    QSettings().remove(QStringLiteral("emoji/recent"));
+}
+
 void EmojiCatalog::setKeywordLanguage(const QString &code)
 {
     if (code == m_keywordLanguage) return;
@@ -238,6 +256,7 @@ QStringList EmojiCatalog::glyphs(const QString &category, const QString &query, 
 {
     const QString q = query.trimmed().toLower();
     const QString cat = category.isEmpty() ? QStringLiteral("All") : category;
+    if (cat == QStringLiteral("Recent") && q.isEmpty()) return m_recent.mid(0, limit);
     if (!q.isEmpty()) ensureKeywords();
     QStringList exact;
     QStringList strong;

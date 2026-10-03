@@ -10,6 +10,7 @@
 #include "core/toolbarmodel.h"
 #include "core/typingengine.h"
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -39,6 +40,9 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QStringList languageCodes READ languageCodes NOTIFY keyboardStateChanged)
     Q_PROPERTY(QStringList languageLabels READ languageLabels NOTIFY keyboardStateChanged)
     Q_PROPERTY(QString currentWord READ currentWord NOTIFY suggestionsChanged)
+    Q_PROPERTY(QString autocorrectSuggestion READ autocorrectSuggestion NOTIFY suggestionsChanged)
+    // "text", "email", "url", "number" or "phone" — drives Gboard-like layouts.
+    Q_PROPERTY(QString inputPurpose READ inputPurpose NOTIFY inputContextChanged)
     Q_PROPERTY(QStringList suggestions READ suggestions NOTIFY suggestionsChanged)
     Q_PROPERTY(bool secureInput READ secureInput NOTIFY inputContextChanged)
 
@@ -66,7 +70,7 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QString clipboardText READ clipboardText NOTIFY clipboardChanged)
     Q_PROPERTY(QStringList clipboardHistory READ clipboardHistory NOTIFY clipboardChanged)
     Q_PROPERTY(QStringList emojiItems READ emojiItems CONSTANT)
-    Q_PROPERTY(QStringList emojiCategories READ emojiCategories CONSTANT)
+    Q_PROPERTY(QStringList emojiCategories READ emojiCategories NOTIFY emojiChanged)
 
 public:
     explicit KeyboardUiBridge(
@@ -90,6 +94,8 @@ public:
     QStringList languageCodes() const;
     QStringList languageLabels() const;
     QString currentWord() const;
+    QString autocorrectSuggestion() const;
+    QString inputPurpose() const;
     QStringList suggestions() const;
 
     bool amoled() const;
@@ -159,6 +165,7 @@ public:
 
     Q_INVOKABLE void setAmoled(bool enabled);
     Q_INVOKABLE void setEmojiSuggestionsEnabled(bool enabled);
+    Q_INVOKABLE void insertEmoji(const QString &glyph);
     Q_INVOKABLE void setSymbolHints(bool enabled);
     Q_INVOKABLE void setNumberRow(bool enabled);
     Q_INVOKABLE QStringList alternatesForKey(const QString &key) const;
@@ -196,6 +203,7 @@ Q_SIGNALS:
     void toolbarStateChanged();
     void uiPreferencesChanged();
     void voiceChanged();
+    void emojiChanged();
     void typingPreferencesChanged();
     void suggestionsChanged();
     void clipboardChanged();
@@ -218,6 +226,9 @@ private:
 
     bool m_amoled = false;
     bool m_emojiSuggestions = true;
+    QString m_inputPurpose = QStringLiteral("text");
+    QHash<QString, QString> m_shortcuts;
+    void loadShortcuts();
     bool m_symbolHints = true;
     bool m_numberRow = false;
     bool m_blockOffensive = true;

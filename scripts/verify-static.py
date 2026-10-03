@@ -252,6 +252,13 @@ for path, token, why in (
     ('src/ui/Main.qml', 'onPressAndHold: {', 'long-press suggestion to remove'),
     ('src/core/emojicatalog.cpp', 'QString EmojiCatalog::emojiForWord', 'emoji suggestions'),
     ('tests/tst_qmlkeyboard.cpp', 'gboardLongPressPickerNumberRowHintsAndForget', 'Gboard behaviours UI test'),
+    ('src/core/locallexicon.cpp', 'bool LocalLexicon::neighbours', 'neighbour-key corrections (0.6.0)'),
+    ('src/core/typingengine.cpp', 'QString TypingEngine::autocorrectTarget', 'strip shows what Space inserts'),
+    ('src/app/keyboarduibridge.cpp', 'void KeyboardUiBridge::loadShortcuts', 'text shortcuts'),
+    ('src/core/emojicatalog.cpp', 'void EmojiCatalog::noteUsed', 'recent emojis'),
+    ('src/ui/Main.qml', 'numpadShown', 'number pad in number/phone fields'),
+    ('src/ui/Main.qml', 'id: glideTrail', 'gesture trail'),
+    ('tests/tst_qmlkeyboard.cpp', 'numberFieldsShowANumpadEmailFieldsAnAt', 'field-type layouts'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -263,4 +270,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v0.5.0 markers present: Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.6.0 markers present: proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

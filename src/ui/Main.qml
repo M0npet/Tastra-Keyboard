@@ -40,7 +40,9 @@ Rectangle {
     property string glideLastValue: ""
 
     width: Screen.width
-    readonly property bool numberRowShown: keyboardBridge.numberRow && !keyboardBridge.symbolsActive
+    // Gboard shows a number pad in number/phone fields.
+    readonly property bool numpadShown: keyboardBridge.inputPurpose === "number" || keyboardBridge.inputPurpose === "phone"
+    readonly property bool numberRowShown: keyboardBridge.numberRow && !keyboardBridge.symbolsActive && !numpadShown
     height: toolbarHeight + metrics.panelHeight + (numberRowShown ? keyHeight + keyGap : 0)
     color: backgroundColor
 
@@ -93,6 +95,31 @@ Rectangle {
         glideLastValue = ""
     }
 
+    property var glidePoints: []
+
+    Canvas {
+        id: glideTrail
+        objectName: "glideTrail"
+        anchors.fill: parent
+        z: 200
+        visible: root.glidePoints.length > 1
+        onPaint: {
+            var ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height)
+            var pts = root.glidePoints
+            if (pts.length < 2) return
+            ctx.strokeStyle = root.accentColor
+            ctx.lineWidth = 6
+            ctx.lineCap = "round"
+            ctx.lineJoin = "round"
+            ctx.globalAlpha = 0.75
+            ctx.beginPath()
+            ctx.moveTo(pts[0].x, pts[0].y)
+            for (var i = 1; i < pts.length; ++i) ctx.lineTo(pts[i].x, pts[i].y)
+            ctx.stroke()
+        }
+    }
+
     function updateGlideCandidate(item, x, y) {
         // Only the finger that started the candidate can turn it into a glide
         // (its key keeps the touch grab and reports every move).
@@ -109,6 +136,12 @@ Rectangle {
         }
         if (!glideActive) return
         item.consumeRelease = true
+        // Gboard-style gesture trail.
+        var points = glidePoints.length === 0 ? [Qt.point(glideStartX, glideStartY)] : glidePoints
+        points.push(Qt.point(p.x, p.y))
+        if (points.length > 96) points.shift()
+        glidePoints = points
+        glideTrail.requestPaint()
         var hit = glideHit(p.x, p.y)
         if (hit && hit.glideValue !== glideLastValue) {
             keyboardBridge.glideThrough(hit.glideValue)
@@ -125,6 +158,8 @@ Rectangle {
         glideStartItem = null
         glideActive = false
         glideLastValue = ""
+        glidePoints = []
+        glideTrail.requestPaint()
     }
 
     component Key: Rectangle {
@@ -443,11 +478,14 @@ Rectangle {
                             anchors.centerIn: parent
                             width: parent.width - 12
                             horizontalAlignment: Text.AlignHCenter
-                            text: modelData
+                            // Gboard: the typed word is quoted when Space would correct it; the
+                            // correction itself is bold.
+                            text: keyboardBridge.autocorrectSuggestion.length > 0 && modelData === keyboardBridge.currentWord
+                                ? "\u201C" + modelData + "\u201D" : modelData
                             elide: Text.ElideRight
                             color: root.textColor
                             font.pixelSize: root.portrait ? 17 : 15
-                            font.weight: Font.Medium
+                            font.weight: modelData === keyboardBridge.autocorrectSuggestion ? Font.Bold : Font.Medium
                         }
 
                         MouseArea {
@@ -741,7 +779,34 @@ Rectangle {
                 }
             }
         }
+        Column {
+            // Number pad for number/phone fields (Gboard behaviour).
+            visible: root.numpadShown
+            spacing: root.keyGap
+            anchors.horizontalCenter: parent.horizontalCenter
+            Repeater {
+                model: [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"],
+                        [keyboardBridge.inputPurpose === "phone" ? "+" : ",", "0", "⌫"]]
+                delegate: Row {
+                    required property var modelData
+                    spacing: root.keyGap
+                    Repeater {
+                        model: modelData
+                        delegate: Key {
+                            required property string modelData
+                            objectName: "numpadKey_" + modelData
+                            preferredWidth: (root.contentWidth - root.keyGap * 2) / 3
+                            label: modelData
+                            special: modelData === "⌫"
+                            onTriggered: modelData === "⌫" ? keyboardBridge.backspace() : keyboardBridge.tapText(modelData)
+                        }
+                    }
+                }
+            }
+        }
+
         Row {
+            visible: !root.numpadShown
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: root.keyGap
 
@@ -779,6 +844,7 @@ Rectangle {
         }
 
         Row {
+            visible: !root.numpadShown
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: root.keyGap
 
@@ -816,6 +882,7 @@ Rectangle {
         }
 
         Row {
+            visible: !root.numpadShown
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: root.keyGap
 
@@ -909,9 +976,15 @@ Rectangle {
             }
 
             Key {
+                id: commaKey
+                readonly property string glyph: keyboardBridge.inputPurpose === "email" ? "@"
+                    : keyboardBridge.inputPurpose === "url" ? "/" : ","
                 preferredWidth: root.baseKeyWidth
-                label: ","
-                onTriggered: keyboardBridge.tapText(",")
+                label: glyph
+                // Gboard: long-press the comma for emoji.
+                longPressEnabled: true
+                onLongPressed: keyboardBridge.activateToolbarAction("emoji")
+                onTriggered: keyboardBridge.tapText(glyph)
             }
 
             Key {
@@ -953,7 +1026,7 @@ Rectangle {
                 preferredWidth: root.baseKeyWidth
                 label: "."
                 // Gboard: long-press the period for punctuation.
-                alternates: keyboardBridge.symbolsActive ? [] : keyboardBridge.alternatesForKey(".")
+                alternates: keyboardBridge.symbolsActive ? [] : (keyboardBridge.inputPurpose, keyboardBridge.alternatesForKey("."))
                 longPressEnabled: alternates.length > 0
                 onAlternateChosen: (text) => keyboardBridge.tapAlternateText(text)
                 onTriggered: keyboardBridge.tapText(".")
@@ -1225,7 +1298,7 @@ Rectangle {
                     clip: true
                     cellWidth: root.portrait ? 58 : 50
                     cellHeight: cellWidth
-                    model: keyboardBridge.emojiSearch(emojiSearchInput.text, root.emojiCategory)
+                    model: (keyboardBridge.emojiCategories, keyboardBridge.emojiSearch(emojiSearchInput.text, root.emojiCategory))
 
                     delegate: Rectangle {
                         width: GridView.view.cellWidth - root.keyGap
@@ -1244,7 +1317,7 @@ Rectangle {
                         MouseArea {
                             id: emojiMouse
                             anchors.fill: parent
-                            onClicked: keyboardBridge.tapText(modelData)
+                            onClicked: keyboardBridge.insertEmoji(modelData)
                         }
                     }
                 }

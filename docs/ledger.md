@@ -734,3 +734,16 @@ Acceptance bench (real dictionaries + frequency lists): no regression vs 0.5.0;
 new fixes tge/thw/yhe->the, hsus->haus, nivht->nicht, пртвет->привет,
 сппсибо->спасибо. Behaviour change: "helo" is no longer auto-corrected (hello
 and help are now equally likely: o neighbours p); both are suggested.
+
+## 2026-10-03 — 0.6.0 more Gboard logic (user: "logic and functions from Gboard")
+
+Declined decompiling the Gboard APK (proprietary; terms forbid reverse
+engineering; its code/data cannot enter a GPL project). Used Gboard's public
+feature descriptions and AOSP LatinIME (Apache-2.0) ideas instead.
+RED->GREEN: stripShowsTypedWordAndWhatSpaceWillInsert, fieldTypeDrivesLayoutLikeGboard,
+textShortcutsExpandFromTheStrip, recentEmojisComeFirstAndPersist (compile-RED);
+UI tests stripQuotesTypedWordAndBoldsTheCorrection, numberFieldsShowANumpadEmailFieldsAnAt,
+gesture-trail assertions in the glide test (written with the QML, not observed RED).
+Process: one test edit referenced a non-existent fake counter; the "15 passed"
+seen at that moment was a stale binary — re-run after the fix: 16/16.
+Sandbox: voice ON 12/12, voice OFF 11/11, KWin 3/3, static verify OK.

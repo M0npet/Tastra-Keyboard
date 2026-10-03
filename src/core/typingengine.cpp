@@ -601,8 +601,17 @@ void TypingEngine::chooseSuggestion(const QString &word)
     refreshSuggestions();
 }
 
+QString TypingEngine::autocorrectTarget() const { return m_autocorrectTarget; }
+
 void TypingEngine::refreshSuggestions()
 {
+    // What Space would insert instead of the typed word (shown highlighted
+    // in the middle of the strip, as Gboard does).
+    m_autocorrectTarget.clear();
+    if (!m_sensitiveContext && m_autocorrectEnabled && !m_currentWord.isEmpty()) {
+        const QString target = corrected(m_currentWord);
+        if (target != m_currentWord) m_autocorrectTarget = target;
+    }
     if (m_sensitiveContext || !m_suggestionsEnabled) {
         m_suggestions.clear();
         return;

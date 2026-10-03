@@ -61,3 +61,9 @@ the keyboard then shows a 🎤 key. Everything runs locally. See docs/release-0.
 Long-press symbols with key hints and a slide picker, period punctuation,
 number row, emoji suggestions, offensive-word filter (on by default),
 long-press a suggestion to remove it. See docs/release-0.5.0.md.
+
+## 0.6.0: more Gboard logic
+
+Neighbour-key corrections, Gboard-style strip (“typed” + bold correction),
+number pad / @ / / / .com by field type, long-press comma for emoji, text
+shortcuts (~/.config/v3-keyboard/shortcuts.txt), recent emoji, gesture trail.

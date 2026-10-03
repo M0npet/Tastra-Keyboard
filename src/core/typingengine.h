@@ -64,6 +64,7 @@ public:
     // Inserts recognized speech: commits any composition first, separates it
     // from preceding text, applies sentence case and updates the context.
     void insertDictation(const QString &text);
+    QString autocorrectTarget() const;
     bool surroundingTextSupported() const;
     void setSensitiveContext(bool sensitive);
     bool syncSurroundingText(const QString &text, int cursorByte, int anchorByte);
@@ -119,6 +120,7 @@ private:
     QString m_pendingWord;          // autocorrected word held with the pending space (revertible)
     QString m_pendingOriginal;      // what the user actually typed
     QString m_noCorrectionFor;      // word the user just reverted
+    QString m_autocorrectTarget;
     bool m_preeditRejected = false; // backend/client cannot show preedit
     bool m_inSync = false;
     std::function<qint64()> m_clock;

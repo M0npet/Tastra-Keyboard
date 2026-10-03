@@ -49,6 +49,22 @@ private Q_SLOTS:
         QCOMPARE(catalog.emojiForWord(QStringLiteral("пицца")), QStringLiteral("🍕"));
     }
 
+    void recentEmojisComeFirstAndPersist()
+    {
+        {
+            V3Keyboard::EmojiCatalog catalog;
+            catalog.clearRecent();
+            QVERIFY(!catalog.categories().contains(QStringLiteral("Recent")));
+            catalog.noteUsed(QStringLiteral("😀"));
+            catalog.noteUsed(QStringLiteral("🍕"));
+            catalog.noteUsed(QStringLiteral("😀"));
+            QCOMPARE(catalog.categories().value(0), QStringLiteral("Recent"));
+            QCOMPARE(catalog.glyphs(QStringLiteral("Recent")), QStringList({QStringLiteral("😀"), QStringLiteral("🍕")}));
+        }
+        V3Keyboard::EmojiCatalog reloaded;
+        QCOMPARE(reloaded.glyphs(QStringLiteral("Recent")), QStringList({QStringLiteral("😀"), QStringLiteral("🍕")}));
+    }
+
     void clipboardHistoryDeduplicatesAndKeepsNewestFirst()
     {
         V3Keyboard::ClipboardHistory history;

@@ -261,6 +261,65 @@ private Q_SLOTS:
         QVERIFY(!bridge.suggestions().contains(QStringLiteral("🍕")));
     }
 
+    void stripShowsTypedWordAndWhatSpaceWillInsert()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        bridge.setSurroundingText(QString(), 0, 0);
+        for (const QChar ch : QStringLiteral("teh")) bridge.tapLetter(QString(ch));
+        // Gboard: typed word (quoted in the UI) left, the correction centre.
+        QCOMPARE(bridge.autocorrectSuggestion(), QStringLiteral("the"));
+        QCOMPARE(bridge.suggestions().mid(0, 2), QStringList({QStringLiteral("teh"), QStringLiteral("the")}));
+        bridge.selectSuggestion(QStringLiteral("teh"));              // keep what was typed
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("teh")}));
+        for (const QChar ch : QStringLiteral("hel")) bridge.tapLetter(QString(ch));
+        QVERIFY(bridge.autocorrectSuggestion().isEmpty());          // a prefix, nothing to correct
+    }
+
+    void fieldTypeDrivesLayoutLikeGboard()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QCOMPARE(bridge.inputPurpose(), QStringLiteral("text"));
+        bridge.setContentType(0, 3);   QCOMPARE(bridge.inputPurpose(), QStringLiteral("number"));
+        bridge.setContentType(0, 2);   QCOMPARE(bridge.inputPurpose(), QStringLiteral("number"));
+        bridge.setContentType(0, 4);   QCOMPARE(bridge.inputPurpose(), QStringLiteral("phone"));
+        bridge.setContentType(0, 6);   QCOMPARE(bridge.inputPurpose(), QStringLiteral("email"));
+        QCOMPARE(bridge.alternatesForKey(QStringLiteral(".")).value(0), QStringLiteral(".com"));
+        bridge.setContentType(0, 5);   QCOMPARE(bridge.inputPurpose(), QStringLiteral("url"));
+        QVERIFY(bridge.alternatesForKey(QStringLiteral(".")).contains(QStringLiteral(".de")));
+        bridge.resetInputContext();    QCOMPARE(bridge.inputPurpose(), QStringLiteral("text"));
+        QCOMPARE(bridge.alternatesForKey(QStringLiteral(".")).value(0), QStringLiteral(","));
+    }
+
+    void textShortcutsExpandFromTheStrip()
+    {
+        QTemporaryDir dir;
+        QFile file(dir.path() + QStringLiteral("/shortcuts.txt"));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("# comment\nadp\tAndroid Police\nomw = on my way\n");
+        file.close();
+        qputenv("V3KBD_SHORTCUTS_FILE", file.fileName().toUtf8());
+
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("omw")) bridge.tapLetter(QString(ch));
+        QCOMPARE(bridge.suggestions().value(0), QStringLiteral("on my way"));
+        bridge.selectSuggestion(QStringLiteral("on my way"));
+        // No text-input client here: the typed "omw" is replaced via keys.
+        QCOMPARE(backend.backspaceCount, 3);
+        QCOMPARE(backend.commits.mid(3), QStringList({QStringLiteral("on my way"), QStringLiteral(" ")}));
+        qunsetenv("V3KBD_SHORTCUTS_FILE");
+    }
+
     void tapTextReachesController()
     {
         FakeBackend backend;
