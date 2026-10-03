@@ -68,6 +68,8 @@ void TypingEngine::setDoubleSpacePeriodEnabled(bool enabled) { m_doubleSpacePeri
 void TypingEngine::setAutoCapitalizationAllowed(bool allowed) { m_autoCapitalizationAllowed = allowed; }
 bool TypingEngine::surroundingTextSupported() const { return m_surroundingSupported; }
 void TypingEngine::setClockForTesting(std::function<qint64()> clock) { m_clock = std::move(clock); }
+void TypingEngine::setBlockOffensive(bool enabled) { m_lexicon.setBlockOffensive(enabled); refreshSuggestions(); }
+void TypingEngine::forgetWord(const QString &word) { m_lexicon.forgetWord(word); refreshSuggestions(); }
 
 void TypingEngine::setCompositionEnabled(bool enabled) { if (!enabled) commitComposition(); m_compositionEnabled = enabled; }
 bool TypingEngine::compositionEnabled() const { return m_compositionEnabled; }

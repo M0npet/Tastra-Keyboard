@@ -2,6 +2,8 @@
 
 #include "keyboardmodel.h"
 
+#include <QHash>
+
 #include <array>
 
 namespace V3Keyboard
@@ -95,6 +97,50 @@ bool KeyboardModel::symbolsActive() const
 QString KeyboardModel::textForLetter(const QString &text) const
 {
     return uppercase() ? text.toUpper() : text.toLower();
+}
+
+QStringList KeyboardModel::alternatesForKey(const QString &text) const
+{
+    if (m_layer != Layer::Alphabet) return {};
+    if (text == QStringLiteral(".")) {
+        return {QStringLiteral(","), QStringLiteral("?"), QStringLiteral("!"), QStringLiteral("'"),
+                QStringLiteral("\""), QStringLiteral(":"), QStringLiteral(";"), QStringLiteral("-"),
+                QStringLiteral("("), QStringLiteral(")"), QStringLiteral("@"), QStringLiteral("&")};
+    }
+    const QString lower = text.toLower();
+    QStringList result;
+    const QString special = alternateForKey(text);
+    if (!special.isEmpty()) result.append(special);
+
+    // Symbol hints by key position, as on Gboard: top row digits, then
+    // "@#$_&-+()" and "*\"':;!?".
+    static const QStringList second = {QStringLiteral("@"), QStringLiteral("#"), QStringLiteral("$"), QStringLiteral("_"),
+                                       QStringLiteral("&"), QStringLiteral("-"), QStringLiteral("+"), QStringLiteral("("),
+                                       QStringLiteral(")")};
+    static const QStringList third = {QStringLiteral("*"), QStringLiteral("\""), QStringLiteral("'"), QStringLiteral(":"),
+                                      QStringLiteral(";"), QStringLiteral("!"), QStringLiteral("?")};
+    auto position = [&lower](const QStringList &row) {
+        for (int i = 0; i < row.size(); ++i) if (row.at(i).toLower() == lower) return i;
+        return -1;
+    };
+    QString symbol;
+    if (const int i = position(row1()); i >= 0 && i < 10) symbol = QString::number((i + 1) % 10);
+    else if (const int j = position(row2()); j >= 0 && j < second.size()) symbol = second.at(j);
+    else if (const int k = position(row3()); k >= 0 && k < third.size()) symbol = third.at(k);
+    if (!symbol.isEmpty()) result.append(symbol);
+
+    if (languageCode() == QStringLiteral("en")) {
+        static const QHash<QString, QString> accents = {
+            {QStringLiteral("a"), QStringLiteral("àáâäãåæ")}, {QStringLiteral("e"), QStringLiteral("èéêë")},
+            {QStringLiteral("i"), QStringLiteral("ìíîï")}, {QStringLiteral("o"), QStringLiteral("òóôöõøœ")},
+            {QStringLiteral("u"), QStringLiteral("ùúûü")}, {QStringLiteral("c"), QStringLiteral("ç")},
+            {QStringLiteral("n"), QStringLiteral("ñ")}, {QStringLiteral("y"), QStringLiteral("ýÿ")},
+            {QStringLiteral("s"), QStringLiteral("ß")}};
+        for (const QChar ch : accents.value(lower)) {
+            result.append(uppercase() ? QString(ch).toUpper() : QString(ch));
+        }
+    }
+    return result;
 }
 
 QString KeyboardModel::alternateForKey(const QString &text) const

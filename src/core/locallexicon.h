@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QHash>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 
@@ -39,6 +40,13 @@ public:
     // lists, most frequent word first. Default: the bundled lists.
     static void setFrequencySearchPaths(const QStringList &paths);
     static QStringList frequencySearchPaths();
+    // Offensive-word lists (<lang>.txt), used only to filter suggestions.
+    static void setBlocklistSearchPaths(const QStringList &paths);
+    static QStringList blocklistSearchPaths();
+
+    void setBlockOffensive(bool enabled);
+    // Gboard-style "remove suggestion": unlearn and never suggest it again.
+    void forgetWord(const QString &word);
 
     void setLanguage(const QString &code);
     QString language() const;
@@ -75,6 +83,8 @@ private:
     QList<Candidate> correctionCandidates(const QString &typed, const QString &previousWord) const;
     int priorScore(const QString &candidate, const QString &previousWord) const;
     int frequencyRank(const QString &word) const;
+    bool suggestible(const QString &word) const;
+    void loadBlocklist();
     QString bigramKey(const QString &previousWord, const QString &word) const;
 
     QString m_language = QStringLiteral("en");
@@ -86,6 +96,9 @@ private:
     QHash<QString, int> m_personalFrequency;
     QHash<QString, int> m_bigramFrequency;
     int m_unsavedLearning = 0;
+    bool m_blockOffensive = true;
+    QSet<QString> m_offensive;
+    QSet<QString> m_forgotten;
 };
 
 }

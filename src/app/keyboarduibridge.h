@@ -43,6 +43,10 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool secureInput READ secureInput NOTIFY inputContextChanged)
 
     Q_PROPERTY(bool amoled READ amoled WRITE setAmoled NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(bool symbolHints READ symbolHints WRITE setSymbolHints NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(bool numberRow READ numberRow WRITE setNumberRow NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(bool emojiSuggestionsEnabled READ emojiSuggestionsEnabled WRITE setEmojiSuggestionsEnabled NOTIFY typingPreferencesChanged)
+    Q_PROPERTY(bool blockOffensive READ blockOffensive WRITE setBlockOffensive NOTIFY typingPreferencesChanged)
     Q_PROPERTY(QString layoutMode READ layoutMode WRITE setLayoutMode NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool voiceBuilt READ voiceBuilt NOTIFY voiceChanged)
     Q_PROPERTY(QString voiceState READ voiceState NOTIFY voiceChanged)
@@ -89,6 +93,10 @@ public:
     QStringList suggestions() const;
 
     bool amoled() const;
+    bool emojiSuggestionsEnabled() const;
+    bool symbolHints() const;
+    bool numberRow() const;
+    bool blockOffensive() const;
     QString layoutMode() const;
     bool voiceBuilt() const;
     QString voiceState() const;
@@ -150,6 +158,16 @@ public:
     Q_INVOKABLE void clearClipboardHistory();
 
     Q_INVOKABLE void setAmoled(bool enabled);
+    Q_INVOKABLE void setEmojiSuggestionsEnabled(bool enabled);
+    Q_INVOKABLE void setSymbolHints(bool enabled);
+    Q_INVOKABLE void setNumberRow(bool enabled);
+    Q_INVOKABLE QStringList alternatesForKey(const QString &key) const;
+    // The symbol drawn in the key corner ("" when hints are off).
+    Q_INVOKABLE QString symbolHintForKey(const QString &key) const;
+    Q_INVOKABLE void tapAlternateText(const QString &text);
+    Q_INVOKABLE void setBlockOffensive(bool enabled);
+    // Gboard: long-press a suggestion to remove it.
+    Q_INVOKABLE void forgetSuggestion(const QString &word);
     // "full", "left" or "right" (compact keyboard docked to one side).
     Q_INVOKABLE void setLayoutMode(const QString &mode);
     Q_INVOKABLE void cycleLayoutMode();
@@ -199,6 +217,10 @@ private:
     PanelManager m_panelManager;
 
     bool m_amoled = false;
+    bool m_emojiSuggestions = true;
+    bool m_symbolHints = true;
+    bool m_numberRow = false;
+    bool m_blockOffensive = true;
     QString m_layoutMode = QStringLiteral("full");
     class VoiceController *m_voice = nullptr;
     double m_keyScale = 1.0;

@@ -100,6 +100,7 @@ private Q_SLOTS:
         QCoreApplication::setApplicationName(QStringLiteral("tst_keyboarduibridge"));
         V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
         V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
     }
 
     void init() { QSettings().clear(); }
@@ -240,6 +241,24 @@ private Q_SLOTS:
         QCOMPARE(backend.commits.last(), QStringLiteral("Hello there. "));
         QVERIFY(bridge.uppercase());                          // sentence ended
         QCOMPARE(bridge.voiceState(), QStringLiteral("idle"));
+    }
+
+    void emojiSuggestionFollowsAnExactWordAndInsertsAfterIt()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("pizza")) bridge.tapLetter(QString(ch));
+        QVERIFY(bridge.suggestions().contains(QStringLiteral("🍕")));
+        bridge.selectSuggestion(QStringLiteral("🍕"));
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("pizza 🍕"));
+        bridge.setEmojiSuggestionsEnabled(false);
+        for (const QChar ch : QStringLiteral(" pizza")) {
+            if (ch == QLatin1Char(' ')) bridge.space(); else bridge.tapLetter(QString(ch));
+        }
+        QVERIFY(!bridge.suggestions().contains(QStringLiteral("🍕")));
     }
 
     void tapTextReachesController()

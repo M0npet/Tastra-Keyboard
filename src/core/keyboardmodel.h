@@ -32,6 +32,9 @@ public:
 
     QString textForLetter(const QString &text) const;
     QString alternateForKey(const QString &text) const;
+    // Gboard-style long-press choices; the first one is preselected (a
+    // language letter such as ß/ё/ґ, otherwise the key's symbol hint).
+    QStringList alternatesForKey(const QString &text) const;
 
     QString languageCode() const;
     QString languageLabel() const;

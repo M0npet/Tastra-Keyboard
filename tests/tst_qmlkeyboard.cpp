@@ -63,6 +63,16 @@ QQuickItem *findText(QQuickItem *item, const QString &text)
     return nullptr;
 }
 
+QQuickItem *findNamed(QQuickItem *item, const QString &name)
+{
+    if (item->objectName() == name && item->isVisible()) return item;
+    const auto children = item->childItems();
+    for (QQuickItem *child : children) {
+        if (QQuickItem *found = findNamed(child, name)) return found;
+    }
+    return nullptr;
+}
+
 QList<QPointer<QQuickItem>> letterKeys(QQuickItem *root)
 {
     QList<QPointer<QQuickItem>> result;
@@ -84,6 +94,7 @@ private Q_SLOTS:
         QCoreApplication::setApplicationName(QStringLiteral("tst_qmlkeyboard"));
         V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
         V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
     }
 
     void init()
@@ -294,6 +305,62 @@ private Q_SLOTS:
         QTRY_VERIFY(recorder.started);
         QCOMPARE(bridge.voiceState(), QStringLiteral("recording"));
         QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("Listening… tap 🎤 to finish")));
+    }
+
+    void gboardLongPressPickerNumberRowHintsAndForget()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
+        static QPointingDevice *touch = QTest::createTouchDevice();
+
+        // 1. Long-press "e", slide one cell right, release -> second choice.
+        QQuickItem *eLabel = findText(view.rootObject(), QStringLiteral("e"));
+        QVERIFY(eLabel);
+        const QPoint e = centre(eLabel);
+        QTest::touchEvent(&view, touch).press(0, e);
+        QTest::qWait(qApp->styleHints()->mousePressAndHoldInterval() + 150);
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("è")));        // picker open
+        const int cell = int(eLabel->parentItem()->width() * 0.86) + 2;
+        QTest::touchEvent(&view, touch).move(0, e + QPoint(cell, 0));
+        QTest::touchEvent(&view, touch).release(0, e + QPoint(cell, 0));
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("è")}));
+
+        // 2. Symbol hints in key corners can be switched off.
+        QVERIFY(findText(view.rootObject(), QStringLiteral("1")));            // hint on "q"
+        bridge.setSymbolHints(false);
+        QTRY_VERIFY(!findText(view.rootObject(), QStringLiteral("1")));
+
+        // 3. Number row grows the panel and types digits.
+        const qreal before = view.rootObject()->height();
+        bridge.setNumberRow(true);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("numberKey_7")));
+        QVERIFY(view.rootObject()->height() > before);
+        QTest::qWait(100);                                                    // Row polish
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findNamed(view.rootObject(), QStringLiteral("numberKey_7"))));
+        QTRY_COMPARE(backend.commits.last(), QStringLiteral("7"));
+
+        // 4. Long-press a suggestion removes it (and does not insert it).
+        bridge.setNumberRow(false);
+        bridge.space();
+        for (const QChar ch : QStringLiteral("hel")) bridge.tapLetter(QString(ch));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("hello")));
+        QTest::qWait(100);
+        const int commitsBefore = backend.commits.size();
+        const QPoint h = centre(findText(view.rootObject(), QStringLiteral("hello")));
+        QTest::mousePress(&view, Qt::LeftButton, {}, h);
+        QTest::qWait(qApp->styleHints()->mousePressAndHoldInterval() + 200);
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, h);
+        QTRY_VERIFY(!bridge.suggestions().contains(QStringLiteral("hello")));
+        QCOMPARE(backend.commits.size(), commitsBefore);
     }
 
     void caseChangesDoNotRecreateLetterKeys()

@@ -12,6 +12,31 @@ class KeyboardModelTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void longPressAlternatesFollowGboardPositions()
+    {
+        V3Keyboard::KeyboardModel model;                       // EN QWERTY
+        QCOMPARE(model.alternatesForKey(QStringLiteral("q")), QStringList({QStringLiteral("1")}));
+        QCOMPARE(model.alternatesForKey(QStringLiteral("p")), QStringList({QStringLiteral("0")}));
+        QCOMPARE(model.alternatesForKey(QStringLiteral("a")).value(0), QStringLiteral("@"));
+        QVERIFY(model.alternatesForKey(QStringLiteral("a")).contains(QStringLiteral("á")));
+        QCOMPARE(model.alternatesForKey(QStringLiteral("e")).mid(0, 2), QStringList({QStringLiteral("3"), QStringLiteral("è")}));
+        QCOMPARE(model.alternatesForKey(QStringLiteral("m")), QStringList({QStringLiteral("?")}));
+        QCOMPARE(model.alternatesForKey(QStringLiteral(".")).value(0), QStringLiteral(","));
+        QVERIFY(model.alternatesForKey(QStringLiteral(".")).contains(QStringLiteral("!")));
+
+        model.setLanguage(QStringLiteral("de"));               // language letter first
+        QCOMPARE(model.alternatesForKey(QStringLiteral("s")), QStringList({QStringLiteral("ß"), QStringLiteral("#")}));
+        QCOMPARE(model.alternateForKey(QStringLiteral("s")), QStringLiteral("ß"));
+        model.setLanguage(QStringLiteral("ru"));
+        QCOMPARE(model.alternatesForKey(QStringLiteral("й")), QStringList({QStringLiteral("1")}));
+        QCOMPARE(model.alternatesForKey(QStringLiteral("е")), QStringList({QStringLiteral("ё"), QStringLiteral("5")}));
+        model.setLanguage(QStringLiteral("uk"));
+        QCOMPARE(model.alternatesForKey(QStringLiteral("г")).value(0), QStringLiteral("ґ"));
+
+        model.toggleSymbols();
+        QVERIFY(model.alternatesForKey(QStringLiteral("1")).isEmpty());
+    }
+
     void startsLowercase()
     {
         V3Keyboard::KeyboardModel model;

@@ -42,6 +42,11 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
+    m_emojiSuggestions = settings.value(QStringLiteral("emojiSuggestions"), true).toBool();
+    m_symbolHints = settings.value(QStringLiteral("symbolHints"), true).toBool();
+    m_numberRow = settings.value(QStringLiteral("numberRow"), false).toBool();
+    m_blockOffensive = settings.value(QStringLiteral("blockOffensive"), true).toBool();
+    m_typingEngine.setBlockOffensive(m_blockOffensive);
     {
         const QString mode = settings.value(QStringLiteral("layoutMode"), QStringLiteral("full")).toString();
         if (mode == QStringLiteral("left") || mode == QStringLiteral("right")) m_layoutMode = mode;
@@ -80,7 +85,89 @@ QStringList KeyboardUiBridge::toolbarActionIds() const { return m_toolbarModel.v
 QStringList KeyboardUiBridge::languageCodes() const { return m_model.languageCodes(); }
 QStringList KeyboardUiBridge::languageLabels() const { return m_model.languageLabels(); }
 QString KeyboardUiBridge::currentWord() const { return m_typingEngine.currentWord(); }
-QStringList KeyboardUiBridge::suggestions() const { return m_typingEngine.suggestions(); }
+QStringList KeyboardUiBridge::suggestions() const
+{
+    QStringList list = m_typingEngine.suggestions();
+    if (m_emojiSuggestions && !m_typingEngine.currentWord().isEmpty()) {
+        const QString emoji = m_emojiCatalog.emojiForWord(m_typingEngine.currentWord());
+        if (!emoji.isEmpty()) {
+            if (list.size() >= 3) list.removeLast();
+            list.append(emoji);
+        }
+    }
+    return list;
+}
+
+bool KeyboardUiBridge::emojiSuggestionsEnabled() const { return m_emojiSuggestions; }
+bool KeyboardUiBridge::symbolHints() const { return m_symbolHints; }
+bool KeyboardUiBridge::numberRow() const { return m_numberRow; }
+
+void KeyboardUiBridge::setSymbolHints(bool enabled)
+{
+    if (m_symbolHints == enabled) return;
+    m_symbolHints = enabled;
+    persistPreference(QStringLiteral("symbolHints"), enabled);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setNumberRow(bool enabled)
+{
+    if (m_numberRow == enabled) return;
+    m_numberRow = enabled;
+    persistPreference(QStringLiteral("numberRow"), enabled);
+    Q_EMIT uiPreferencesChanged();
+}
+
+QStringList KeyboardUiBridge::alternatesForKey(const QString &key) const
+{
+    return m_model.alternatesForKey(key);
+}
+
+QString KeyboardUiBridge::symbolHintForKey(const QString &key) const
+{
+    if (!m_symbolHints) return {};
+    for (const QString &choice : m_model.alternatesForKey(key)) {
+        if (!choice.isEmpty() && !choice.front().isLetter()) return choice;
+    }
+    return {};
+}
+
+void KeyboardUiBridge::tapAlternateText(const QString &text)
+{
+    if (text.isEmpty()) return;
+    const bool uppercaseBefore = uppercase();
+    if (text.front().isLetter()) m_typingEngine.typeLetter(text);
+    else m_typingEngine.typeText(text);
+    if (text.front().isLetter()) m_model.consumeShiftAfterLetter();
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
+}
+bool KeyboardUiBridge::blockOffensive() const { return m_blockOffensive; }
+
+void KeyboardUiBridge::setEmojiSuggestionsEnabled(bool enabled)
+{
+    if (m_emojiSuggestions == enabled) return;
+    m_emojiSuggestions = enabled;
+    persistPreference(QStringLiteral("emojiSuggestions"), enabled);
+    Q_EMIT typingPreferencesChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::setBlockOffensive(bool enabled)
+{
+    if (m_blockOffensive == enabled) return;
+    m_blockOffensive = enabled;
+    m_typingEngine.setBlockOffensive(enabled);
+    persistPreference(QStringLiteral("blockOffensive"), enabled);
+    Q_EMIT typingPreferencesChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::forgetSuggestion(const QString &word)
+{
+    m_typingEngine.forgetWord(word);
+    Q_EMIT suggestionsChanged();
+}
 
 QVariantList KeyboardUiBridge::toolbarActions() const
 {
@@ -222,7 +309,13 @@ void KeyboardUiBridge::tapText(const QString &text)
 void KeyboardUiBridge::selectSuggestion(const QString &word)
 {
     const bool uppercaseBefore = uppercase();
-    m_typingEngine.chooseSuggestion(word);
+    if (!word.isEmpty() && !word.front().isLetter()) {
+        // Emoji suggestion: keep the typed word, add the emoji after it.
+        m_typingEngine.commitComposition();
+        m_typingEngine.typeText(QStringLiteral(" ") + word);
+    } else {
+        m_typingEngine.chooseSuggestion(word);
+    }
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
     Q_EMIT suggestionsChanged();
 }

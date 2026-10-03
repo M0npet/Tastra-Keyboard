@@ -212,17 +212,33 @@ void EmojiCatalog::setKeywordLanguage(const QString &code)
     m_languageLoaded = false;
 }
 
+void EmojiCatalog::ensureKeywords() const
+{
+    if (!m_englishLoaded) { m_englishKeywords = loadKeywords(QStringLiteral("en")); m_englishLoaded = true; }
+    if (!m_languageLoaded && !m_keywordLanguage.isEmpty() && m_keywordLanguage != QStringLiteral("en")) {
+        m_languageKeywords = loadKeywords(m_keywordLanguage);
+        m_languageLoaded = true;
+    }
+}
+
+QString EmojiCatalog::emojiForWord(const QString &word) const
+{
+    const QString w = word.trimmed().toLower();
+    if (w.size() < 2) return {};
+    ensureKeywords();
+    for (const QHash<QString, QString> *map : {&m_languageKeywords, &m_englishKeywords}) {
+        for (const auto &entry : m_entries) {
+            if (keywordMatch(map->value(withoutVariationSelector(entry.glyph)), w) == 3) return entry.glyph;
+        }
+    }
+    return {};
+}
+
 QStringList EmojiCatalog::glyphs(const QString &category, const QString &query, int limit) const
 {
     const QString q = query.trimmed().toLower();
     const QString cat = category.isEmpty() ? QStringLiteral("All") : category;
-    if (!q.isEmpty()) {
-        if (!m_englishLoaded) { m_englishKeywords = loadKeywords(QStringLiteral("en")); m_englishLoaded = true; }
-        if (!m_languageLoaded && !m_keywordLanguage.isEmpty() && m_keywordLanguage != QStringLiteral("en")) {
-            m_languageKeywords = loadKeywords(m_keywordLanguage);
-            m_languageLoaded = true;
-        }
-    }
+    if (!q.isEmpty()) ensureKeywords();
     QStringList exact;
     QStringList strong;
     QStringList weak;

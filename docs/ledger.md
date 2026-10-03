@@ -699,3 +699,21 @@ dictationFlowsFromVoiceIntoTheField (bridge), micButtonAppearsOnlyWithVoice...
 (UI; first failure was the test clicking before the Row polished its layout),
 tst_voiceadapters (PCM conversion, missing model, real whisper run with the
 repository test model). Both builds green: voice ON 12/12, voice OFF 11/11.
+
+## 2026-09-29 — 0.5.0 Gboard behaviours (user: "continue, take the logic from Gboard")
+
+Gboard behaviours taken from public descriptions (Computerworld, Android
+Authority, MakeTechEasier, Gboard store listing), not code.
+Licenses: LDNOOBW CC BY 4.0 (FSF: compatible with all GPL versions).
+Evidence for the offensive filter: 20 EN list words within the top 3000 of the
+frequency data (ranks 277, 291, 329, ...), DE 9, RU 3.
+RED->GREEN: offensiveWordsAreNeverSuggestedButStayTypable,
+forgettingASuggestionRemovesItForGood, exactKeywordMapsAWordToItsEmoji,
+emojiSuggestionFollowsAnExactWordAndInsertsAfterIt,
+longPressAlternatesFollowGboardPositions (compile-RED).
+The UI test gboardLongPressPickerNumberRowHintsAndForget was written after the
+QML (not observed RED); its assertions are specific (commit "è", hint "1"
+disappears, panel height grows, commit "7", no commit on suggestion forget).
+A scripted edit aborted on a stale line number (no file written); redone with
+content-based positioning.
+Sandbox: voice ON 12/12, voice OFF 11/11, KWin 3/3, static verify OK.

@@ -40,7 +40,8 @@ Rectangle {
     property string glideLastValue: ""
 
     width: Screen.width
-    height: toolbarHeight + metrics.panelHeight
+    readonly property bool numberRowShown: keyboardBridge.numberRow && !keyboardBridge.symbolsActive
+    height: toolbarHeight + metrics.panelHeight + (numberRowShown ? keyHeight + keyGap : 0)
     color: backgroundColor
 
     function dynamicKeyWidth(count) {
@@ -132,6 +133,12 @@ Rectangle {
         property string label: ""
         property string iconSource: ""
         property string alternate: ""
+        // Gboard-style long-press choices; first is preselected. More than
+        // one opens a picker: slide to choose, release to insert.
+        property var alternates: []
+        property string hint: ""
+        property bool choosing: false
+        property int choiceIndex: 0
         property real preferredWidth: root.baseKeyWidth
         property bool special: false
         property bool accent: false
@@ -146,6 +153,20 @@ Rectangle {
         signal pressStarted(real x, real y)
         signal pointerMoved(real x, real y)
         signal pressEnded(real x, real y)
+        signal alternateChosen(string text)
+
+        function choiceCellWidth() { return Math.max(key.width * 0.86, 44) }
+        // The picker starts at the key's left edge, clamped inside the keyboard.
+        function choiceOriginX() {
+            var total = choiceCellWidth() * alternates.length
+            var left = key.mapToItem(root, 0, 0).x
+            var shift = Math.min(0, root.width - (left + total) - 4)
+            return Math.max(-left + 4, shift)
+        }
+        function updateChoice(x) {
+            var index = Math.floor((x - choiceOriginX()) / choiceCellWidth())
+            choiceIndex = Math.max(0, Math.min(alternates.length - 1, index))
+        }
 
         width: preferredWidth
         height: root.keyHeight
@@ -174,6 +195,55 @@ Rectangle {
             font.weight: Font.Medium
         }
 
+        Text {
+            // Symbol hint in the corner (Gboard "long press for symbols").
+            visible: key.hint.length > 0 && key.iconSource.length === 0
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: 4
+            text: key.hint
+            color: root.textColor
+            opacity: 0.55
+            font.pixelSize: Math.max(10, root.metrics.fontSize * 0.45)
+        }
+
+        Rectangle {
+            id: choicePicker
+            visible: key.choosing
+            z: 110
+            x: key.choiceOriginX()
+            anchors.bottom: parent.top
+            anchors.bottomMargin: 7
+            width: key.choiceCellWidth() * key.alternates.length
+            height: root.metrics.popupHeight
+            radius: 14
+            color: root.specialKeyColor
+            border.width: 1
+            border.color: root.borderColor
+
+            Row {
+                anchors.fill: parent
+                Repeater {
+                    model: key.choosing ? key.alternates : []
+                    delegate: Rectangle {
+                        required property var modelData
+                        required property int index
+                        width: key.choiceCellWidth()
+                        height: choicePicker.height
+                        radius: 12
+                        color: index === key.choiceIndex ? root.accentColor : "transparent"
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData
+                            color: index === key.choiceIndex ? root.backgroundColor : "#ffffff"
+                            font.pixelSize: root.metrics.fontSize + 3
+                            font.weight: Font.Medium
+                        }
+                    }
+                }
+            }
+        }
+
         Image {
             anchors.centerIn: parent
             visible: key.iconSource.length > 0
@@ -188,6 +258,7 @@ Rectangle {
         Rectangle {
             id: popup
             visible: mouse.pressed
+                && !key.choosing
                 && key.popupEnabled
                 && key.label.length > 0
                 && key.iconSource.length === 0
@@ -232,7 +303,12 @@ Rectangle {
                 onTriggered: {
                     if (mouse.pressed && key.longPressEnabled && mouse.inside(mouse.lastX, mouse.lastY)) {
                         mouse.held = true
-                        key.longPressed()
+                        if (key.alternates.length > 1) {
+                            key.choiceIndex = 0
+                            key.choosing = true
+                        } else {
+                            key.longPressed()
+                        }
                     }
                 }
             }
@@ -251,6 +327,10 @@ Rectangle {
                 if (!pressed || touchPoints.length === 0) return
                 lastX = touchPoints[0].x
                 lastY = touchPoints[0].y
+                if (key.choosing) {
+                    key.updateChoice(lastX)
+                    return
+                }
                 key.pointerMoved(lastX, lastY)
             }
             onReleased: (touchPoints) => {
@@ -260,6 +340,11 @@ Rectangle {
                 const y = point ? point.y : lastY
                 pressed = false
                 holdTimer.stop()
+                if (key.choosing) {
+                    key.choosing = false
+                    key.alternateChosen(key.alternates[key.choiceIndex])
+                    return
+                }
                 key.pressEnded(x, y)
                 if (inside(x, y) && !held && !key.consumeRelease) {
                     key.triggered()
@@ -268,6 +353,7 @@ Rectangle {
             onCanceled: (touchPoints) => {
                 pressed = false
                 held = false
+                key.choosing = false
                 holdTimer.stop()
             }
         }
@@ -367,7 +453,17 @@ Rectangle {
                         MouseArea {
                             id: suggestionMouse
                             anchors.fill: parent
+                            property bool forgot: false
+                            onPressed: forgot = false
+                            // Gboard: long-press a suggestion to remove it.
+                            onPressAndHold: {
+                                if (modelData.length > 0 && modelData[0].toLowerCase() !== modelData[0].toUpperCase()) {
+                                    forgot = true
+                                    keyboardBridge.forgetSuggestion(modelData)
+                                }
+                            }
                             onClicked: {
+                                if (forgot) return
                                 // selectSuggestion() replaces the model and
                                 // destroys this delegate; touch nothing after it.
                                 root.toolbarExpanded = false
@@ -630,6 +726,22 @@ Rectangle {
         spacing: root.keyGap
 
         Row {
+            // Gboard "Number row" preference.
+            visible: root.numberRowShown
+            spacing: root.keyGap
+            Repeater {
+                model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+                delegate: Key {
+                    required property string modelData
+                    objectName: "numberKey_" + modelData
+                    preferredWidth: root.dynamicKeyWidth(10)
+                    label: modelData
+                    special: true
+                    onTriggered: keyboardBridge.tapText(modelData)
+                }
+            }
+        }
+        Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: root.keyGap
 
@@ -645,7 +757,10 @@ Rectangle {
                         ? modelData
                         : (keyboardBridge.uppercase ? modelData.toUpperCase() : modelData)
                     alternate: keyboardBridge.symbolsActive ? "" : keyboardBridge.alternateForKey(modelData)
-                    longPressEnabled: alternate.length > 0
+                    alternates: keyboardBridge.symbolsActive ? [] : (keyboardBridge.uppercase, keyboardBridge.alternatesForKey(modelData))
+                    hint: keyboardBridge.symbolsActive ? "" : (keyboardBridge.symbolHints, keyboardBridge.symbolHintForKey(modelData))
+                    longPressEnabled: alternates.length > 0
+                    onAlternateChosen: (text) => keyboardBridge.tapAlternateText(text)
                     glideEligible: !keyboardBridge.symbolsActive
                     glideValue: modelData
                     Component.onCompleted: root.registerGlideKey(row1LetterKey)
@@ -658,7 +773,7 @@ Rectangle {
                         if (keyboardBridge.symbolsActive) keyboardBridge.tapText(modelData)
                         else keyboardBridge.tapLetter(modelData)
                     }
-                    onLongPressed: keyboardBridge.tapAlternate(modelData)
+                    onLongPressed: keyboardBridge.tapAlternateText(alternates[0])
                 }
             }
         }
@@ -679,7 +794,10 @@ Rectangle {
                         ? modelData
                         : (keyboardBridge.uppercase ? modelData.toUpperCase() : modelData)
                     alternate: keyboardBridge.symbolsActive ? "" : keyboardBridge.alternateForKey(modelData)
-                    longPressEnabled: alternate.length > 0
+                    alternates: keyboardBridge.symbolsActive ? [] : (keyboardBridge.uppercase, keyboardBridge.alternatesForKey(modelData))
+                    hint: keyboardBridge.symbolsActive ? "" : (keyboardBridge.symbolHints, keyboardBridge.symbolHintForKey(modelData))
+                    longPressEnabled: alternates.length > 0
+                    onAlternateChosen: (text) => keyboardBridge.tapAlternateText(text)
                     glideEligible: !keyboardBridge.symbolsActive
                     glideValue: modelData
                     Component.onCompleted: root.registerGlideKey(row2LetterKey)
@@ -692,7 +810,7 @@ Rectangle {
                         if (keyboardBridge.symbolsActive) keyboardBridge.tapText(modelData)
                         else keyboardBridge.tapLetter(modelData)
                     }
-                    onLongPressed: keyboardBridge.tapAlternate(modelData)
+                    onLongPressed: keyboardBridge.tapAlternateText(alternates[0])
                 }
             }
         }
@@ -729,7 +847,10 @@ Rectangle {
                         ? modelData
                         : (keyboardBridge.uppercase ? modelData.toUpperCase() : modelData)
                     alternate: keyboardBridge.symbolsActive ? "" : keyboardBridge.alternateForKey(modelData)
-                    longPressEnabled: alternate.length > 0
+                    alternates: keyboardBridge.symbolsActive ? [] : (keyboardBridge.uppercase, keyboardBridge.alternatesForKey(modelData))
+                    hint: keyboardBridge.symbolsActive ? "" : (keyboardBridge.symbolHints, keyboardBridge.symbolHintForKey(modelData))
+                    longPressEnabled: alternates.length > 0
+                    onAlternateChosen: (text) => keyboardBridge.tapAlternateText(text)
                     glideEligible: !keyboardBridge.symbolsActive
                     glideValue: modelData
                     Component.onCompleted: root.registerGlideKey(row3LetterKey)
@@ -742,7 +863,7 @@ Rectangle {
                         if (keyboardBridge.symbolsActive) keyboardBridge.tapText(modelData)
                         else keyboardBridge.tapLetter(modelData)
                     }
-                    onLongPressed: keyboardBridge.tapAlternate(modelData)
+                    onLongPressed: keyboardBridge.tapAlternateText(alternates[0])
                 }
             }
 
@@ -831,6 +952,10 @@ Rectangle {
             Key {
                 preferredWidth: root.baseKeyWidth
                 label: "."
+                // Gboard: long-press the period for punctuation.
+                alternates: keyboardBridge.symbolsActive ? [] : keyboardBridge.alternatesForKey(".")
+                longPressEnabled: alternates.length > 0
+                onAlternateChosen: (text) => keyboardBridge.tapAlternateText(text)
                 onTriggered: keyboardBridge.tapText(".")
             }
 
@@ -1217,6 +1342,30 @@ Rectangle {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - autocorrectButton.width - parent.spacing; height: autocorrectButton.height; verticalAlignment: Text.AlignVCenter; text: "Autocorrect"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: autocorrectButton; width: root.portrait ? 170 : 150; label: keyboardBridge.autocorrectEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setAutocorrectEnabled(!keyboardBridge.autocorrectEnabled) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - hintsButton.width - parent.spacing; height: hintsButton.height; verticalAlignment: Text.AlignVCenter; text: "Long-press symbols (key hints)"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: hintsButton; width: root.portrait ? 170 : 150; label: keyboardBridge.symbolHints ? "On" : "Off"; onTriggered: keyboardBridge.setSymbolHints(!keyboardBridge.symbolHints) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - numberRowButton.width - parent.spacing; height: numberRowButton.height; verticalAlignment: Text.AlignVCenter; text: "Number row"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: numberRowButton; width: root.portrait ? 170 : 150; label: keyboardBridge.numberRow ? "On" : "Off"; onTriggered: keyboardBridge.setNumberRow(!keyboardBridge.numberRow) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - emojiSuggestButton.width - parent.spacing; height: emojiSuggestButton.height; verticalAlignment: Text.AlignVCenter; text: "Emoji suggestions"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: emojiSuggestButton; width: root.portrait ? 170 : 150; label: keyboardBridge.emojiSuggestionsEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setEmojiSuggestionsEnabled(!keyboardBridge.emojiSuggestionsEnabled) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - offensiveButton.width - parent.spacing; height: offensiveButton.height; verticalAlignment: Text.AlignVCenter; text: "Block offensive words"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: offensiveButton; width: root.portrait ? 170 : 150; label: keyboardBridge.blockOffensive ? "On" : "Off"; onTriggered: keyboardBridge.setBlockOffensive(!keyboardBridge.blockOffensive) }
                     }
 
                     Row {

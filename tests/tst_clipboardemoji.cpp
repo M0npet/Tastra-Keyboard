@@ -40,6 +40,15 @@ private Q_SLOTS:
         QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("herz")).mid(0, 8).contains(QStringLiteral("❤️")));
     }
 
+    void exactKeywordMapsAWordToItsEmoji()
+    {
+        V3Keyboard::EmojiCatalog catalog;
+        QCOMPARE(catalog.emojiForWord(QStringLiteral("Pizza")), QStringLiteral("🍕"));
+        QVERIFY(catalog.emojiForWord(QStringLiteral("piz")).isEmpty());      // exact only
+        catalog.setKeywordLanguage(QStringLiteral("ru"));
+        QCOMPARE(catalog.emojiForWord(QStringLiteral("пицца")), QStringLiteral("🍕"));
+    }
+
     void clipboardHistoryDeduplicatesAndKeepsNewestFirst()
     {
         V3Keyboard::ClipboardHistory history;

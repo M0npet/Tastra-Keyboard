@@ -1,4 +1,4 @@
-# Handoff — V3 Keyboard (state at 0.4.0 packaging, 2026-09-29)
+# Handoff — V3 Keyboard (state at 0.5.0 packaging, 2026-09-29)
 
 Device: Minisforum V3, Arch, Qt 6.11.2, KWin 6.7.5, hunspell 1.7.3,
 dictionaries en/de/ru (pacman) + uk (pinned LibreOffice upstream, user dir).
@@ -31,3 +31,8 @@ panel (KWin controls placement).
 when both are installed; model via scripts/v3kbd-voice-setup.sh, pinned
 SHA-256). Remaining ideas: handwriting (no light offline engine identified),
 wlroots backend, floating panel (KWin controls placement).
+
+0.5.0 adds Gboard behaviours (long-press symbols + picker, number row, emoji
+suggestions, offensive filter, remove suggestion). Gboard ideas not done yet:
+text shortcuts (personal dictionary), emoji fast-access row, fast symbols
+gesture from ?123, .com on long-press period in URL fields.

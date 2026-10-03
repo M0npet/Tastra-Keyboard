@@ -22,11 +22,13 @@ private:
     {
         LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/hunspell")});
         LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/blocklist")});
     }
     static void useNoDictionaries()
     {
         LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
         LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
     }
     static void useFrequencies()
     {
@@ -154,6 +156,39 @@ private Q_SLOTS:
         loaded(lexicon, QStringLiteral("de"));
         QCOMPARE(lexicon.suggestions(QStringLiteral("ha"), {}).value(0), QStringLiteral("Haus"));
         QVERIFY(lexicon.suggestions(QStringLiteral("hau"), {}).contains(QStringLiteral("Hause")));
+    }
+
+    void offensiveWordsAreNeverSuggestedButStayTypable()
+    {
+        useFixtureDictionaries();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        QVERIFY(!lexicon.suggestions(QStringLiteral("hel"), {}, 5).contains(QStringLiteral("hell")));
+        // Exactly what the user typed is still offered.
+        QVERIFY(lexicon.suggestions(QStringLiteral("hell"), {}, 5).contains(QStringLiteral("hell")));
+        // Never an autocorrection target ("hlel" is a transposition of "hell").
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("hlel")).isEmpty());
+        lexicon.setBlockOffensive(false);
+        QVERIFY(lexicon.suggestions(QStringLiteral("hel"), {}, 5).contains(QStringLiteral("hell")));
+    }
+
+    void forgettingASuggestionRemovesItForGood()
+    {
+        useFixtureDictionaries();
+        {
+            LocalLexicon lexicon;
+            loaded(lexicon, QStringLiteral("en"));
+            for (int i = 0; i < 3; ++i) lexicon.learnWordWithContext(QStringLiteral("helsinki"), {});
+            QVERIFY(lexicon.suggestions(QStringLiteral("hel"), {}).contains(QStringLiteral("helsinki")));
+            lexicon.forgetWord(QStringLiteral("helsinki"));
+            lexicon.forgetWord(QStringLiteral("hello"));            // a dictionary word
+            QVERIFY(!lexicon.suggestions(QStringLiteral("hel"), {}, 5).contains(QStringLiteral("helsinki")));
+            QVERIFY(!lexicon.suggestions(QStringLiteral("hel"), {}, 5).contains(QStringLiteral("hello")));
+        }
+        LocalLexicon reloaded;
+        loaded(reloaded, QStringLiteral("en"));
+        QVERIFY(!reloaded.suggestions(QStringLiteral("hel"), {}, 5).contains(QStringLiteral("hello")));
+        QVERIFY(!reloaded.suggestions(QStringLiteral("hel"), {}, 5).contains(QStringLiteral("helsinki")));
     }
 
     void prefixCompletionsUseDictionaryAndCoreWords()

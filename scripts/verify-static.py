@@ -87,7 +87,7 @@ for token in (
     'id: languageChooserPanel',
     'onLongPressed: keyboardBridge.openLanguagePanel()',
     'keyboardBridge.alternateForKey(modelData)',
-    'keyboardBridge.tapAlternate(modelData)',
+    'keyboardBridge.tapAlternateText(alternates[0])',
     'keyboardBridge.clipboardText',
     'keyboardBridge.emojiSearch',
     'keyboardBridge.suggestions',
@@ -245,6 +245,13 @@ for path, token, why in (
     ('scripts/v3kbd-voice-setup.sh', '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898', 'pinned model checksum'),
     ('src/app/keyboarduibridge.cpp', 'if (m_voice) m_voice->cancel();', 'dictation never lands in a new field'),
     ('tests/tst_voice.cpp', 'emptyResultsAndCancelledRecognitionInsertNothing', 'voice state machine'),
+    ('data/blocklist/ATTRIBUTION.md', 'CC BY 4.0', 'offensive-word list attribution (0.5.0)'),
+    ('src/core/locallexicon.cpp', 'bool LocalLexicon::suggestible', 'offensive/forgotten words never suggested'),
+    ('src/core/keyboardmodel.cpp', 'QStringList KeyboardModel::alternatesForKey', 'Gboard long-press alternates'),
+    ('src/ui/Main.qml', 'id: choicePicker', 'slide-to-choose picker'),
+    ('src/ui/Main.qml', 'onPressAndHold: {', 'long-press suggestion to remove'),
+    ('src/core/emojicatalog.cpp', 'QString EmojiCatalog::emojiForWord', 'emoji suggestions'),
+    ('tests/tst_qmlkeyboard.cpp', 'gboardLongPressPickerNumberRowHintsAndForget', 'Gboard behaviours UI test'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -256,4 +263,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v0.4.0 markers present: offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.5.0 markers present: Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

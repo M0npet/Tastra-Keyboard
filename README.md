@@ -55,3 +55,9 @@ See docs/beta-0.2.7-completion.md and docs/HANDOFF.md.
 
 `v3kbd-voice-setup` installs whisper.cpp + Qt Multimedia and a 60 MB model;
 the keyboard then shows a 🎤 key. Everything runs locally. See docs/release-0.4.0.md.
+
+## 0.5.0: Gboard behaviours
+
+Long-press symbols with key hints and a slide picker, period punctuation,
+number row, emoji suggestions, offensive-word filter (on by default),
+long-press a suggestion to remove it. See docs/release-0.5.0.md.
