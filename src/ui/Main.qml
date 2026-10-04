@@ -212,6 +212,7 @@ Rectangle {
         signal pressStarted(real x, real y)
         signal pointerMoved(real x, real y)
         signal pressEnded(real x, real y)
+        signal pressCancelled()
         signal alternateChosen(string text)
 
         function choiceCellWidth() { return Math.max(key.width * 0.86, 44) }
@@ -414,6 +415,7 @@ Rectangle {
                 held = false
                 key.choosing = false
                 holdTimer.stop()
+                key.pressCancelled()
             }
         }
     }
@@ -1036,18 +1038,38 @@ Rectangle {
                 popupEnabled: false
                 longPressEnabled: true
                 iconSource: "qrc:/v3keyboard/icons/backspace.svg"
+                objectName: "backspaceKey"
                 onTriggered: keyboardBridge.backspace()
+                // Gboard: holding Backspace keeps deleting and speeds up.
+                Timer {
+                    id: backspaceRepeat
+                    interval: 75
+                    repeat: true
+                    property int ticks: 0
+                    onTriggered: {
+                        ticks += 1
+                        if (ticks === 12) interval = 40
+                        keyboardBridge.backspace()
+                    }
+                }
                 onLongPressed: {
                     consumeRelease = true
-                    keyboardBridge.backspaceRepeated(3)
+                    keyboardBridge.backspace()
+                    backspaceRepeat.ticks = 0
+                    backspaceRepeat.interval = 75
+                    backspaceRepeat.start()
                 }
+                onPressEnded: (x, y) => backspaceRepeat.stop()
+                onPressCancelled: backspaceRepeat.stop()
                 onPressStarted: (x, y) => {
+                    backspaceRepeat.stop()
                     dragStartX = x
                     dragStep = 0
                 }
                 onPointerMoved: (x, y) => {
                     var step = Math.floor((dragStartX - x) / Math.max(18, width * 0.20))
                     if (step > dragStep) {
+                        backspaceRepeat.stop()          // swipe-delete takes over
                         consumeRelease = true
                         keyboardBridge.backspaceRepeated(step - dragStep)
                         dragStep = step

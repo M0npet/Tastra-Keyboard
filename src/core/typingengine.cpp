@@ -337,6 +337,18 @@ void TypingEngine::forgetTextState()
     m_lastLocalOpMs = std::numeric_limits<qint64>::min() / 2;
 }
 
+// After deleting, an empty field (or one ending in . ! ?) starts a sentence
+// again (Gboard). Only for clients that report their text: otherwise the
+// keyboard cannot know what precedes the cursor.
+void TypingEngine::rearmSentenceStartFromText()
+{
+    if (!m_surroundingSupported || !m_currentWord.isEmpty() || m_composing) return;
+    QString before = m_model;
+    while (!before.isEmpty() && before.back().isSpace()) before.chop(1);
+    m_sentenceStart = before.isEmpty() || before.endsWith(QLatin1Char('.'))
+        || before.endsWith(QLatin1Char('!')) || before.endsWith(QLatin1Char('?'));
+}
+
 bool TypingEngine::inSyncWithClient() const
 {
     return m_surroundingSupported && m_inSync;
@@ -500,6 +512,7 @@ void TypingEngine::backspace()
         m_composing = true;
         setPreeditLocal(original);
         m_lastActionWasSpace = false;
+        rearmSentenceStartFromText();
         refreshSuggestions();
         return;
     }
@@ -507,6 +520,7 @@ void TypingEngine::backspace()
         m_pendingSpace = false;
         setPreeditLocal(QString());
         m_lastActionWasSpace = false;
+        rearmSentenceStartFromText();
         refreshSuggestions();
         return;
     }
@@ -514,6 +528,7 @@ void TypingEngine::backspace()
         m_currentWord.chop(1);
         setPreeditLocal(m_currentWord);
         if (m_currentWord.isEmpty()) m_composing = false;
+        rearmSentenceStartFromText();
         refreshSuggestions();
         return;
     }
@@ -530,7 +545,8 @@ void TypingEngine::backspace()
         m_sentencePunctuationPending = false;
     }
     m_lastActionWasSpace = false;
-    refreshSuggestions();
+    rearmSentenceStartFromText();
+        refreshSuggestions();
 }
 
 void TypingEngine::backspaceRepeated(int count)
@@ -558,7 +574,8 @@ void TypingEngine::backspaceRepeated(int count)
         if (m_currentWord.isEmpty()) m_composing = false;
         if (bounded == 0) {
             m_lastActionWasSpace = false;
-            refreshSuggestions();
+            rearmSentenceStartFromText();
+        refreshSuggestions();
             return;
         }
     }
@@ -580,7 +597,8 @@ void TypingEngine::backspaceRepeated(int count)
     }
 
     m_lastActionWasSpace = false;
-    refreshSuggestions();
+    rearmSentenceStartFromText();
+        refreshSuggestions();
 }
 
 void TypingEngine::enter()

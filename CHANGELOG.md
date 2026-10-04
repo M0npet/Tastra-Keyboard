@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+- Holding Backspace keeps deleting (and speeds up) until released.
+- Clearing the field turns automatic capitalisation back on.
+
 ## 1.1.1
 - Top-row key previews and long-press pickers are no longer hidden under the
   toolbar.

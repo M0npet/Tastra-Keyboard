@@ -851,3 +851,21 @@ Reports and findings:
 RED->GREEN: suggestionsFollowTheCaseOfTheTypedWord, legacyLearningDoesNotPromoteOldTypos,
 topRowKeyPreviewIsDrawnAboveTheToolbar; tappingSuggestionReplacesTheTypedWord
 updated to the case-following strip ("Hello").
+
+## 2026-10-03 — 1.1.2 second live report
+
+- "Holding Backspace deletes only 3 characters": confirmed in code — the long
+  press called backspaceRepeated(3) once; there was never an auto-repeat.
+  Added a Gboard-like repeat (75 ms, faster after 12 ticks), stopped on
+  release, cancel or swipe-delete. UI test: >= 6 deletions while held, none
+  after release.
+- "After clearing the field the capital does not come back": confirmed by a
+  RED engine test — sentence start was only recomputed on adopted echoes.
+  Now re-armed after deletions from the known text before the cursor (only
+  for clients that report their text).
+- "Focus leaves the text field when pressing the keyboard": hypothesis that
+  view.requestActivate() steals focus was REFUTED from sources (QtWayland
+  forwards to the shell surface, a no-op for our panel; KWin input panels
+  never accept focus). Cause unknown — evidence requested.
+- "First letter capital, then the second replaces it": still no trace.
+  Requested an A/B (composition off) and a plain-field comparison.

@@ -281,6 +281,9 @@ for path, token, why in (
     ('src/core/locallexicon.cpp', 'learning/%1/schema', 'legacy learning migration'),
     ('src/core/typingengine.cpp', 'suggestions follow the case of what was typed', 'case-following suggestions'),
     ('tests/tst_lexicon.cpp', 'legacyLearningDoesNotPromoteOldTypos', 'migration regression'),
+    ('src/ui/Main.qml', 'id: backspaceRepeat', 'Backspace auto-repeat (1.1.2)'),
+    ('src/core/typingengine.cpp', 'void TypingEngine::rearmSentenceStartFromText', 'capitalisation after clearing the field'),
+    ('tests/tst_qmlkeyboard.cpp', 'holdingBackspaceKeepsDeletingUntilRelease', 'Backspace hold UI test'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -292,4 +295,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v1.1.1 markers present: live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v1.1.2 markers present: backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

@@ -546,6 +546,31 @@ private Q_SLOTS:
         QVERIFY2(rows->z() > toolbar->z(), "key previews of the top row were hidden under the toolbar");
     }
 
+    void holdingBackspaceKeepsDeletingUntilRelease()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QQuickItem *key = findNamed(view.rootObject(), QStringLiteral("backspaceKey"));
+        QVERIFY(key);
+        const QPoint at = key->mapToScene(QPointF(key->width() / 2, key->height() / 2)).toPoint();
+        static QPointingDevice *touch = QTest::createTouchDevice();
+
+        QTest::touchEvent(&view, touch).press(0, at);
+        QTest::qWait(qApp->styleHints()->mousePressAndHoldInterval() + 800);
+        QTest::touchEvent(&view, touch).release(0, at);
+        const int whileHeld = backend.backspaces;
+        QVERIFY2(whileHeld >= 6, qPrintable(QStringLiteral("only %1 deletions while held").arg(whileHeld)));
+        QTest::qWait(300);
+        QCOMPARE(backend.backspaces, whileHeld);                 // stops on release
+    }
+
     void caseChangesDoNotRecreateLetterKeys()
     {
         FakeBackend backend;

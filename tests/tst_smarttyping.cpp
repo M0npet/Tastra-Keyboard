@@ -476,6 +476,23 @@ private Q_SLOTS:
         QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x  ."));
     }
 
+    void clearingTheFieldReArmsCapitalisation()
+    {
+        for (const bool composition : {false, true}) {
+            FakeBackend backend;
+            V3Keyboard::KeyboardController controller(backend);
+            V3Keyboard::TypingEngine engine(controller);
+            if (composition) composing(backend, engine);
+            else echo(engine, QString());          // empty field known
+            engine.typeLetter(QStringLiteral("H"));
+            engine.typeLetter(QStringLiteral("i"));
+            engine.space();
+            QVERIFY(!engine.wantsAutoUppercase());
+            for (int i = 0; i < 3; ++i) engine.backspace();   // field is empty again
+            QVERIFY2(engine.wantsAutoUppercase(), composition ? "composition" : "immediate");
+        }
+    }
+
     void spaceAfterSuggestionIsNotADoubleSpace()
     {
         FakeBackend backend;

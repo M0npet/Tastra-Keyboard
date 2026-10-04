@@ -98,6 +98,7 @@ private:
     void recordState(const QString &state);
     void forgetTextState();
     bool inSyncWithClient() const;
+    void rearmSentenceStartFromText();
     bool compositionAvailable() const;
     bool setPreeditLocal(const QString &text);
     QString corrected(const QString &word) const;
