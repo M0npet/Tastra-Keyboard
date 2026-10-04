@@ -997,10 +997,23 @@ void LocalLexicon::loadLearning()
     m_unsavedLearning = 0;
     QSettings settings;
     const QVariantMap words = settings.value(QStringLiteral("learning/%1/words").arg(m_language)).toMap();
+    // Schema 2 (1.1.0): counts written by older versions counted every commit
+    // (typos included), so they are capped below the promotion threshold once;
+    // known typos are dropped. Ranking survives, legitimacy is re-earned.
+    const QString schemaKey = QStringLiteral("learning/%1/schema").arg(m_language);
+    const bool legacy = settings.value(schemaKey, 1).toInt() < 2;
     for (auto it = words.constBegin(); it != words.constEnd(); ++it) {
         const QString word = normalize(it.key());
-        const int count = it.value().toInt();
+        int count = it.value().toInt();
+        if (legacy) {
+            if (m_typoMap.contains(word)) continue;
+            count = qMin(count, PromotionCount - 1);
+        }
         if (!word.isEmpty() && count > 0) m_personalFrequency.insert(word, count);
+    }
+    if (legacy) {
+        settings.setValue(schemaKey, 2);
+        if (!words.isEmpty()) ++m_unsavedLearning;          // persist the migrated counts
     }
     m_forgotten.clear();
     for (const QString &w : settings.value(QStringLiteral("learning/%1/forgotten").arg(m_language)).toStringList()) m_forgotten.insert(w);

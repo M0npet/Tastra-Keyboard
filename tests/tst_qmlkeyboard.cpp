@@ -123,9 +123,10 @@ private Q_SLOTS:
         bridge.tapLetter(QStringLiteral("h"));
         bridge.tapLetter(QStringLiteral("e"));
         bridge.tapLetter(QStringLiteral("l"));
-        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("hello")));
+        // The strip follows the typed case ("Hel" at sentence start).
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("Hello")));
 
-        QQuickItem *label = findText(view.rootObject(), QStringLiteral("hello"));
+        QQuickItem *label = findText(view.rootObject(), QStringLiteral("Hello"));
         const QPointF centre = label->mapToScene(QPointF(label->width() / 2, label->height() / 2));
         QTest::mouseClick(&view, Qt::LeftButton, {}, centre.toPoint());
 
@@ -526,6 +527,23 @@ private Q_SLOTS:
         QVERIFY2(at.y() > 0 && at.y() < view.height(), "chip scrolled into view");
         QTest::mouseClick(&view, Qt::LeftButton, {}, at);
         QTRY_VERIFY(bridge.userWords().isEmpty());
+    }
+
+    void topRowKeyPreviewIsDrawnAboveTheToolbar()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        QCOMPARE(view.status(), QQuickView::Ready);
+        QQuickItem *rows = findNamed(view.rootObject(), QStringLiteral("keyboardRows"));
+        QQuickItem *toolbar = findNamed(view.rootObject(), QStringLiteral("topToolbar"));
+        QVERIFY(rows && toolbar);
+        QCOMPARE(rows->parentItem(), toolbar->parentItem());       // siblings: z decides
+        QVERIFY2(rows->z() > toolbar->z(), "key previews of the top row were hidden under the toolbar");
     }
 
     void caseChangesDoNotRecreateLetterKeys()

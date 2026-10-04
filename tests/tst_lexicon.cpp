@@ -303,6 +303,29 @@ private Q_SLOTS:
         QCOMPARE(lexicon.bestCorrection(QStringLiteral("hleped")), QStringLiteral("helped"));
     }
 
+    void legacyLearningDoesNotPromoteOldTypos()
+    {
+        // Data written by <= 1.0.1, where every commit counted as "learned":
+        // typos typed many times during testing must not become valid words.
+        useFixtureDictionaries();
+        {
+            QSettings settings;
+            QVariantMap words;
+            words.insert(QStringLiteral("teh"), 7);
+            words.insert(QStringLiteral("hello"), 5);
+            settings.setValue(QStringLiteral("learning/en/words"), words);
+        }
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("teh")), QStringLiteral("the"));
+        QVERIFY(lexicon.suggestions(QStringLiteral("hel"), {}).contains(QStringLiteral("hello")));
+        // The migration runs once; new explicit signals still work afterwards.
+        lexicon.promoteWord(QStringLiteral("teh"));
+        LocalLexicon reloaded;
+        loaded(reloaded, QStringLiteral("en"));
+        QVERIFY(reloaded.bestCorrection(QStringLiteral("teh")).isEmpty());
+    }
+
     void prefixCompletionsUseDictionaryAndCoreWords()
     {
         useFixtureDictionaries();

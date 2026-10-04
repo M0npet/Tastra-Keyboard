@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1
+- Top-row key previews and long-press pickers are no longer hidden under the
+  toolbar.
+- Suggestions follow the case of the typed word ("Hel" -> "Hello").
+- Learning data from older versions is migrated once, so typos typed during
+  earlier tests (e.g. "teh") are corrected again.
+
 ## 1.1.0
 - Personal dictionary: tap an unknown typed word, then "+ Add to dictionary";
   manage words in Settings; bulk file ~/.config/v3-keyboard/dictionary.txt.

@@ -662,8 +662,16 @@ void TypingEngine::refreshSuggestions()
     }
     if (!m_currentWord.isEmpty()) {
         m_suggestions = m_lexicon.suggestions(m_currentWord, m_previousWord, 3);
-        if (m_sentenceStart) {
-            for (QString &item : m_suggestions) item = formatForSentence(item);
+        // Gboard: suggestions follow the case of what was typed ("Hel" ->
+        // "Hello", "HEL" -> "HELLO"); words with their own casing ("iPhone")
+        // are left alone.
+        const bool allCaps = m_currentWord.size() >= 2 && m_currentWord.toUpper() == m_currentWord
+            && m_currentWord.toLower() != m_currentWord;
+        const bool initialCap = !m_currentWord.isEmpty() && m_currentWord.front().isUpper();
+        for (QString &item : m_suggestions) {
+            if (item.isEmpty() || item.toLower() != item) continue;
+            if (allCaps) item = item.toUpper();
+            else if (initialCap || m_sentenceStart) item[0] = item.at(0).toUpper();
         }
         return;
     }

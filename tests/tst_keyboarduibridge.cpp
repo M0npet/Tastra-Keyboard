@@ -402,6 +402,35 @@ private Q_SLOTS:
         QVERIFY(bridge.userWords().isEmpty());
     }
 
+    void savingAnUnknownWordAlsoWorksWithComposition()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setSurroundingText(QString(), 0, 0);                  // Firefox: preedit mode
+        for (const QChar ch : QStringLiteral("zorgle")) bridge.tapLetter(QString(ch));
+        QCOMPARE(backend.preedit, QStringLiteral("Zorgle"));         // sentence start
+        QVERIFY(bridge.typedWordUnknown());
+        QCOMPARE(bridge.suggestions().value(0), QStringLiteral("Zorgle"));
+        bridge.selectSuggestion(QStringLiteral("Zorgle"));
+        QCOMPARE(bridge.saveWordCandidate(), QStringLiteral("Zorgle"));
+        bridge.addWordToDictionary(bridge.saveWordCandidate());
+        QCOMPARE(bridge.userWords(), QStringList({QStringLiteral("Zorgle")}));
+    }
+
+    void suggestionsFollowTheCaseOfTheTypedWord()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setSurroundingText(QString(), 0, 0);
+        for (const QChar ch : QStringLiteral("hel")) bridge.tapLetter(QString(ch));   // "Hel" (auto-cap)
+        QVERIFY(bridge.suggestions().contains(QStringLiteral("Hello")));
+        QVERIFY(!bridge.suggestions().contains(QStringLiteral("hello")));
+    }
+
     void tapTextReachesController()
     {
         FakeBackend backend;

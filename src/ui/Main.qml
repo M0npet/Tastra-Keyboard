@@ -451,6 +451,7 @@ Rectangle {
 
     Rectangle {
         id: topToolbar
+        objectName: "topToolbar"
         z: 120
         width: root.contentWidth
         height: root.toolbarHeight
@@ -806,6 +807,10 @@ Rectangle {
 
     Column {
         id: keyboardRows
+        objectName: "keyboardRows"
+        // Above the toolbar (z 120) so key previews and long-press pickers of
+        // the top row are not drawn underneath it; panels (140+) stay on top.
+        z: 130
         x: keyboardBridge.layoutMode === "left" ? root.metrics.outerMargin
            : keyboardBridge.layoutMode === "right" ? root.width - width - root.metrics.outerMargin
            : (root.width - width) / 2

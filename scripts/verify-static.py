@@ -277,6 +277,10 @@ for path, token, why in (
     ('src/ui/Main.qml', 'objectName: "saveWordChip"', 'touch-again-to-save chip'),
     ('tests/tst_lexicon.cpp', 'oneAccidentalCommitDoesNotLegitimiseATypo', 'typos are not learned from one commit'),
     ('tests/tst_qmlkeyboard.cpp', 'savingAndRemovingPersonalWordsThroughTheUi', 'personal dictionary UI test'),
+    ('src/ui/Main.qml', '        z: 130', 'key rows above the toolbar (top-row previews visible, 1.1.1)'),
+    ('src/core/locallexicon.cpp', 'learning/%1/schema', 'legacy learning migration'),
+    ('src/core/typingengine.cpp', 'suggestions follow the case of what was typed', 'case-following suggestions'),
+    ('tests/tst_lexicon.cpp', 'legacyLearningDoesNotPromoteOldTypos', 'migration regression'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -288,4 +292,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v1.1.0 markers present: personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v1.1.1 markers present: live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

@@ -828,3 +828,26 @@ backspaceRightAfterAutocorrectRevertsAndRemembers went RED under the new rule
 and GREEN once undo promotes; bridge tappingAnUnknownTypedWordOffersToSaveIt;
 UI savingAndRemovingPersonalWordsThroughTheUi (first failure was the test
 clicking a chip outside the scrolled settings viewport).
+
+## 2026-10-03 — 1.1.1 first live test of 1.1.0 (Firefox, claude.ai)
+
+Reports and findings:
+- Top-row key previews were cut off (screenshot: a sliver above "г"):
+  keyboardRows had z 0 under the toolbar (z 120). Raised to 130.
+- Suggestions ignored the typed case ("Клево" -> suggestion "клево" would
+  lowercase the sentence start). Now follow initial capital / ALL CAPS.
+- "teh -> the doesn't work": user data from <= 1.0.1 counted every commit
+  (typos typed many times in tests) and now crossed the promotion threshold;
+  also the 1.1.0 checklist itself asked to undo the correction (an explicit
+  keep). One-time migration (learning schema 2): legacy counts capped below
+  the threshold, curated typos dropped.
+- "word registration does not work": the flow passes in both immediate and
+  composition mode tests; known words (e.g. "клево") intentionally get no
+  "+ Add" chip. Asked the user for the word.
+- "first letters uppercase / second letter replaces the first" in Firefox:
+  not reproducible from code alone; two candidate mechanisms around the empty
+  composer re-render. Requested a trace (no fix without evidence).
+- "•••" in the strip is the existing toolbar toggle, not a bug.
+RED->GREEN: suggestionsFollowTheCaseOfTheTypedWord, legacyLearningDoesNotPromoteOldTypos,
+topRowKeyPreviewIsDrawnAboveTheToolbar; tappingSuggestionReplacesTheTypedWord
+updated to the case-following strip ("Hello").
