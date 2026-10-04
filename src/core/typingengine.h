@@ -119,6 +119,7 @@ private:
     bool m_composing = false;       // m_currentWord lives in the client's preedit
     bool m_pendingSpace = false;    // a space lives in the client's preedit
     bool m_spaceFromSuggestion = false; // that space was added by a suggestion
+    bool m_pendingSpaceAfterWord = false; // the held space directly follows a word
     QString m_pendingWord;          // autocorrected word held with the pending space (revertible)
     QString m_pendingOriginal;      // what the user actually typed
     QString m_noCorrectionFor;      // word the user just reverted

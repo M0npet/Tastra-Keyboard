@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 1.0.0
+    VERSION 1.0.1
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -407,3 +407,16 @@ if(V3KBD_VOICE)
     endif()
 endif()
 message(STATUS "V3 Keyboard offline voice input: ${V3KBD_HAVE_VOICE}")
+
+if(BUILD_TESTING)
+    add_executable(tst_typingstress tests/tst_typingstress.cpp)
+    target_compile_definitions(tst_typingstress PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_typingstress PRIVATE v3keyboard-core Qt6::Test)
+    add_test(NAME typingstress COMMAND tst_typingstress)
+endif()
+
+option(V3KBD_BENCHMARKS "Build developer benchmarks" OFF)
+if(V3KBD_BENCHMARKS)
+    add_executable(bench_keystroke tools/bench_keystroke.cpp)
+    target_link_libraries(bench_keystroke PRIVATE v3keyboard-app)
+endif()

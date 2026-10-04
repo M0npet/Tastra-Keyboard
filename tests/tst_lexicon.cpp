@@ -224,6 +224,20 @@ private Q_SLOTS:
         QVERIFY(lexicon.bestCorrection(QStringLiteral("tex")).isEmpty());
     }
 
+    void perKeystrokePreviewIsCheapButSpaceStillUsesHunspell()
+    {
+        useFixtureDictionaries();
+        useFrequencies();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        // Preview (per keystroke): frequency list / stems / learned / core only.
+        QCOMPARE(lexicon.correctionPreview(QStringLiteral("teh")), QStringLiteral("the"));
+        QCOMPARE(lexicon.correctionPreview(QStringLiteral("wnats")), QStringLiteral("wants"));   // in the list
+        // An inflection only Hunspell knows is found at Space, not in the preview.
+        QVERIFY(lexicon.correctionPreview(QStringLiteral("hleped")).isEmpty());
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("hleped")), QStringLiteral("helped"));
+    }
+
     void prefixCompletionsUseDictionaryAndCoreWords()
     {
         useFixtureDictionaries();

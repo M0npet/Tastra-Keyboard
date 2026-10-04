@@ -59,6 +59,10 @@ public:
 
     QStringList suggestions(const QString &word, const QString &previousWord, int limit = 3) const;
     QString bestCorrection(const QString &word, const QString &previousWord = {}) const;
+    // Cheap per-keystroke version: candidates are checked against the
+    // frequency list, stems, learned and core words only (no Hunspell), so a
+    // long unknown word cannot stall typing. Space uses bestCorrection().
+    QString correctionPreview(const QString &word, const QString &previousWord = {}) const;
     QStringList nextWords(const QString &previousWord, int limit = 3) const;
     QString decodeGlide(const QStringList &trace, const QString &previousWord = {}) const;
 
@@ -84,7 +88,9 @@ private:
     QString alphabet() const;
     bool isCore(const QString &word) const;
     bool isValidWord(const QString &word) const;
-    QList<Candidate> correctionCandidates(const QString &typed, const QString &previousWord) const;
+    QList<Candidate> correctionCandidates(const QString &typed, const QString &previousWord, bool full = true) const;
+    QString pickCorrection(const QString &word, const QString &previousWord, bool full) const;
+    bool knownCheaply(const QString &word) const;
     int priorScore(const QString &candidate, const QString &previousWord) const;
     int frequencyRank(const QString &word) const;
     bool suggestible(const QString &word) const;

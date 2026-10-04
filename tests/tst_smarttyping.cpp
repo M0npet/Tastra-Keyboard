@@ -298,7 +298,10 @@ private Q_SLOTS:
                          QStringList({QStringLiteral("commit:the"), QStringLiteral("enter")}));
             } else {
                 engine.typeText(finish);
+                // The space typed after the word moves behind the comma.
                 QCOMPARE(backend.commits, QStringList({QStringLiteral("the,")}));
+                QCOMPARE(backend.preedit, QStringLiteral(" "));
+                continue;
             }
             QCOMPARE(backend.preedit, QString());
         }
@@ -445,6 +448,31 @@ private Q_SLOTS:
             QVERIFY2(all.contains(QStringLiteral("k. n")), qPrintable(all));
             QVERIFY2(all.contains(QStringLiteral("3.5")), qPrintable(all));
         }
+    }
+
+    void spaceBeforePunctuationIsSwappedLikeLatinIME()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        engine.setAutocorrectEnabled(false);
+
+        for (const QChar ch : QStringLiteral("hi")) engine.typeLetter(QString(ch));
+        engine.space();
+        engine.typeText(QStringLiteral(","));        // "hi ," -> "hi, "
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, "));
+        engine.space();                              // absorbed: still one space
+        engine.typeLetter(QStringLiteral("x"));
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x"));
+
+        // Consecutive spaces are not a "space after a word": no swap.
+        engine.setDoubleSpacePeriodEnabled(false);
+        engine.space();
+        engine.space();
+        engine.typeText(QStringLiteral("."));
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x  ."));
     }
 
     void spaceAfterSuggestionIsNotADoubleSpace()

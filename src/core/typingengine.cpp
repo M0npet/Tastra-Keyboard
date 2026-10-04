@@ -240,9 +240,26 @@ void TypingEngine::typeText(const QString &text)
         m_composing = false;
         commitLocal(word + text);
     } else if (m_pendingSpace) {
-        // "word" Space "," -> "word," : the pending space is simply dropped.
+        const bool afterWord = m_pendingSpaceAfterWord;
         const QString held = takePendingText();
-        commitLocal(held + (punctuation ? text : QStringLiteral(" ") + text));
+        if (punctuation && afterWord) {
+            // LatinIME/Gboard: "word ," becomes "word, " — the space typed
+            // after the word moves behind the punctuation (held again so a
+            // following Space only confirms it).
+            commitLocal(held + text);
+            if (setPreeditLocal(QStringLiteral(" "))) {
+                m_pendingSpace = true;
+                m_spaceFromSuggestion = true;
+                m_pendingSpaceAfterWord = false;
+            } else {
+                commitLocal(QStringLiteral(" "));
+            }
+            observePunctuation(text);
+            m_lastActionWasSpace = false;
+            refreshSuggestions();
+            return;
+        }
+        commitLocal(held + QStringLiteral(" ") + text);
     } else {
         if (punctuation && !m_currentWord.isEmpty()) finalizeCurrentWord();
         commitLocal(text);
@@ -393,6 +410,7 @@ void TypingEngine::space()
             if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
             else commitLocal(QStringLiteral(" "));
         }
+        m_pendingSpaceAfterWord = m_pendingSpace;
         m_lastActionWasSpace = true;
         if (m_sentencePunctuationPending) {
             m_sentenceStart = true;
@@ -414,6 +432,7 @@ void TypingEngine::space()
         commitLocal(held + QLatin1Char(' '));
         if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
         else commitLocal(QStringLiteral(" "));
+        m_pendingSpaceAfterWord = false;            // consecutive spaces
         m_lastActionWasSpace = true;
         refreshSuggestions();
         return;
@@ -608,6 +627,7 @@ void TypingEngine::chooseSuggestion(const QString &word)
     } else {
         m_pendingSpace = true;
     }
+    m_pendingSpaceAfterWord = m_pendingSpace;
     m_spaceFromSuggestion = true;
     m_lastActionWasSpace = false;
     m_sentenceStart = false;
@@ -621,9 +641,12 @@ void TypingEngine::refreshSuggestions()
     // What Space would insert instead of the typed word (shown highlighted
     // in the middle of the strip, as Gboard does).
     m_autocorrectTarget.clear();
-    if (!m_sensitiveContext && m_autocorrectEnabled && !m_currentWord.isEmpty()) {
-        const QString target = corrected(m_currentWord);
-        if (target != m_currentWord) m_autocorrectTarget = target;
+    if (!m_sensitiveContext && m_autocorrectEnabled && !m_currentWord.isEmpty()
+        && (m_noCorrectionFor.isEmpty() || m_currentWord.compare(m_noCorrectionFor, Qt::CaseInsensitive) != 0)) {
+        // Cheap preview per keystroke; Space runs the full Hunspell check.
+        QString target = m_lexicon.correctionPreview(m_currentWord, m_previousWord);
+        if (!target.isEmpty() && m_currentWord.front().isUpper()) target[0] = target.at(0).toUpper();
+        if (!target.isEmpty() && target != m_currentWord) m_autocorrectTarget = target;
     }
     if (m_sensitiveContext || !m_suggestionsEnabled) {
         m_suggestions.clear();

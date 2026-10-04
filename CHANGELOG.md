@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1
+- "word ," now becomes "word, " (space moves behind punctuation, as on
+  Gboard/LatinIME) instead of dropping the space.
+- Typing latency: worst keystroke 2.5–4.4 ms (was up to 56 ms in RU/UK on long
+  unknown words); Space on long unknown words bounded (DE 122 -> 23 ms).
+- Randomised stress test and sanitizer runs added to the verification.
+
 ## 1.0.0
 - Themes: System (follows Plasma light/dark), Light, Dark, AMOLED.
 - About in Settings (version, license, data sources); GPL text (COPYING).

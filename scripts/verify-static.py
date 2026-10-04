@@ -268,6 +268,10 @@ for path, token, why in (
     ('src/app/keyboarduibridge.cpp', 'QString KeyboardUiBridge::effectiveTheme', 'system/light/dark/AMOLED themes'),
     ('src/ui/Main.qml', 'objectName: "aboutText"', 'about: version + attributions'),
     ('tests/tst_qmlkeyboard.cpp', 'lightDarkAndAmoledPalettes', 'theme palettes UI test'),
+    ('tests/tst_typingstress.cpp', 'typedTextSurvivesRandomSequences', 'randomised no-lost-letters stress test (1.0.1)'),
+    ('src/core/typingengine.cpp', 'm_pendingSpaceAfterWord', 'LatinIME space/punctuation swap'),
+    ('src/core/locallexicon.cpp', 'QString LocalLexicon::correctionPreview', 'cheap per-keystroke correction preview'),
+    ('src/core/locallexicon.cpp', 'int hunspellBudget = 250;', 'bounded Hunspell work at Space'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -279,4 +283,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v1.0.0 markers present: themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v1.0.1 markers present: stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

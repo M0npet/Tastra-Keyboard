@@ -612,6 +612,7 @@ bool LocalLexicon::isValidWord(const QString &word) const
     if (m_personalFrequency.value(word) > 0 || isCore(word)) return true;
     adoptLoadedData();
     if (!m_data) return false;
+    if (m_data->freqFind(word) || m_data->contains(word)) return true;
     if (m_data->speller) {
         // Hunspell is case-sensitive: German nouns and names are stored
         // capitalized, so a lowercase "haus" is still a real word.
@@ -644,32 +645,53 @@ int LocalLexicon::priorScore(const QString &candidate, const QString &previousWo
     return score;
 }
 
-QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString &typed, const QString &previousWord) const
+bool LocalLexicon::knownCheaply(const QString &word) const
 {
-    QSet<QString> variants;
+    if (word.isEmpty()) return false;
+    if (m_personalFrequency.value(word) > 0 || isCore(word)) return true;
+    return m_data && (m_data->freqFind(word) || m_data->contains(word));
+}
+
+QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString &typed, const QString &previousWord, bool full) const
+{
+    // Variants in order of likelihood (LatinIME-style error model): adjacent
+    // transpositions, dropped letters, doubled letters, neighbouring keys,
+    // then everything else. The Hunspell budget below is spent on the likely
+    // ones first, so long unknown words (German compounds) cannot stall Space.
+    QStringList ordered;
+    QSet<QString> seen{typed};
+    auto add = [&](const QString &v) { if (!seen.contains(v)) { seen.insert(v); ordered.append(v); } };
     const QString chars = alphabet();
-    for (int i = 0; i < typed.size(); ++i) {
-        QString v = typed; v.remove(i, 1); variants.insert(v);
-    }
-    for (int i = 0; i + 1 < typed.size(); ++i) {
-        QString v = typed; std::swap(v[i], v[i + 1]); variants.insert(v);
-    }
+    for (int i = 0; i + 1 < typed.size(); ++i) { QString v = typed; std::swap(v[i], v[i + 1]); add(v); }
+    for (int i = 0; i < typed.size(); ++i) { QString v = typed; v.remove(i, 1); add(v); }
+    for (int i = 0; i < typed.size(); ++i) { QString v = typed; v.insert(i, typed.at(i)); add(v); }
     for (int i = 0; i < typed.size(); ++i) {
         for (const QChar ch : chars) {
-            if (typed.at(i) == ch) continue;
-            QString v = typed; v[i] = ch; variants.insert(v);
+            if (ch != typed.at(i) && neighbours(ch, typed.at(i))) { QString v = typed; v[i] = ch; add(v); }
         }
+    }
+    for (int i = 0; i < typed.size(); ++i) {
+        for (const QChar ch : chars) { if (typed.at(i) != ch) { QString v = typed; v[i] = ch; add(v); } }
     }
     for (int i = 0; i <= typed.size(); ++i) {
-        for (const QChar ch : chars) {
-            QString v = typed; v.insert(i, ch); variants.insert(v);
-        }
+        for (const QChar ch : chars) { QString v = typed; v.insert(i, ch); add(v); }
     }
-    variants.remove(typed);
+    const QStringList &variants = ordered;
+    int hunspellBudget = 250;
+    const bool capitalNouns = m_language == QStringLiteral("de");
 
     QList<Candidate> result;
     for (const QString &v : variants) {
-        if (v.isEmpty() || !suggestible(v) || !isValidWord(v)) continue;
+        if (v.isEmpty() || !suggestible(v)) continue;
+        bool valid = knownCheaply(v);
+        if (!valid && full && hunspellBudget > 0) {
+            adoptLoadedData();
+            if (m_data && m_data->speller) {
+                --hunspellBudget;
+                valid = m_data->spell(v) || (capitalNouns && m_data->spell(capitalizeFirst(v)));
+            }
+        }
+        if (!valid) continue;
         Candidate c;
         c.word = v;
         if (isAdjacentTransposition(typed, v)) c.edit = Edit::Transposition;
@@ -759,7 +781,7 @@ QStringList LocalLexicon::suggestions(const QString &word, const QString &previo
         result.append(capitalized.contains(item.first) ? capitalizeFirst(item.first) : item.first);
     }
     if (result.size() < limit && typed.size() >= 3 && !isValidWord(typed)) {
-        for (const Candidate &c : correctionCandidates(typed, prev)) {
+        for (const Candidate &c : correctionCandidates(typed, prev, false)) {
             if (result.size() >= limit) break;
             if (!result.contains(c.word) && suggestible(c.word)) result.append(c.word);
         }
@@ -767,7 +789,7 @@ QStringList LocalLexicon::suggestions(const QString &word, const QString &previo
     return result;
 }
 
-QString LocalLexicon::bestCorrection(const QString &word, const QString &previousWord) const
+QString LocalLexicon::pickCorrection(const QString &word, const QString &previousWord, bool full) const
 {
     const QString typed = normalize(word);
     // Two-character tokens are too ambiguous for automatic replacement.
@@ -783,7 +805,7 @@ QString LocalLexicon::bestCorrection(const QString &word, const QString &previou
     if (!hasSystemDictionary()) return {};
     if (isValidWord(typed)) return {};
 
-    const QList<Candidate> candidates = correctionCandidates(typed, normalize(previousWord));
+    const QList<Candidate> candidates = correctionCandidates(typed, normalize(previousWord), full);
     if (candidates.isEmpty()) return {};
     const Candidate &best = candidates.first();
     const int rank = frequencyRank(best.word);
@@ -795,6 +817,16 @@ QString LocalLexicon::bestCorrection(const QString &word, const QString &previou
     if (!confident) return {};
     if (margin == 0) return {};
     return best.word;
+}
+
+QString LocalLexicon::bestCorrection(const QString &word, const QString &previousWord) const
+{
+    return pickCorrection(word, previousWord, true);
+}
+
+QString LocalLexicon::correctionPreview(const QString &word, const QString &previousWord) const
+{
+    return pickCorrection(word, previousWord, false);
 }
 
 QStringList LocalLexicon::nextWords(const QString &previousWord, int limit) const

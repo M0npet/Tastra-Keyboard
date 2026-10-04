@@ -778,3 +778,28 @@ RED->GREEN: themesFollowGboardIncludingSystem (compile-RED), palette/about UI
 test. A scripted QML edit aborted on a wrong occurrence count (no file
 written); redone with occurrence-agnostic replacement scoped to the body.
 Process note: the 1.0 commit was made before the final full run; the run afterwards (Release, voice ON 12/12, OFF 11/11, KWin 3/3, static OK) confirmed it.
+
+## 2026-10-03 — 1.0.1 hardening (user: "continue" before the 1.0 live test)
+
+No new features; verification that does not need the tablet:
+- Randomised stress test (240 sequences x 250 ops, immediate and composition
+  modes, none/fresh/one-step-stale echoes): field text must equal typed text.
+  Found: in composition mode "word Space ," dropped the space ("word,") and the
+  next word glued on. LatinIME/Gboard swap it ("word, "). Fixed (swap only for
+  a space typed right after a word; the next Space is absorbed). A unit test
+  from 0.2.7 encoded the old drop and was corrected.
+- ASan+UBSan: 13/13 suites clean (incl. a real whisper.cpp run); KWin layer
+  clean. TSan: only Qt-internal QWaitCondition reports at process exit
+  (uninstrumented libQt6Core), no frames in our code.
+- Latency through the full bridge on real dictionaries (1 vCPU sandbox):
+  max per keystroke EN 14.5 / DE 19.5 / RU 55.9 / UK 46.2 ms -> 2.5 / 3.7 /
+  4.4 / 4.3 ms. Root cause (located by slowest-keystroke context, after two
+  refuted hypotheses: disk flush, background-load contention): since 0.6.0 the
+  per-keystroke autocorrect target enumerated ~700 variants through Hunspell
+  for long unknown words (expensive for invalid words, 5630 SFX rules in uk).
+  Fix: per-keystroke preview checks variants against frequency/stems/learned
+  /core only; Space keeps Hunspell, with likelihood-ordered variants and a
+  250-call budget (capital retry only for German). Space on long unknown
+  words: UK 17 -> 3.7, RU 8.9 -> 3.0, EN 7.3 -> 2.6, DE 122 -> 23 ms.
+  Real-data quality probes unchanged. Benchmark: tools/bench_keystroke.cpp
+  (-DV3KBD_BENCHMARKS=ON).
