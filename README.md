@@ -38,6 +38,10 @@ and installs only when everything is green (the previous binary is backed up).
   for a quick symbol, Shift slide for one capital, double-space for ". ".
 - Field-aware: number pad in number/phone fields, `@`/`/` and `.com` in
   e-mail/URL fields, no autocorrect/learning in passwords, URLs, e-mail.
+- Personal dictionary: tap an unknown typed word (shown in quotes), then
+  “+ Add to dictionary”; manage in Settings; bulk: one word per line in
+  `~/.config/v3-keyboard/dictionary.txt`. Unknown words you type become yours
+  after 3 uses; a single typo is never learned as a word.
 - Text shortcuts: `~/.config/v3-keyboard/shortcuts.txt` (`omw = on my way`).
 - Emoji panel with search in EN/DE/RU/UK, recent emoji, optional fast-access row.
 - Clipboard history, text-editing panel, compact (one-handed) layout, number

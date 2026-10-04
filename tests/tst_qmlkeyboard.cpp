@@ -96,6 +96,7 @@ private Q_SLOTS:
         V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
         V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
         V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
     }
 
     void init()
@@ -485,6 +486,46 @@ private Q_SLOTS:
         const QString about = findNamed(view.rootObject(), QStringLiteral("aboutText"))->property("text").toString();
         QVERIFY(about.contains(bridge.version()));
         QVERIFY(about.contains(QStringLiteral("CC BY-SA 4.0")));
+    }
+
+    void savingAndRemovingPersonalWordsThroughTheUi()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
+
+        for (const QChar ch : QStringLiteral("zorgle")) bridge.tapLetter(QString(ch));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("\u201Czorgle\u201D")));
+        QTest::qWait(100);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findText(view.rootObject(), QStringLiteral("\u201Czorgle\u201D"))));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("saveWordChip")));
+        QTest::qWait(50);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findNamed(view.rootObject(), QStringLiteral("saveWordChip"))));
+        QTRY_COMPARE(bridge.userWords(), QStringList({QStringLiteral("zorgle")}));
+
+        bridge.activateToolbarAction(QStringLiteral("settings"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("userWord_zorgle")));
+        QTest::qWait(100);
+        QQuickItem *chip = findNamed(view.rootObject(), QStringLiteral("userWord_zorgle"));
+        // The section sits low in the settings: scroll there like a user would.
+        QQuickItem *flick = chip->parentItem();
+        while (flick && !flick->property("contentY").isValid()) flick = flick->parentItem();
+        QVERIFY(flick);
+        const QPointF inContent = chip->mapToItem(flick->property("contentItem").value<QQuickItem *>(), QPointF(0, 0));
+        flick->setProperty("contentY", qMax(0.0, inContent.y() - 20));
+        QTest::qWait(100);
+        const QPoint at = centre(chip);
+        QVERIFY2(at.y() > 0 && at.y() < view.height(), "chip scrolled into view");
+        QTest::mouseClick(&view, Qt::LeftButton, {}, at);
+        QTRY_VERIFY(bridge.userWords().isEmpty());
     }
 
     void caseChangesDoNotRecreateLetterKeys()

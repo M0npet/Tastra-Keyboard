@@ -41,6 +41,10 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QStringList languageLabels READ languageLabels NOTIFY keyboardStateChanged)
     Q_PROPERTY(QString currentWord READ currentWord NOTIFY suggestionsChanged)
     Q_PROPERTY(QString autocorrectSuggestion READ autocorrectSuggestion NOTIFY suggestionsChanged)
+    // Personal dictionary (Gboard "Touch again to save" flow).
+    Q_PROPERTY(bool typedWordUnknown READ typedWordUnknown NOTIFY suggestionsChanged)
+    Q_PROPERTY(QString saveWordCandidate READ saveWordCandidate NOTIFY suggestionsChanged)
+    Q_PROPERTY(QStringList userWords READ userWords NOTIFY userWordsChanged)
     // "text", "email", "url", "number" or "phone" — drives Gboard-like layouts.
     Q_PROPERTY(QString inputPurpose READ inputPurpose NOTIFY inputContextChanged)
     Q_PROPERTY(QStringList suggestions READ suggestions NOTIFY suggestionsChanged)
@@ -103,6 +107,9 @@ public:
     QStringList languageLabels() const;
     QString currentWord() const;
     QString autocorrectSuggestion() const;
+    bool typedWordUnknown() const;
+    QString saveWordCandidate() const;
+    QStringList userWords() const;
     QString inputPurpose() const;
     QStringList suggestions() const;
 
@@ -193,6 +200,8 @@ public:
     Q_INVOKABLE void setBlockOffensive(bool enabled);
     // Gboard: long-press a suggestion to remove it.
     Q_INVOKABLE void forgetSuggestion(const QString &word);
+    Q_INVOKABLE void addWordToDictionary(const QString &word);
+    Q_INVOKABLE void removeWordFromDictionary(const QString &word);
     // "full", "left" or "right" (compact keyboard docked to one side).
     Q_INVOKABLE void setLayoutMode(const QString &mode);
     Q_INVOKABLE void cycleLayoutMode();
@@ -222,6 +231,7 @@ Q_SIGNALS:
     void uiPreferencesChanged();
     void voiceChanged();
     void emojiChanged();
+    void userWordsChanged();
     void typingPreferencesChanged();
     void suggestionsChanged();
     void clipboardChanged();
@@ -248,6 +258,7 @@ private:
     bool m_autoSpaceAfterPunctuation = false;
     bool m_emojiRow = false;
     QString m_inputPurpose = QStringLiteral("text");
+    QString m_saveCandidate;
     QHash<QString, QString> m_shortcuts;
     void loadShortcuts();
     bool m_symbolHints = true;

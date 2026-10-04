@@ -23,6 +23,7 @@ private:
         LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/hunspell")});
         LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
         LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/blocklist")});
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
     }
     static void useNoDictionaries()
     {
@@ -123,15 +124,79 @@ private Q_SLOTS:
         QVERIFY(lexicon.bestCorrection(QStringLiteral("form")).isEmpty());
     }
 
-    void learnedWordsBeatTheCuratedTypoList()
+    void acceptedWordsBeatTheCuratedTypoList()
     {
         useNoDictionaries();
         LocalLexicon lexicon;
         loaded(lexicon, QStringLiteral("en"));
         QCOMPARE(lexicon.bestCorrection(QStringLiteral("teh")), QStringLiteral("the"));
-        lexicon.learnWordWithContext(QStringLiteral("teh"), {});   // the user kept it
+        lexicon.promoteWord(QStringLiteral("teh"));            // e.g. the user undid the correction
         QVERIFY(lexicon.bestCorrection(QStringLiteral("teh")).isEmpty());
     }
+
+    void oneAccidentalCommitDoesNotLegitimiseATypo()
+    {
+        useFixtureDictionaries();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        lexicon.learnWordWithContext(QStringLiteral("teh"), {});       // slipped through once
+        lexicon.learnWordWithContext(QStringLiteral("zorgle"), {});
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("teh")), QStringLiteral("the"));
+        QVERIFY(!lexicon.hasWord(QStringLiteral("zorgle")));
+        QVERIFY(!lexicon.suggestions(QStringLiteral("zor"), {}, 5).contains(QStringLiteral("zorgle")));
+        // Used three times: now it is the user's word.
+        lexicon.learnWordWithContext(QStringLiteral("zorgle"), {});
+        lexicon.learnWordWithContext(QStringLiteral("zorgle"), {});
+        QVERIFY(lexicon.hasWord(QStringLiteral("zorgle")));
+        QVERIFY(lexicon.suggestions(QStringLiteral("zor"), {}, 5).contains(QStringLiteral("zorgle")));
+    }
+
+    void personalDictionaryKeepsCaseAndPersists()
+    {
+        useFixtureDictionaries();
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        {
+            LocalLexicon lexicon;
+            loaded(lexicon, QStringLiteral("en"));
+            QVERIFY(lexicon.addUserWord(QStringLiteral("Zelenograd")));
+            QVERIFY(!lexicon.addUserWord(QStringLiteral(" ")));             // rejected
+            QCOMPARE(lexicon.userWords(), QStringList({QStringLiteral("Zelenograd")}));
+        }
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        QCOMPARE(lexicon.suggestions(QStringLiteral("zel"), {}).value(0), QStringLiteral("Zelenograd"));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("zelenograd")).isEmpty());
+        lexicon.removeUserWord(QStringLiteral("zelenograd"));
+        QVERIFY(lexicon.userWords().isEmpty());
+        QVERIFY(!lexicon.suggestions(QStringLiteral("zel"), {}, 5).contains(QStringLiteral("Zelenograd")));
+    }
+
+    void dictionaryFileAddsWordsForAllLanguages()
+    {
+        useFixtureDictionaries();
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/userdict/dictionary.txt"));
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        QCOMPARE(lexicon.suggestions(QStringLiteral("minis"), {}).value(0), QStringLiteral("Minisforum"));
+        loaded(lexicon, QStringLiteral("ru"));
+        QVERIFY(lexicon.hasWord(QStringLiteral("kyiv")));
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+    }
+
+    void forgettingAlsoRemovesFromThePersonalDictionary()
+    {
+        useFixtureDictionaries();
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        lexicon.addUserWord(QStringLiteral("Quokka"));
+        lexicon.forgetWord(QStringLiteral("quokka"));
+        QVERIFY(lexicon.userWords().isEmpty());
+        QVERIFY(!lexicon.suggestions(QStringLiteral("quo"), {}, 5).contains(QStringLiteral("Quokka")));
+        lexicon.addUserWord(QStringLiteral("Quokka"));          // explicit add brings it back
+        QVERIFY(lexicon.suggestions(QStringLiteral("quo"), {}, 5).contains(QStringLiteral("Quokka")));
+    }
+
 
     void frequencyRanksCompletionsFromTheFirstLetter()
     {

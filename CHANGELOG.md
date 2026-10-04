@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0
+- Personal dictionary: tap an unknown typed word, then "+ Add to dictionary";
+  manage words in Settings; bulk file ~/.config/v3-keyboard/dictionary.txt.
+- A typo committed once is no longer treated as a valid word; unknown words
+  become yours after 3 uses, or immediately when you add them or undo an
+  autocorrection.
+
 ## 1.0.1
 - "word ," now becomes "word, " (space moves behind punctuation, as on
   Gboard/LatinIME) instead of dropping the space.

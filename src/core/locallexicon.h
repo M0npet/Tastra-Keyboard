@@ -46,6 +46,19 @@ public:
     static QStringList blocklistSearchPaths();
 
     void setBlockOffensive(bool enabled);
+
+    // Personal dictionary (Gboard/LatinIME logic). Explicit words are always
+    // valid, keep their case and are suggested. Implicitly typed unknown words
+    // only become valid after PromotionCount uses, so one accidental typo is
+    // never legitimised. A plain-text file adds words for every language.
+    static constexpr int PromotionCount = 3;
+    static void setUserDictionaryFile(const QString &path);
+    static QString userDictionaryFile();
+    bool addUserWord(const QString &word);
+    void removeUserWord(const QString &word);
+    QStringList userWords() const;
+    void promoteWord(const QString &word);       // e.g. an undone autocorrection
+    void reloadUserDictionaryFile();
     // Rows of the on-screen layout. Like LatinIME's ProximityInfo, a typo on a
     // neighbouring key is a cheaper (more likely) error than a distant one.
     void setKeyboardRows(const QStringList &rows);
@@ -94,6 +107,8 @@ private:
     int priorScore(const QString &candidate, const QString &previousWord) const;
     int frequencyRank(const QString &word) const;
     bool suggestible(const QString &word) const;
+    bool isUserWord(const QString &word) const;
+    void persistUserWords();
     bool neighbours(QChar a, QChar b) const;
     void loadBlocklist();
     QString bigramKey(const QString &previousWord, const QString &word) const;
@@ -111,6 +126,8 @@ private:
     QSet<QString> m_offensive;
     QSet<QString> m_forgotten;
     QHash<QChar, QPointF> m_keyCentres;
+    QHash<QString, QString> m_userWords;   // lowercase -> as entered
+    QHash<QString, QString> m_fileWords;   // from dictionary.txt (all languages)
 };
 
 }

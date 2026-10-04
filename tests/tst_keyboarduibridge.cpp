@@ -101,6 +101,7 @@ private Q_SLOTS:
         V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
         V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
         V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
     }
 
     void init() { QSettings().clear(); }
@@ -364,6 +365,41 @@ private Q_SLOTS:
         bridge.setTheme(QStringLiteral("bogus"));
         QCOMPARE(bridge.theme(), QStringLiteral("light"));
         QVERIFY(!bridge.version().isEmpty());
+    }
+
+    void tappingAnUnknownTypedWordOffersToSaveIt()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+
+        for (const QChar ch : QStringLiteral("zorgle")) bridge.tapLetter(QString(ch));
+        QVERIFY(bridge.typedWordUnknown());
+        QCOMPARE(bridge.suggestions().value(0), QStringLiteral("zorgle"));   // shown quoted
+        QVERIFY(bridge.saveWordCandidate().isEmpty());
+        bridge.selectSuggestion(QStringLiteral("zorgle"));                   // keep it
+        QCOMPARE(bridge.saveWordCandidate(), QStringLiteral("zorgle"));      // "＋ Add to dictionary"
+        bridge.addWordToDictionary(bridge.saveWordCandidate());
+        QVERIFY(bridge.saveWordCandidate().isEmpty());
+        QCOMPARE(bridge.userWords(), QStringList({QStringLiteral("zorgle")}));
+        for (const QChar ch : QStringLiteral("zor")) bridge.tapLetter(QString(ch));
+        QVERIFY(bridge.suggestions().contains(QStringLiteral("zorgle")));
+
+        // The offer disappears with the next key and is not made for known words.
+        bridge.space();
+        for (const QChar ch : QStringLiteral("blorp")) bridge.tapLetter(QString(ch));
+        bridge.selectSuggestion(QStringLiteral("blorp"));
+        QCOMPARE(bridge.saveWordCandidate(), QStringLiteral("blorp"));
+        bridge.tapLetter(QStringLiteral("x"));
+        QVERIFY(bridge.saveWordCandidate().isEmpty());
+        bridge.space();
+        for (const QChar ch : QStringLiteral("hello")) bridge.tapLetter(QString(ch));
+        bridge.selectSuggestion(QStringLiteral("hello"));                     // a known word
+        QVERIFY(bridge.saveWordCandidate().isEmpty());
+        bridge.removeWordFromDictionary(QStringLiteral("zorgle"));
+        QVERIFY(bridge.userWords().isEmpty());
     }
 
     void tapTextReachesController()

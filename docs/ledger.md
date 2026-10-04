@@ -803,3 +803,28 @@ No new features; verification that does not need the tablet:
   words: UK 17 -> 3.7, RU 8.9 -> 3.0, EN 7.3 -> 2.6, DE 122 -> 23 ms.
   Real-data quality probes unchanged. Benchmark: tools/bench_keystroke.cpp
   (-DV3KBD_BENCHMARKS=ON).
+
+## 2026-10-03 — 1.1.0 personal dictionary (user: "proper logic for adding custom words")
+
+Problem in the existing logic: any word committed once counted as learned and
+was then treated as valid forever (never corrected, offered as a suggestion),
+so a single accidental typo was legitimised.
+New logic (LatinIME/Gboard model):
+- explicit personal dictionary per language (case kept, always valid,
+  suggested with a high prior, persisted in settings);
+- implicit learning promotes an unknown word only after 3 uses; known words
+  are still learned for ranking from the first use;
+- undoing an autocorrection promotes the word (explicit signal);
+- strip shows an unknown typed word in quotes; tapping it keeps it and offers
+  "+ Add to dictionary" (LatinIME "touch again to save");
+- ~/.config/v3-keyboard/dictionary.txt adds words for all languages,
+  re-read on every field focus;
+- forgetting (long-press a suggestion) also removes the explicit entry.
+RED->GREEN: oneAccidentalCommitDoesNotLegitimiseATypo, personalDictionaryKeepsCaseAndPersists,
+dictionaryFileAddsWordsForAllLanguages, forgettingAlsoRemovesFromThePersonalDictionary,
+acceptedWordsBeatTheCuratedTypoList (replaces learnedWordsBeatTheCuratedTypoList,
+which encoded the old "one commit protects" rule), engine test
+backspaceRightAfterAutocorrectRevertsAndRemembers went RED under the new rule
+and GREEN once undo promotes; bridge tappingAnUnknownTypedWordOffersToSaveIt;
+UI savingAndRemovingPersonalWordsThroughTheUi (first failure was the test
+clicking a chip outside the scrolled settings viewport).

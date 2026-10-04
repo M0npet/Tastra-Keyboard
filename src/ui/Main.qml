@@ -478,6 +478,32 @@ Rectangle {
                     : keyboardBridge.voiceMessage
             }
 
+            Rectangle {
+                // Gboard/LatinIME "touch again to save": after keeping an
+                // unknown word, offer to add it to the personal dictionary.
+                id: saveWordChip
+                objectName: "saveWordChip"
+                visible: keyboardBridge.saveWordCandidate.length > 0 && !root.toolbarExpanded && !voiceStatus.visible
+                anchors.centerIn: parent
+                width: saveWordText.implicitWidth + 32
+                height: parent.height - 10
+                radius: height / 2
+                color: saveWordMouse.pressed ? root.pressedColor : root.selectedColor
+                Text {
+                    id: saveWordText
+                    anchors.centerIn: parent
+                    text: "\uFF0B Add \u201C" + keyboardBridge.saveWordCandidate + "\u201D to dictionary"
+                    color: root.textColor
+                    font.pixelSize: root.portrait ? 17 : 15
+                    font.weight: Font.Medium
+                }
+                MouseArea {
+                    id: saveWordMouse
+                    anchors.fill: parent
+                    onClicked: keyboardBridge.addWordToDictionary(keyboardBridge.saveWordCandidate)
+                }
+            }
+
             Row {
                 id: suggestionRow
                 visible: keyboardBridge.activePanel === "typing"
@@ -485,6 +511,7 @@ Rectangle {
                     && keyboardBridge.suggestions.length > 0
                     && !root.toolbarExpanded
                     && !voiceStatus.visible
+                    && !saveWordChip.visible
                 anchors.centerIn: parent
                 spacing: root.keyGap
 
@@ -504,7 +531,8 @@ Rectangle {
                             horizontalAlignment: Text.AlignHCenter
                             // Gboard: the typed word is quoted when Space would correct it; the
                             // correction itself is bold.
-                            text: keyboardBridge.autocorrectSuggestion.length > 0 && modelData === keyboardBridge.currentWord
+                            text: (keyboardBridge.autocorrectSuggestion.length > 0 || keyboardBridge.typedWordUnknown)
+                                && modelData === keyboardBridge.currentWord
                                 ? "\u201C" + modelData + "\u201D" : modelData
                             elide: Text.ElideRight
                             color: root.textColor
@@ -1581,6 +1609,53 @@ Rectangle {
                         onTriggered: keyboardBridge.clearLearnedWords()
                     }
                 
+                    Text {
+                        width: parent.width
+                        topPadding: 8
+                        text: "Personal dictionary (" + keyboardBridge.userWords.length + ") \u2014 tap a word to remove it"
+                        color: root.textColor
+                        font.pixelSize: root.portrait ? 17 : 15
+                    }
+
+                    Flow {
+                        width: parent.width
+                        spacing: 8
+                        Repeater {
+                            model: keyboardBridge.userWords
+                            delegate: Rectangle {
+                                required property string modelData
+                                objectName: "userWord_" + modelData
+                                width: userWordText.implicitWidth + 24
+                                height: root.portrait ? 40 : 34
+                                radius: height / 2
+                                color: userWordMouse.pressed ? root.pressedColor : root.keyColor
+                                border.width: 1
+                                border.color: root.borderColor
+                                Text {
+                                    id: userWordText
+                                    anchors.centerIn: parent
+                                    text: modelData + "  \u00D7"
+                                    color: root.textColor
+                                    font.pixelSize: root.portrait ? 16 : 14
+                                }
+                                MouseArea {
+                                    id: userWordMouse
+                                    anchors.fill: parent
+                                    onClicked: keyboardBridge.removeWordFromDictionary(modelData)
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        color: root.secondaryTextColor
+                        font.pixelSize: root.portrait ? 14 : 12
+                        text: "Add words: tap a typed word in the suggestion strip, then \uFF0B. "
+                            + "Many at once: ~/.config/v3-keyboard/dictionary.txt (one per line, all languages)."
+                    }
+
                     Text {
                         // About: version, license and data sources (1.0).
                         objectName: "aboutText"

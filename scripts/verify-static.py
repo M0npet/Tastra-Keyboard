@@ -272,6 +272,11 @@ for path, token, why in (
     ('src/core/typingengine.cpp', 'm_pendingSpaceAfterWord', 'LatinIME space/punctuation swap'),
     ('src/core/locallexicon.cpp', 'QString LocalLexicon::correctionPreview', 'cheap per-keystroke correction preview'),
     ('src/core/locallexicon.cpp', 'int hunspellBudget = 250;', 'bounded Hunspell work at Space'),
+    ('src/core/locallexicon.cpp', 'bool LocalLexicon::isUserWord', 'personal dictionary + promotion threshold (1.1.0)'),
+    ('src/core/typingengine.cpp', 'm_lexicon.promoteWord(original);', 'undoing autocorrect promotes the word'),
+    ('src/ui/Main.qml', 'objectName: "saveWordChip"', 'touch-again-to-save chip'),
+    ('tests/tst_lexicon.cpp', 'oneAccidentalCommitDoesNotLegitimiseATypo', 'typos are not learned from one commit'),
+    ('tests/tst_qmlkeyboard.cpp', 'savingAndRemovingPersonalWordsThroughTheUi', 'personal dictionary UI test'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -283,4 +288,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v1.0.1 markers present: stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v1.1.0 markers present: personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

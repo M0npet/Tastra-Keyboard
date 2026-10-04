@@ -47,6 +47,7 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
+    Q_EMIT userWordsChanged();
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
     {
         const QString stored = settings.value(QStringLiteral("theme")).toString();
@@ -112,6 +113,29 @@ QStringList KeyboardUiBridge::languageLabels() const { return m_model.languageLa
 QString KeyboardUiBridge::currentWord() const { return m_typingEngine.currentWord(); }
 QString KeyboardUiBridge::autocorrectSuggestion() const { return m_typingEngine.autocorrectTarget(); }
 QString KeyboardUiBridge::inputPurpose() const { return m_inputPurpose; }
+QString KeyboardUiBridge::saveWordCandidate() const { return m_saveCandidate; }
+QStringList KeyboardUiBridge::userWords() const { return m_typingEngine.userWords(); }
+
+bool KeyboardUiBridge::typedWordUnknown() const
+{
+    const QString word = m_typingEngine.currentWord();
+    return !m_secureInput && word.size() >= 2 && !m_typingEngine.isKnownWord(word);
+}
+
+void KeyboardUiBridge::addWordToDictionary(const QString &word)
+{
+    if (!m_typingEngine.addUserWord(word)) return;
+    m_saveCandidate.clear();
+    Q_EMIT userWordsChanged();
+    Q_EMIT suggestionsChanged();
+}
+
+void KeyboardUiBridge::removeWordFromDictionary(const QString &word)
+{
+    m_typingEngine.removeUserWord(word);
+    Q_EMIT userWordsChanged();
+    Q_EMIT suggestionsChanged();
+}
 
 void KeyboardUiBridge::insertEmoji(const QString &glyph)
 {
@@ -156,6 +180,12 @@ QStringList KeyboardUiBridge::suggestions() const
         return list;
     }
     const QString target = m_typingEngine.autocorrectTarget();
+    if (target.isEmpty() && typedWordUnknown()) {
+        const QString typed = m_typingEngine.currentWord();
+        list.removeAll(typed);
+        list.prepend(typed);
+        while (list.size() > 3) list.removeLast();
+    }
     if (!target.isEmpty()) {
         // Gboard order: what was typed (kept on tap), then the correction in
         // the middle, then the best remaining alternative.
@@ -240,6 +270,7 @@ QString KeyboardUiBridge::symbolHintForKey(const QString &key) const
 
 void KeyboardUiBridge::tapAlternateText(const QString &text)
 {
+    m_saveCandidate.clear();
     if (text.isEmpty()) return;
     const bool uppercaseBefore = uppercase();
     if (text.front().isLetter()) m_typingEngine.typeLetter(text);
@@ -272,6 +303,7 @@ void KeyboardUiBridge::setBlockOffensive(bool enabled)
 void KeyboardUiBridge::forgetSuggestion(const QString &word)
 {
     m_typingEngine.forgetWord(word);
+    Q_EMIT userWordsChanged();
     Q_EMIT suggestionsChanged();
 }
 
@@ -409,6 +441,7 @@ void KeyboardUiBridge::typingStateDidChange()
 
 void KeyboardUiBridge::tapLetter(const QString &letter)
 {
+    m_saveCandidate.clear();
     const bool oneShotWasActive = m_model.uppercase() && !m_model.capsLock();
     const bool autoUpperWasActive = m_typingEngine.wantsAutoUppercase();
     const QString output = uppercase() ? letter.toUpper() : letter.toLower();
@@ -437,6 +470,7 @@ void KeyboardUiBridge::tapAlternate(const QString &base)
 
 void KeyboardUiBridge::tapText(const QString &text)
 {
+    m_saveCandidate.clear();
     const bool uppercaseBefore = uppercase();
     m_typingEngine.typeText(text);
     // Gboard (16.7+, on by default): an apostrophe on the symbols layer
@@ -457,7 +491,9 @@ void KeyboardUiBridge::selectSuggestion(const QString &word)
         m_typingEngine.commitComposition();
         m_typingEngine.typeText(QStringLiteral(" ") + word);
     } else {
+        const bool keepUnknown = word == m_typingEngine.currentWord() && typedWordUnknown();
         m_typingEngine.chooseSuggestion(word);
+        m_saveCandidate = keepUnknown ? word : QString();
     }
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
     Q_EMIT suggestionsChanged();
@@ -483,6 +519,7 @@ void KeyboardUiBridge::nextLanguage()
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
+    Q_EMIT userWordsChanged();
     persistLanguage();
     typingStateDidChange();
 }
@@ -495,6 +532,7 @@ void KeyboardUiBridge::setLanguage(const QString &code)
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
+    Q_EMIT userWordsChanged();
     persistLanguage();
     typingStateDidChange();
 }
@@ -519,6 +557,7 @@ void KeyboardUiBridge::closePanel()
 
 void KeyboardUiBridge::space()
 {
+    m_saveCandidate.clear();
     const bool uppercaseBefore = uppercase();
     m_typingEngine.space();
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
@@ -527,6 +566,7 @@ void KeyboardUiBridge::space()
 
 void KeyboardUiBridge::backspace()
 {
+    m_saveCandidate.clear();
     const bool uppercaseBefore = uppercase();
     m_typingEngine.backspace();
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
@@ -593,6 +633,7 @@ void KeyboardUiBridge::moveEnd()
 
 void KeyboardUiBridge::enter()
 {
+    m_saveCandidate.clear();
     const bool uppercaseBefore = uppercase();
     m_typingEngine.enter();
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
@@ -788,6 +829,8 @@ void KeyboardUiBridge::resetInputContext()
 {
     if (m_voice) m_voice->cancel();                 // never type into a new field
     loadShortcuts();                                 // pick up edits without a restart
+    m_typingEngine.reloadUserDictionaryFile();
+    m_saveCandidate.clear();
     if (m_inputPurpose != QStringLiteral("text")) {
         m_inputPurpose = QStringLiteral("text");
         Q_EMIT inputContextChanged();

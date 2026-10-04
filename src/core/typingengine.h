@@ -36,6 +36,11 @@ public:
     // Gboard "Auto-space after punctuation" (off by default).
     void setAutoSpaceAfterPunctuation(bool enabled);
     void forgetWord(const QString &word);
+    bool addUserWord(const QString &word);
+    void removeUserWord(const QString &word);
+    QStringList userWords() const;
+    bool isKnownWord(const QString &word) const;
+    void reloadUserDictionaryFile();
     bool compositionEnabled() const;
     bool composing() const;
 

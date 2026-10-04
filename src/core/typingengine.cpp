@@ -72,6 +72,11 @@ void TypingEngine::setBlockOffensive(bool enabled) { m_lexicon.setBlockOffensive
 void TypingEngine::setKeyboardRows(const QStringList &rows) { m_lexicon.setKeyboardRows(rows); }
 void TypingEngine::setAutoSpaceAfterPunctuation(bool enabled) { m_autoSpaceAfterPunctuation = enabled; m_autoSpacePending = false; }
 void TypingEngine::forgetWord(const QString &word) { m_lexicon.forgetWord(word); refreshSuggestions(); }
+bool TypingEngine::addUserWord(const QString &word) { const bool ok = m_lexicon.addUserWord(word); refreshSuggestions(); return ok; }
+void TypingEngine::removeUserWord(const QString &word) { m_lexicon.removeUserWord(word); refreshSuggestions(); }
+QStringList TypingEngine::userWords() const { return m_lexicon.userWords(); }
+bool TypingEngine::isKnownWord(const QString &word) const { return m_lexicon.hasWord(word); }
+void TypingEngine::reloadUserDictionaryFile() { m_lexicon.reloadUserDictionaryFile(); refreshSuggestions(); }
 
 void TypingEngine::setCompositionEnabled(bool enabled) { if (!enabled) commitComposition(); m_compositionEnabled = enabled; }
 bool TypingEngine::compositionEnabled() const { return m_compositionEnabled; }
@@ -489,6 +494,8 @@ void TypingEngine::backspace()
         m_pendingOriginal.clear();
         m_pendingSpace = false;
         m_noCorrectionFor = original;
+        // Undoing a correction is an explicit "this is my word" (Gboard).
+        m_lexicon.promoteWord(original);
         m_currentWord = original;
         m_composing = true;
         setPreeditLocal(original);
@@ -534,6 +541,7 @@ void TypingEngine::backspaceRepeated(int count)
         if (!m_pendingWord.isEmpty()) {
             m_currentWord = m_pendingOriginal;   // revert, then keep deleting
             m_noCorrectionFor = m_pendingOriginal;
+            m_lexicon.promoteWord(m_pendingOriginal);
             m_pendingWord.clear();
             m_pendingOriginal.clear();
             m_composing = true;
