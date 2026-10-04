@@ -122,9 +122,11 @@ QString TypingEngine::takePendingText()
         m_currentWord = m_pendingWord;
         finalizeCurrentWord();
     }
+    if (m_pendingPeriod) text += QLatin1Char('.');
     m_pendingWord.clear();
     m_pendingOriginal.clear();
     m_pendingSpace = false;
+    m_pendingPeriod = false;
     return text;
 }
 
@@ -189,6 +191,7 @@ QString TypingEngine::formatForSentence(const QString &word) const
 
 void TypingEngine::typeLetter(const QString &text)
 {
+    m_lastWasDoublePeriod = false;
     if (text.isEmpty()) return;
     m_spaceFromSuggestion = false;
     if (m_sensitiveContext) {
@@ -222,6 +225,7 @@ void TypingEngine::typeLetter(const QString &text)
 
 void TypingEngine::typeText(const QString &text)
 {
+    m_lastWasDoublePeriod = false;
     if (text.isEmpty()) return;
     m_spaceFromSuggestion = false;
     if (m_sensitiveContext) {
@@ -337,6 +341,20 @@ void TypingEngine::forgetTextState()
     m_lastLocalOpMs = std::numeric_limits<qint64>::min() / 2;
 }
 
+// AOSP LatinIME InputLogic.tryPerformDoubleSpacePeriod (Apache-2.0): the
+// second space must come within 1100 ms, and the character before the first
+// space must be a letter/digit, one of ' " ) ] } > + % or a symbol (emoji).
+bool TypingEngine::doubleSpaceAllowedAfter(const QString &textBeforeSpace) const
+{
+    if (!m_doubleSpacePeriodEnabled || !m_lastActionWasSpace || m_previousSpaceMs < 0) return false;
+    if (m_lastSpaceMs - m_previousSpaceMs >= 1100) return false;
+    if (textBeforeSpace.isEmpty()) return false;
+    const QChar last = textBeforeSpace.back();
+    if (last.isLowSurrogate()) return true;                      // emoji
+    return last.isLetterOrNumber() || QStringLiteral("'\")]}>+%").contains(last)
+        || last.category() == QChar::Symbol_Other;
+}
+
 // After deleting, an empty field (or one ending in . ! ?) starts a sentence
 // again (Gboard). Only for clients that report their text: otherwise the
 // keyboard cannot know what precedes the cursor.
@@ -391,6 +409,10 @@ void TypingEngine::finalizeCurrentWord(bool updatePrevious)
 
 void TypingEngine::space()
 {
+    m_lastWasDoublePeriod = false;
+    // Every Space press restarts the LatinIME double-space countdown.
+    m_previousSpaceMs = m_lastSpaceMs;
+    m_lastSpaceMs = m_clock ? m_clock() : monotonicMs();
     m_autoSpacePending = false;
     if (m_spaceFromSuggestion) {
         // The suggestion already added a space. This Space confirms it and
@@ -437,9 +459,21 @@ void TypingEngine::space()
         return;
     }
     if (m_pendingSpace) {
+        const QString before = m_pendingWord.isEmpty() ? m_model : m_pendingWord;
+        const bool doubleSpace = !m_pendingPeriod && doubleSpaceAllowedAfter(before);
         const QString held = takePendingText();
-        if (m_doubleSpacePeriodEnabled && m_lastActionWasSpace && !m_previousWord.isEmpty()) {
-            commitLocal(held + QStringLiteral(". "));
+        if (doubleSpace) {
+            // Held as ". " in the preedit so Backspace can revert it to " "
+            // without deleting committed text (LatinIME revertDoubleSpacePeriod).
+            if (!held.isEmpty()) commitLocal(held);
+            if (setPreeditLocal(QStringLiteral(". "))) {
+                m_pendingSpace = true;
+                m_pendingPeriod = true;
+            } else {
+                commitLocal(QStringLiteral(". "));
+            }
+            m_lastSpaceMs = -1;               // no chained double space
+            m_pendingSpaceAfterWord = false;
             m_sentenceStart = true;
             m_sentencePunctuationPending = false;
             m_lastActionWasSpace = false;
@@ -455,8 +489,11 @@ void TypingEngine::space()
         return;
     }
     if (m_currentWord.isEmpty()) {
-        if (m_doubleSpacePeriodEnabled && m_lastActionWasSpace && !m_previousWord.isEmpty()
+        const QString beforeSpace = m_model.endsWith(QLatin1Char(' ')) ? m_model.chopped(1) : QString();
+        if (doubleSpaceAllowedAfter(beforeSpace)
             && replaceBeforeCursor(QStringLiteral(" "), QStringLiteral(". "), false)) {
+            m_lastWasDoublePeriod = true;
+            m_lastSpaceMs = -1;               // no chained double space
             m_sentenceStart = true;
             m_sentencePunctuationPending = false;
             m_lastActionWasSpace = false;
@@ -498,6 +535,26 @@ void TypingEngine::backspace()
 {
     m_autoSpacePending = false;
     m_spaceFromSuggestion = false;
+    if (m_pendingSpace && m_pendingPeriod) {
+        // LatinIME: Backspace right after a double-space period gives a single
+        // space, and the next word is not capitalised.
+        m_pendingPeriod = false;
+        setPreeditLocal(QStringLiteral(" "));
+        m_pendingSpaceAfterWord = false;
+        m_sentenceStart = false;
+        m_lastActionWasSpace = false;
+        refreshSuggestions();
+        return;
+    }
+    if (m_lastWasDoublePeriod) {
+        m_lastWasDoublePeriod = false;
+        if (replaceBeforeCursor(QStringLiteral(". "), QStringLiteral(" "), false)) {
+            m_sentenceStart = false;
+            m_lastActionWasSpace = false;
+            refreshSuggestions();
+            return;
+        }
+    }
     if (m_pendingSpace && !m_pendingWord.isEmpty()) {
         // Undo the autocorrection: back to exactly what was typed, still
         // composing, and do not correct that word again.
@@ -603,6 +660,7 @@ void TypingEngine::backspaceRepeated(int count)
 
 void TypingEngine::enter()
 {
+    m_lastWasDoublePeriod = false;
     m_autoSpacePending = false;
     m_spaceFromSuggestion = false;
     if (m_pendingSpace) {
@@ -765,7 +823,7 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
         }
     }
 
-    const qint64 now = m_clock ? m_clock() : monotonicMs();
+    const qint64 now = m_clock ? (m_clock ? m_clock() : monotonicMs()) : monotonicMs();
     if (now - m_lastLocalOpMs < SettleMs) {
         qCDebug(lcEngine) << "echo bytes" << bounded << "unknown but self-caused (settle window) -> ignored";
         m_inSync = false;

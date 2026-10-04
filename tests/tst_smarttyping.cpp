@@ -292,7 +292,10 @@ private Q_SLOTS:
             engine.space();
             if (finish == QStringLiteral("space")) {
                 engine.space();
-                QCOMPARE(backend.commits, QStringList({QStringLiteral("the. ")}));
+                // ". " is held in the preedit so Backspace can revert it (LatinIME).
+                QCOMPARE(backend.commits, QStringList({QStringLiteral("the")}));
+                QCOMPARE(backend.preedit, QStringLiteral(". "));
+                continue;
             } else if (finish == QStringLiteral("enter")) {
                 engine.enter();
                 QCOMPARE(backend.events.mid(backend.events.size() - 2),
@@ -319,8 +322,8 @@ private Q_SLOTS:
         engine.typeLetter(QStringLiteral("i"));
         engine.space();
         engine.space();
-        QCOMPARE(backend.commits, QStringList({QStringLiteral("hi"), QStringLiteral(". ")}));
-        QCOMPARE(backend.preedit, QString());
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("hi")}));
+        QCOMPARE(backend.preedit, QStringLiteral(". "));   // held until the next letter
         QVERIFY(engine.wantsAutoUppercase());
 
         engine.typeLetter(QStringLiteral("J"));
@@ -493,6 +496,47 @@ private Q_SLOTS:
         }
     }
 
+    // Rules from AOSP LatinIME InputLogic.tryPerformDoubleSpacePeriod /
+    // RichInputConnection.revertDoubleSpacePeriod (Apache-2.0).
+    void doubleSpacePeriodFollowsLatinIME()
+    {
+        auto visible = [](FakeBackend &b) { return b.commits.join(QString()) + b.preedit; };
+        {   // two quick spaces after a word -> ". "
+            FakeBackend backend; V3Keyboard::KeyboardController controller(backend);
+            V3Keyboard::TypingEngine engine(controller); composing(backend, engine);
+            qint64 now = 1000; engine.setClockForTesting([&now] { return now; });
+            engine.setAutoCapitalizationEnabled(false); engine.setAutocorrectEnabled(false);
+            engine.typeLetter(QStringLiteral("h")); engine.typeLetter(QStringLiteral("i"));
+            engine.space(); now += 300; engine.space();
+            QCOMPARE(visible(backend), QStringLiteral("hi. "));
+            // Backspace right after it: ". " -> " ", and no capital next.
+            engine.backspace();
+            QCOMPARE(visible(backend), QStringLiteral("hi "));
+            QVERIFY(!engine.wantsAutoUppercase());
+            engine.typeLetter(QStringLiteral("x"));
+            QCOMPARE(visible(backend), QStringLiteral("hi x"));
+        }
+        {   // the second space comes later than 1100 ms -> just a space
+            FakeBackend backend; V3Keyboard::KeyboardController controller(backend);
+            V3Keyboard::TypingEngine engine(controller); composing(backend, engine);
+            qint64 now = 1000; engine.setClockForTesting([&now] { return now; });
+            engine.setAutoCapitalizationEnabled(false); engine.setAutocorrectEnabled(false);
+            engine.typeLetter(QStringLiteral("h")); engine.typeLetter(QStringLiteral("i"));
+            engine.space(); now += 1500; engine.space();
+            QCOMPARE(visible(backend), QStringLiteral("hi  "));
+        }
+        {   // after punctuation there is no second period
+            FakeBackend backend; V3Keyboard::KeyboardController controller(backend);
+            V3Keyboard::TypingEngine engine(controller); composing(backend, engine);
+            qint64 now = 1000; engine.setClockForTesting([&now] { return now; });
+            engine.setAutoCapitalizationEnabled(false); engine.setAutocorrectEnabled(false);
+            engine.typeLetter(QStringLiteral("h")); engine.typeLetter(QStringLiteral("i"));
+            engine.typeText(QStringLiteral("."));
+            engine.space(); now += 200; engine.space();
+            QCOMPARE(visible(backend), QStringLiteral("hi.  "));
+        }
+    }
+
     void spaceAfterSuggestionIsNotADoubleSpace()
     {
         FakeBackend backend;
@@ -514,7 +558,7 @@ private Q_SLOTS:
         engine.chooseSuggestion(QStringLiteral("world"));
         engine.space();
         engine.space();
-        QCOMPARE(backend.commits.last(), QStringLiteral(". "));
+        QCOMPARE(backend.preedit, QStringLiteral(". "));
     }
 
     void compositionBackspaceEditsPreeditFirst()

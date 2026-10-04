@@ -869,3 +869,29 @@ updated to the case-following strip ("Hello").
   never accept focus). Cause unknown — evidence requested.
 - "First letter capital, then the second replaces it": still no trace.
   Requested an A/B (composition off) and a plain-field comparison.
+
+## 2026-10-04 — 1.1.3 third live report (build on device: 15/15)
+
+- Typing in Firefox's address bar works (capitals, no lost first letter):
+  the "second letter replaces the first" report is specific to claude.ai's
+  editor; the composition A/B is still pending (the user could not find the
+  toggle: 14th of 19 settings, no scroll affordance -> scroll indicator added).
+- Top-row key preview "still broken": the 1.1.1 fix (z-order) addressed only
+  part of it and its test checked z, not pixels. Rendering the real QML
+  offscreen showed the bubble touching the window top (0.15 px at 1600x560):
+  Wayland cannot draw above the panel surface. The preview and the long-press
+  picker are now clamped inside (>= 2 px). New geometric test over three panel
+  sizes; shown RED on the 1.1.2 geometry (after a first version of the test
+  that could not fail was caught and fixed).
+- Double-space period now follows AOSP LatinIME exactly (read from source:
+  InputLogic.tryPerformDoubleSpacePeriod, config_double_space_period_timeout
+  = 1100 ms, canBeFollowedByDoubleSpacePeriod, revertDoubleSpacePeriod):
+  second Space within 1100 ms, only after a letter/digit/'"')]}>+%/symbol;
+  Backspace right after it turns ". " into " " without a capital next.
+  ". " is held in the preedit so the revert needs no deletion in Firefox.
+  Three tests encoding the old commit timing were updated; two RED tests
+  exposed a real bug in my first implementation (countdown not started on
+  every Space path) — fixed by recording every Space press, as LatinIME does.
+- Process: a scripted edit wrote the header before failing on the .cpp
+  (half-applied change, caught by git diff); scripts now validate everything
+  before writing any file.

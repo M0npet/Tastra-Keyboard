@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.3
+- Top-row key previews and pickers always fit inside the keyboard.
+- Double-space period follows Google's LatinIME: only for two quick spaces
+  (1.1 s) after a word; Backspace right after it leaves a single space.
+- The settings list shows a scroll bar.
+
 ## 1.1.2
 - Holding Backspace keeps deleting (and speeds up) until released.
 - Clearing the field turns automatic capitalisation back on.

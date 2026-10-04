@@ -529,21 +529,38 @@ private Q_SLOTS:
         QTRY_VERIFY(bridge.userWords().isEmpty());
     }
 
-    void topRowKeyPreviewIsDrawnAboveTheToolbar()
+    void topRowKeyPreviewStaysInsideThePanel()
     {
-        FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
-        QQuickView view;
-        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
-        QCOMPARE(view.status(), QQuickView::Ready);
-        QQuickItem *rows = findNamed(view.rootObject(), QStringLiteral("keyboardRows"));
-        QQuickItem *toolbar = findNamed(view.rootObject(), QStringLiteral("topToolbar"));
-        QVERIFY(rows && toolbar);
-        QCOMPARE(rows->parentItem(), toolbar->parentItem());       // siblings: z decides
-        QVERIFY2(rows->z() > toolbar->z(), "key previews of the top row were hidden under the toolbar");
+        // Live report: the preview of top-row keys was cut off — Wayland cannot
+        // draw above the panel surface, so the whole bubble (incl. its rounded
+        // top) must stay inside, for any panel size.
+        for (const QSize size : {QSize(1600, 560), QSize(1700, 420), QSize(1280, 360)}) {
+            FakeBackend backend;
+            V3Keyboard::KeyboardController controller(backend);
+            V3Keyboard::KeyboardModel model;
+            V3Keyboard::KeyboardUiBridge bridge(controller, model);
+            bridge.setAutoCapitalizationEnabled(false);
+            QQuickView view;
+            view.setResizeMode(QQuickView::SizeRootObjectToView);
+            view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+            view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+            view.resize(size);
+            view.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&view));
+            QTest::qWait(50);
+            QQuickItem *label = findText(view.rootObject(), QStringLiteral("q"));
+            QVERIFY(label);
+            const QPoint at = label->mapToScene(QPointF(label->width() / 2, label->height() / 2)).toPoint();
+            static QPointingDevice *touch = QTest::createTouchDevice();
+            QTest::touchEvent(&view, touch).press(0, at);
+            QTest::qWait(80);
+            QQuickItem *preview = findNamed(view.rootObject(), QStringLiteral("keyPreview"));
+            QVERIFY2(preview, "a key preview is shown while pressing");
+            const QRectF box = preview->mapRectToScene(QRectF(0, 0, preview->width(), preview->height()));
+            QTest::touchEvent(&view, touch).release(0, at);
+            QVERIFY2(box.top() >= 2.0, qPrintable(QStringLiteral("%1x%2: preview top %3 touches/leaves the panel edge")
+                                                    .arg(size.width()).arg(size.height()).arg(box.top())));
+        }
     }
 
     void holdingBackspaceKeepsDeletingUntilRelease()

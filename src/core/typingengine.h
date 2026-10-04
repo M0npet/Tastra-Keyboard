@@ -99,6 +99,7 @@ private:
     void forgetTextState();
     bool inSyncWithClient() const;
     void rearmSentenceStartFromText();
+    bool doubleSpaceAllowedAfter(const QString &textBeforeSpace) const;
     bool compositionAvailable() const;
     bool setPreeditLocal(const QString &text);
     QString corrected(const QString &word) const;
@@ -126,6 +127,10 @@ private:
     bool m_pendingSpace = false;    // a space lives in the client's preedit
     bool m_spaceFromSuggestion = false; // that space was added by a suggestion
     bool m_pendingSpaceAfterWord = false; // the held space directly follows a word
+    bool m_pendingPeriod = false;      // the held text is ". " from a double space
+    bool m_lastWasDoublePeriod = false; // immediate mode: ". " just inserted
+    qint64 m_lastSpaceMs = -1;          // time of the latest Space press
+    qint64 m_previousSpaceMs = -1;      // LatinIME double-space countdown start
     QString m_pendingWord;          // autocorrected word held with the pending space (revertible)
     QString m_pendingOriginal;      // what the user actually typed
     QString m_noCorrectionFor;      // word the user just reverted

@@ -272,8 +272,9 @@ Rectangle {
             visible: key.choosing
             z: 110
             x: key.choiceOriginX()
-            anchors.bottom: parent.top
-            anchors.bottomMargin: 7
+            // Stay inside the panel surface: Wayland cannot draw above it, so
+            // for the top row the picker overlaps the key instead of being cut.
+            y: (key.choosing, Math.max(-key.mapToItem(root, 0, 0).y + 2, -height - 7))
             width: key.choiceCellWidth() * key.alternates.length
             height: root.metrics.popupHeight
             radius: 14
@@ -330,8 +331,9 @@ Rectangle {
             border.width: keyboardBridge.keyBorders ? 1 : 0
             border.color: root.borderColor
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.top
-            anchors.bottomMargin: 7
+            objectName: "keyPreview"
+            // Clamped inside the panel surface (see choicePicker).
+            y: (mouse.pressed, Math.max(-key.mapToItem(root, 0, 0).y + 2, -height - 7))
 
             Text {
                 anchors.centerIn: parent
@@ -1496,11 +1498,28 @@ Rectangle {
             }
 
             Flickable {
+                id: settingsFlick
+                objectName: "settingsFlick"
                 visible: keyboardBridge.activePanel === "settings"
                 anchors.fill: parent
                 clip: true
                 contentWidth: width
                 contentHeight: settingsColumn.implicitHeight + root.keyGap * 2
+
+                // The list is long: show that it scrolls.
+                Rectangle {
+                    objectName: "settingsScrollIndicator"
+                    parent: settingsFlick
+                    visible: settingsFlick.contentHeight > settingsFlick.height
+                    anchors.right: parent.right
+                    anchors.rightMargin: 4
+                    width: 5
+                    radius: 2.5
+                    color: root.secondaryTextColor
+                    opacity: 0.7
+                    y: settingsFlick.visibleArea.yPosition * settingsFlick.height
+                    height: Math.max(24, settingsFlick.visibleArea.heightRatio * settingsFlick.height)
+                }
 
                 Column {
                     id: settingsColumn

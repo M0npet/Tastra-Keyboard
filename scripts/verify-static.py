@@ -284,6 +284,11 @@ for path, token, why in (
     ('src/ui/Main.qml', 'id: backspaceRepeat', 'Backspace auto-repeat (1.1.2)'),
     ('src/core/typingengine.cpp', 'void TypingEngine::rearmSentenceStartFromText', 'capitalisation after clearing the field'),
     ('tests/tst_qmlkeyboard.cpp', 'holdingBackspaceKeepsDeletingUntilRelease', 'Backspace hold UI test'),
+    ('src/core/typingengine.cpp', 'bool TypingEngine::doubleSpaceAllowedAfter', 'LatinIME double-space rules (1.1.3)'),
+    ('tests/tst_smarttyping.cpp', 'doubleSpacePeriodFollowsLatinIME', 'LatinIME double-space test'),
+    ('src/ui/Main.qml', 'objectName: "keyPreview"', 'key preview clamped inside the panel'),
+    ('tests/tst_qmlkeyboard.cpp', 'topRowKeyPreviewStaysInsideThePanel', 'geometric preview test'),
+    ('src/ui/Main.qml', 'objectName: "settingsScrollIndicator"', 'settings scroll indicator'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -295,4 +300,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v1.1.2 markers present: backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v1.1.3 markers present: LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
