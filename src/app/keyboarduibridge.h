@@ -17,6 +17,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+class QSoundEffect;
+
 namespace V3Keyboard
 {
 
@@ -61,6 +63,10 @@ class KeyboardUiBridge final : public QObject
     // Gboard "Emoji fast-access row": recent emoji above the keys.
     Q_PROPERTY(bool emojiRow READ emojiRow WRITE setEmojiRow NOTIFY uiPreferencesChanged)
     Q_PROPERTY(QStringList recentEmojis READ recentEmojis NOTIFY emojiChanged)
+    // Gboard "Sound on keypress" (off by default) and "Show gesture trail".
+    Q_PROPERTY(bool keySound READ keySound WRITE setKeySound NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(bool canPlayKeySound READ canPlayKeySound CONSTANT)
+    Q_PROPERTY(bool glideTrail READ glideTrail WRITE setGlideTrail NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool emojiSuggestionsEnabled READ emojiSuggestionsEnabled WRITE setEmojiSuggestionsEnabled NOTIFY typingPreferencesChanged)
     Q_PROPERTY(bool blockOffensive READ blockOffensive WRITE setBlockOffensive NOTIFY typingPreferencesChanged)
     Q_PROPERTY(QString layoutMode READ layoutMode WRITE setLayoutMode NOTIFY uiPreferencesChanged)
@@ -118,6 +124,9 @@ public:
     QString effectiveTheme() const;
     QString version() const;
     bool emojiSuggestionsEnabled() const;
+    bool keySound() const;
+    bool canPlayKeySound() const;
+    bool glideTrail() const;
     bool autoSpaceAfterPunctuation() const;
     bool emojiRow() const;
     QStringList recentEmojis() const;
@@ -195,6 +204,9 @@ public:
     Q_INVOKABLE void setTheme(const QString &theme);
     Q_INVOKABLE void cycleTheme();
     Q_INVOKABLE void setEmojiSuggestionsEnabled(bool enabled);
+    Q_INVOKABLE void setKeySound(bool enabled);
+    Q_INVOKABLE void setGlideTrail(bool enabled);
+    Q_INVOKABLE void keyFeedback();
     Q_INVOKABLE void setAutoSpaceAfterPunctuation(bool enabled);
     Q_INVOKABLE void setEmojiRow(bool enabled);
     Q_INVOKABLE void insertEmoji(const QString &glyph);
@@ -262,6 +274,9 @@ private:
     bool m_amoled = false;
     QString m_theme = QStringLiteral("system");
     bool m_emojiSuggestions = true;
+    bool m_keySound = false;
+    bool m_glideTrail = true;
+    QSoundEffect *m_click = nullptr;          // created on first use only
     bool m_autoSpaceAfterPunctuation = false;
     bool m_emojiRow = false;
     QString m_inputPurpose = QStringLiteral("text");

@@ -126,7 +126,7 @@ Rectangle {
         objectName: "glideTrail"
         anchors.fill: parent
         z: 200
-        visible: root.glidePoints.length > 1
+        visible: keyboardBridge.glideTrail && root.glidePoints.length > 1
         onPaint: {
             var ctx = getContext("2d")
             ctx.clearRect(0, 0, width, height)
@@ -160,12 +160,15 @@ Rectangle {
         }
         if (!glideActive) return
         item.consumeRelease = true
-        // Gboard-style gesture trail.
+        // Gboard-style gesture trail (Settings: Gesture trail).
+        if (!keyboardBridge.glideTrail) { glidePoints = []; }
+        else {
         var points = glidePoints.length === 0 ? [Qt.point(glideStartX, glideStartY)] : glidePoints
         points.push(Qt.point(p.x, p.y))
         if (points.length > 96) points.shift()
         glidePoints = points
         glideTrail.requestPaint()
+        }
         var hit = glideHit(p.x, p.y)
         if (hit && hit.glideValue !== glideLastValue) {
             keyboardBridge.glideThrough(hit.glideValue)
@@ -386,6 +389,7 @@ Rectangle {
                 lastY = point.y
                 key.pressX = point.x
                 key.pressY = point.y
+                keyboardBridge.keyFeedback()          // Gboard "Sound on keypress"
                 key.consumeRelease = false
                 holdTimer.restart()
                 key.pressStarted(point.x, point.y)
@@ -1649,6 +1653,20 @@ Rectangle {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - emojiRowButton.width - parent.spacing; height: emojiRowButton.height; verticalAlignment: Text.AlignVCenter; text: "Emoji fast-access row"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: emojiRowButton; width: root.portrait ? 170 : 150; label: keyboardBridge.emojiRow ? "On" : "Off"; onTriggered: keyboardBridge.setEmojiRow(!keyboardBridge.emojiRow) }
+                    }
+
+                    Row {
+                        visible: true
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - glideTrailButton.width - parent.spacing; height: glideTrailButton.height; verticalAlignment: Text.AlignVCenter; text: "Gesture trail"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: glideTrailButton; width: root.portrait ? 170 : 150; label: keyboardBridge.glideTrail ? "On" : "Off"; onTriggered: keyboardBridge.setGlideTrail(!keyboardBridge.glideTrail) }
+                    }
+
+                    Row {
+                        visible: keyboardBridge.canPlayKeySound
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - keySoundButton.width - parent.spacing; height: keySoundButton.height; verticalAlignment: Text.AlignVCenter; text: "Sound on keypress"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: keySoundButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keySound ? "On" : "Off"; onTriggered: keyboardBridge.setKeySound(!keyboardBridge.keySound) }
                     }
 
                     Row {

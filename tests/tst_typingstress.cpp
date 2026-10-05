@@ -162,7 +162,15 @@ private Q_SLOTS:
                     wordLength = 0;
                 } else {
                     engine.backspace();
-                    if (!expected.isEmpty()) expected.chop(1);
+                    if (composition && swapped) {
+                        // LatinIME revertSwapPunctuation: "w, " -> "w ,"
+                        const QChar punct = expected.at(expected.size() - 2);
+                        expected.chop(2);
+                        expected += QLatin1Char(' ');
+                        expected += punct;
+                    } else if (!expected.isEmpty()) {
+                        expected.chop(1);
+                    }
                     if (wordLength > 0) --wordLength;
                     heldAfterWord = swapped = heldSpace = false;
                 }

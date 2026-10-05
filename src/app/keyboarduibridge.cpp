@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+
+#ifdef V3KBD_HAVE_KEY_SOUND
+#include <QSoundEffect>
+#endif
 #include "keyboardhider.h"
 
 #include <QGuiApplication>
@@ -67,6 +71,8 @@ KeyboardUiBridge::KeyboardUiBridge(
 #endif
     loadShortcuts();
     m_emojiSuggestions = settings.value(QStringLiteral("emojiSuggestions"), true).toBool();
+    m_keySound = canPlayKeySound() && settings.value(QStringLiteral("keySound"), false).toBool();
+    m_glideTrail = settings.value(QStringLiteral("glideTrail"), true).toBool();
     m_autoSpaceAfterPunctuation = settings.value(QStringLiteral("autoSpaceAfterPunctuation"), false).toBool();
     m_typingEngine.setAutoSpaceAfterPunctuation(m_autoSpaceAfterPunctuation);
     m_emojiRow = settings.value(QStringLiteral("emojiRow"), false).toBool();
@@ -220,6 +226,47 @@ QStringList KeyboardUiBridge::suggestions() const
 }
 
 bool KeyboardUiBridge::emojiSuggestionsEnabled() const { return m_emojiSuggestions; }
+bool KeyboardUiBridge::keySound() const { return m_keySound; }
+bool KeyboardUiBridge::glideTrail() const { return m_glideTrail; }
+
+bool KeyboardUiBridge::canPlayKeySound() const
+{
+#ifdef V3KBD_HAVE_KEY_SOUND
+    return true;
+#else
+    return false;
+#endif
+}
+
+void KeyboardUiBridge::setKeySound(bool enabled)
+{
+    enabled = enabled && canPlayKeySound();
+    if (m_keySound == enabled) return;
+    m_keySound = enabled;
+    persistPreference(QStringLiteral("keySound"), enabled);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setGlideTrail(bool enabled)
+{
+    if (m_glideTrail == enabled) return;
+    m_glideTrail = enabled;
+    persistPreference(QStringLiteral("glideTrail"), enabled);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::keyFeedback()
+{
+#ifdef V3KBD_HAVE_KEY_SOUND
+    if (!m_keySound) return;
+    if (!m_click) {
+        m_click = new QSoundEffect(this);
+        m_click->setSource(QUrl(QStringLiteral("qrc:/v3keyboard/sounds/click.wav")));
+        m_click->setVolume(0.35f);
+    }
+    m_click->play();
+#endif
+}
 bool KeyboardUiBridge::autoSpaceAfterPunctuation() const { return m_autoSpaceAfterPunctuation; }
 bool KeyboardUiBridge::emojiRow() const { return m_emojiRow; }
 QStringList KeyboardUiBridge::recentEmojis() const { return m_emojiCatalog.glyphs(QStringLiteral("Recent")).mid(0, 10); }

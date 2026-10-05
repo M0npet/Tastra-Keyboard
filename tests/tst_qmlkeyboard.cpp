@@ -227,6 +227,22 @@ private Q_SLOTS:
         QTRY_COMPARE(backend.commits.value(0), QStringLiteral("hello"));
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("glideTrail")));   // hidden after
 
+        // Settings: Gesture trail off -> the same glide works, without a trail.
+        bridge.setGlideTrail(false);
+        const int commitsBefore = backend.commits.size();
+        QTest::touchEvent(&view, touch).press(0, path.first());
+        for (int i = 1; i < path.size(); ++i) {
+            const QPoint from = path.at(i - 1);
+            const QPoint to = path.at(i);
+            for (int step = 1; step <= 6; ++step) {
+                QTest::touchEvent(&view, touch).move(0, from + (to - from) * step / 6);
+            }
+        }
+        QVERIFY(!findNamed(view.rootObject(), QStringLiteral("glideTrail")));
+        QTest::touchEvent(&view, touch).release(0, path.last());
+        QTRY_VERIFY2(backend.commits.size() > commitsBefore, "the second glide really happened");
+        bridge.setGlideTrail(true);
+
         // Long press on a key with an alternate commits the alternate (DE s -> ß).
         bridge.setLanguage(QStringLiteral("de"));
         // Let the old EN key delegates finish deleting so lookups hit DE keys.

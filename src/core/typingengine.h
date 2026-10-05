@@ -103,6 +103,7 @@ private:
     void rearmSentenceStartFromText();
     bool doubleSpaceAllowedAfter(const QString &textBeforeSpace) const;
     bool atEmptyParagraph() const;
+    void rememberCorrection(const QString &typed, const QString &corrected);
     QString stripHead(const QString &text) const;
     bool compositionAvailable() const;
     bool setPreeditLocal(const QString &text);
@@ -132,6 +133,11 @@ private:
     bool m_spaceFromSuggestion = false; // that space was added by a suggestion
     bool m_pendingSpaceAfterWord = false; // the held space directly follows a word
     bool m_pendingPeriod = false;      // the held text is ". " from a double space
+    QString m_pendingPunct;            // swapped punctuation held before the space
+    // Gboard re-correction: recent autocorrections (corrected -> typed), so
+    // returning the cursor to such a word offers what was typed.
+    QList<QPair<QString, QString>> m_recentCorrections;
+    QString m_recorrectionOriginal;
     bool m_lastWasDoublePeriod = false; // immediate mode: ". " just inserted
     qint64 m_lastSpaceMs = -1;          // time of the latest Space press
     qint64 m_previousSpaceMs = -1;      // LatinIME double-space countdown start

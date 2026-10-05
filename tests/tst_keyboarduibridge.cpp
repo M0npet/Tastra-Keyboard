@@ -452,6 +452,25 @@ private Q_SLOTS:
         QCOMPARE(backend.preedit, QString());
     }
 
+    void gboardSoundAndTrailPreferencesPersist()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        {
+            V3Keyboard::KeyboardUiBridge bridge(controller, model);
+            QVERIFY(!bridge.keySound());           // Gboard: off by default
+            QVERIFY(bridge.glideTrail());          // Gboard: on by default
+            bridge.keyFeedback();                  // silent and harmless while off
+            bridge.setKeySound(true);
+            bridge.setGlideTrail(false);
+            bridge.keyFeedback();                  // must not crash without an audio device
+        }
+        V3Keyboard::KeyboardUiBridge reloaded(controller, model);
+        QCOMPARE(reloaded.keySound(), reloaded.canPlayKeySound());   // only kept if playable
+        QVERIFY(!reloaded.glideTrail());
+    }
+
     void tapTextReachesController()
     {
         FakeBackend backend;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+- Backspace right after "word ," became "word, " undoes the swap (LatinIME).
+- Put the cursor back after an autocorrected word: the strip offers what you
+  originally typed; choosing it restores and keeps it (Gboard).
+- Settings: Gesture trail on/off, Sound on keypress (off by default).
+
 ## 1.3.0
 - Capitalisation follows Google's LatinIME: no capital after abbreviations
   (e.g., U.S., т.е.) or German dates ("am 3. Oktober"), correct handling of

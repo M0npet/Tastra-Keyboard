@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 1.3.0
+    VERSION 1.4.0
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -52,7 +52,8 @@ target_include_directories(v3keyboard-core
 file(GLOB V3KBD_DATA_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/frequency/*.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/emoji/*.tsv"
-    "${CMAKE_CURRENT_SOURCE_DIR}/data/blocklist/*.txt")
+    "${CMAKE_CURRENT_SOURCE_DIR}/data/blocklist/*.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/data/sounds/*.wav")
 qt_add_resources(v3keyboard-core "v3keyboard-data"
     PREFIX "/v3keyboard"
     BASE data
@@ -377,6 +378,13 @@ if(BUILD_TESTING)
     add_executable(tst_voice tests/tst_voice.cpp)
     target_link_libraries(tst_voice PRIVATE v3keyboard-app Qt6::Test)
     add_test(NAME voice COMMAND tst_voice)
+endif()
+
+# Gboard "Sound on keypress": only when Qt Multimedia is installed.
+find_package(Qt6 QUIET COMPONENTS Multimedia)
+if(TARGET Qt6::Multimedia)
+    target_link_libraries(v3keyboard-app PUBLIC Qt6::Multimedia)
+    target_compile_definitions(v3keyboard-app PUBLIC V3KBD_HAVE_KEY_SOUND=1)
 endif()
 
 # Offline voice input (opt-in at install time): built only when both Qt

@@ -255,6 +255,36 @@ private Q_SLOTS:
         QVERIFY(!capsAfter(QStringLiteral("ru"), QStringLiteral("т.е. ")));                // abbreviation
     }
 
+    void returningToAnAutocorrectedWordOffersWhatWasTyped()
+    {
+        // Gboard: put the cursor back at an autocorrected word and the strip
+        // offers the original; choosing it restores and keeps it.
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        qint64 now = 1000;
+        engine.setClockForTesting([&now] { return now; });
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("teh")) engine.typeLetter(QString(ch));
+        engine.space();                                   // -> "the " (held)
+        engine.typeLetter(QStringLiteral("x"));           // correction committed
+        engine.space();
+        now += 2000;
+        engine.resetComposition();                        // tapping into the text: KWin "reset"
+        echo(engine, QStringLiteral("Hi. the"));          // cursor now right behind "the"
+        QCOMPARE(engine.currentWord(), QStringLiteral("the"));
+        QCOMPARE(engine.suggestions().value(0), QStringLiteral("teh"));
+        engine.chooseSuggestion(QStringLiteral("teh"));
+        QCOMPARE(backend.deletions.last(), QStringLiteral("the"));
+        QVERIFY(backend.commits.contains(QStringLiteral("teh")));
+        // Kept from now on: typing it again is not corrected.
+        for (const QChar ch : QStringLiteral("teh")) engine.typeLetter(QString(ch));
+        engine.space();
+        QVERIFY2(!(backend.commits.join(QString()) + backend.preedit).endsWith(QStringLiteral("the ")),
+                 qPrintable(backend.commits.join(QString()) + backend.preedit));
+    }
+
     void emptyParagraphCommitsTheFirstLetterBeforeComposing()
     {
         // ProseMirror (claude.ai, ChatGPT) re-renders an empty paragraph's
@@ -349,9 +379,10 @@ private Q_SLOTS:
                          QStringList({QStringLiteral("commit:the"), QStringLiteral("enter")}));
             } else {
                 engine.typeText(finish);
-                // The space typed after the word moves behind the comma.
-                QCOMPARE(backend.commits, QStringList({QStringLiteral("the,")}));
-                QCOMPARE(backend.preedit, QStringLiteral(" "));
+                // The space typed after the word moves behind the comma (both
+                // held until the next key so Backspace can undo the swap).
+                QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("the, "));
+                QCOMPARE(backend.backspaces, 0);
                 continue;
             }
             QCOMPARE(backend.preedit, QString());
@@ -521,12 +552,25 @@ private Q_SLOTS:
         engine.typeLetter(QStringLiteral("x"));
         QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x"));
 
+        // LatinIME revertSwapPunctuation: Backspace right after the swap
+        // restores what was typed ("hi, " -> "hi ,"), without deletions.
+        engine.space();
+        engine.typeLetter(QStringLiteral("y"));
+        engine.space();
+        engine.typeText(QStringLiteral(","));
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x y, "));
+        engine.backspace();
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x y ,"));
+        QCOMPARE(backend.backspaces, 0);
+        engine.typeLetter(QStringLiteral("z"));
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x y ,z"));
+
         // Consecutive spaces are not a "space after a word": no swap.
         engine.setDoubleSpacePeriodEnabled(false);
         engine.space();
         engine.space();
         engine.typeText(QStringLiteral("."));
-        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x  ."));
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("hi, x y ,z  ."));
     }
 
     void clearingTheFieldReArmsCapitalisation()

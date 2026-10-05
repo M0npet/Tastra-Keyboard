@@ -122,12 +122,15 @@ QString TypingEngine::takePendingText()
 {
     QString text = m_pendingWord;
     if (!m_pendingWord.isEmpty()) {
+        rememberCorrection(m_pendingOriginal, m_pendingWord);
         m_currentWord = m_pendingWord;
         finalizeCurrentWord();
     }
     text = stripHead(text);
     m_committedHead.clear();
     if (m_pendingPeriod) text += QLatin1Char('.');
+    text += m_pendingPunct;
+    m_pendingPunct.clear();
     m_pendingWord.clear();
     m_pendingOriginal.clear();
     m_pendingSpace = false;
@@ -274,6 +277,7 @@ void TypingEngine::typeText(const QString &text)
     if (m_composing) {
         // Word and punctuation leave in one commit; the word is corrected first.
         const QString word = punctuation ? corrected(m_currentWord) : m_currentWord;
+        rememberCorrection(m_currentWord, word);
         m_currentWord = word;
         finalizeCurrentWord();
         m_composing = false;
@@ -286,13 +290,17 @@ void TypingEngine::typeText(const QString &text)
             // LatinIME/Gboard: "word ," becomes "word, " — the space typed
             // after the word moves behind the punctuation (held again so a
             // following Space only confirms it).
-            commitLocal(held + text);
-            if (setPreeditLocal(QStringLiteral(" "))) {
+            // The punctuation is held with the space so Backspace can undo
+            // the swap without deleting committed text (LatinIME
+            // revertSwapPunctuation: "word, " -> "word ,").
+            if (!held.isEmpty()) commitLocal(held);
+            if (setPreeditLocal(text + QLatin1Char(' '))) {
                 m_pendingSpace = true;
+                m_pendingPunct = text;
                 m_spaceFromSuggestion = true;
                 m_pendingSpaceAfterWord = false;
             } else {
-                commitLocal(QStringLiteral(" "));
+                commitLocal(text + QLatin1Char(' '));
             }
             observePunctuation(text);
             m_lastActionWasSpace = false;
@@ -386,6 +394,16 @@ bool TypingEngine::doubleSpaceAllowedAfter(const QString &textBeforeSpace) const
         || last.category() == QChar::Symbol_Other;
 }
 
+void TypingEngine::rememberCorrection(const QString &typed, const QString &corrected)
+{
+    if (typed.isEmpty() || corrected.isEmpty() || typed == corrected) return;
+    for (qsizetype i = 0; i < m_recentCorrections.size(); ++i) {
+        if (m_recentCorrections.at(i).first == corrected) { m_recentCorrections.removeAt(i); break; }
+    }
+    m_recentCorrections.prepend({corrected, typed});
+    while (m_recentCorrections.size() > 20) m_recentCorrections.removeLast();
+}
+
 bool TypingEngine::atEmptyParagraph() const
 {
     return m_surroundingSupported && (m_model.isEmpty() || m_model.endsWith(QLatin1Char('\n')));
@@ -460,6 +478,16 @@ void TypingEngine::space()
         // The suggestion already added a space. This Space confirms it and
         // counts as the user's first Space; only the next one makes ". ".
         m_spaceFromSuggestion = false;
+        if (!m_pendingPunct.isEmpty()) {
+            // The user confirmed the swapped space: the swap is final, so a
+            // later Backspace deletes that space instead of undoing the swap.
+            commitLocal(m_pendingPunct);
+            m_pendingPunct.clear();
+            if (!setPreeditLocal(QStringLiteral(" "))) {
+                commitLocal(QStringLiteral(" "));
+                m_pendingSpace = false;
+            }
+        }
         m_lastActionWasSpace = true;
         refreshSuggestions();
         return;
@@ -562,7 +590,10 @@ void TypingEngine::space()
             if (!m_currentWord.isEmpty() && m_currentWord.front().isUpper()) {
                 formatted[0] = formatted.at(0).toUpper();
             }
-            if (replaceBeforeCursor(m_currentWord, formatted, false)) m_currentWord = formatted;
+            if (replaceBeforeCursor(m_currentWord, formatted, false)) {
+                rememberCorrection(m_currentWord, formatted);
+                m_currentWord = formatted;
+            }
         }
     }
 
@@ -580,6 +611,17 @@ void TypingEngine::backspace()
 {
     m_autoSpacePending = false;
     m_spaceFromSuggestion = false;
+    if (m_pendingSpace && !m_pendingPunct.isEmpty()) {
+        // LatinIME revertSwapPunctuation: back to the typed order.
+        const QString undone = QStringLiteral(" ") + m_pendingPunct;
+        m_pendingPunct.clear();
+        m_pendingSpace = false;
+        m_spaceFromSuggestion = false;
+        commitLocal(undone);                     // replaces the held ", " atomically
+        m_lastActionWasSpace = false;
+        refreshSuggestions();
+        return;
+    }
     if (m_pendingSpace && m_pendingPeriod) {
         // LatinIME: Backspace right after a double-space period gives a single
         // space, and the next word is not capitalised.
@@ -754,7 +796,14 @@ void TypingEngine::chooseSuggestion(const QString &word)
     } else if (!m_currentWord.isEmpty()) {
         // A deliberate tap: fall back to key events if the client has not
         // confirmed the word yet rather than ignoring the user's choice.
+        const bool restoring = !m_recorrectionOriginal.isEmpty() && selected == m_recorrectionOriginal;
         replaceBeforeCursor(m_currentWord, selected, true);
+        if (restoring) {
+            m_lexicon.promoteWord(selected);      // the user insists on it
+            for (qsizetype i = 0; i < m_recentCorrections.size(); ++i) {
+                if (m_recentCorrections.at(i).second == selected) { m_recentCorrections.removeAt(i); break; }
+            }
+        }
     } else {
         commitLocal(selected);
     }
@@ -797,6 +846,18 @@ void TypingEngine::refreshSuggestions()
     }
     if (!m_currentWord.isEmpty()) {
         m_suggestions = m_lexicon.suggestions(m_currentWord, m_previousWord, 3);
+        m_recorrectionOriginal.clear();
+        if (!m_composing) {
+            for (const auto &entry : std::as_const(m_recentCorrections)) {
+                if (entry.first.compare(m_currentWord, Qt::CaseInsensitive) == 0) {
+                    m_recorrectionOriginal = entry.second;
+                    m_suggestions.removeAll(entry.second);
+                    m_suggestions.prepend(entry.second);
+                    while (m_suggestions.size() > 3) m_suggestions.removeLast();
+                    break;
+                }
+            }
+        }
         if (!m_committedHead.isEmpty()) {
             m_suggestions.erase(std::remove_if(m_suggestions.begin(), m_suggestions.end(), [this](const QString &s) {
                 return !s.startsWith(m_committedHead, Qt::CaseInsensitive);
