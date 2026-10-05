@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 1.2.1
+    VERSION 1.3.0
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -15,7 +15,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CTest)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Test WaylandClient)
+find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick Test WaylandClient)
 # Qt >= 6.9 ships private modules as separate CMake packages (Arch: Qt 6.11).
 # Older Qt defines the private targets together with the public module.
 if(NOT TARGET Qt6::GuiPrivate)
@@ -38,6 +38,7 @@ add_library(v3keyboard-core STATIC
     src/core/keyboardcontroller.cpp
     src/core/keyboardmodel.cpp
     src/core/locallexicon.cpp
+    src/core/capsmode.cpp
     src/core/typingengine.cpp
     src/core/clipboardhistory.cpp
     src/core/emojicatalog.cpp
@@ -111,6 +112,7 @@ add_library(v3keyboard-app STATIC
     src/app/keyboardlayoutmetrics.cpp
     src/app/tracelog.cpp
     src/app/panelvisibility.cpp
+    src/app/keyboardhider.cpp
     src/app/voicecontroller.cpp
 )
 
@@ -124,6 +126,7 @@ target_link_libraries(v3keyboard-app
     PUBLIC
         v3keyboard-core
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
 )
 
@@ -426,4 +429,10 @@ if(BUILD_TESTING)
     add_executable(tst_panelvisibility tests/tst_panelvisibility.cpp)
     target_link_libraries(tst_panelvisibility PRIVATE v3keyboard-app Qt6::Test)
     add_test(NAME panelvisibility COMMAND tst_panelvisibility)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(tst_capsmode tests/tst_capsmode.cpp)
+    target_link_libraries(tst_capsmode PRIVATE v3keyboard-core Qt6::Test)
+    add_test(NAME capsmode COMMAND tst_capsmode)
 endif()

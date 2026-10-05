@@ -19,6 +19,7 @@ Q_LOGGING_CATEGORY(lcTraceProbe, "v3keyboard.test", QtWarningMsg)
 Q_LOGGING_CATEGORY(lcOtherProbe, "other.test", QtWarningMsg)
 
 #include "app/keyboarduibridge.h"
+#include "app/keyboardhider.h"
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 
@@ -429,6 +430,26 @@ private Q_SLOTS:
         for (const QChar ch : QStringLiteral("hel")) bridge.tapLetter(QString(ch));   // "Hel" (auto-cap)
         QVERIFY(bridge.suggestions().contains(QStringLiteral("Hello")));
         QVERIFY(!bridge.suggestions().contains(QStringLiteral("hello")));
+    }
+
+    void hideButtonCommitsTheWordAndAsksKWinToHide()
+    {
+        struct FakeHider final : V3Keyboard::KeyboardHider {
+            int calls = 0;
+            void hideKeyboard() override { ++calls; }
+        } hider;
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setKeyboardHider(&hider);
+        bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);
+        for (const QChar ch : QStringLiteral("wor")) bridge.tapLetter(QString(ch));
+        QCOMPARE(backend.preedit, QStringLiteral("Wor"));
+        bridge.hideKeyboard();
+        QCOMPARE(hider.calls, 1);
+        QCOMPARE(backend.commits.last(), QStringLiteral("Wor"));     // nothing lost
+        QCOMPARE(backend.preedit, QString());
     }
 
     void tapTextReachesController()

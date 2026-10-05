@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "typingengine.h"
+#include "capsmode.h"
 
 #include <algorithm>
 #include "keyboardcontroller.h"
@@ -177,8 +178,22 @@ bool TypingEngine::autoCapitalizationEnabled() const { return m_autoCapitalizati
 bool TypingEngine::doubleSpacePeriodEnabled() const { return m_doubleSpacePeriodEnabled; }
 bool TypingEngine::wantsAutoUppercase() const
 {
-    return !m_sensitiveContext && m_autoCapitalizationEnabled && m_autoCapitalizationAllowed
-        && m_sentenceStart && m_currentWord.isEmpty();
+    if (m_sensitiveContext || !m_autoCapitalizationEnabled || !m_autoCapitalizationAllowed
+        || !m_currentWord.isEmpty()) {
+        return false;
+    }
+    if (!m_surroundingSupported) return m_sentenceStart;   // text before the cursor unknown
+    // The client reports its text: decide like LatinIME (abbreviations,
+    // quotes, paragraph starts, German rules) on what precedes the cursor,
+    // including a space or ". " still held in the preedit.
+    QString before = m_model;
+    if (m_pendingSpace) {
+        before += stripHead(m_pendingWord);
+        if (m_pendingPeriod) before += QLatin1Char('.');
+        before += QLatin1Char(' ');
+    }
+    const QString lang = language();
+    return CapsMode::sentenceCaps(before, false, lang == QStringLiteral("en"), lang == QStringLiteral("de"));
 }
 bool TypingEngine::sensitiveContext() const { return m_sensitiveContext; }
 QString TypingEngine::currentWord() const { return m_currentWord; }

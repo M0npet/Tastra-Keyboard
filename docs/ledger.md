@@ -937,3 +937,19 @@ Changes (mitigations; still to be confirmed on the device):
 - The panel hides only after a 250 ms grace time and stays if the field is
   re-activated meanwhile (PanelVisibility, own test, trace category
   v3keyboard.panel). Dropped view.requestActivate() (no-op for panels).
+
+## 2026-10-04 — 1.3.0 more Gboard/LatinIME logic (user: "take as much as possible")
+
+- Sentence capitalisation is now a port of AOSP LatinIME
+  CapsModeUtils.getCapsMode (Apache-2.0, read from the LineageOS mirror):
+  abbreviations (e.g., U.S., т.е.), American-typography closing quotes,
+  opening punctuation, paragraph starts, German rules (dates "3. ", no capital
+  on a line after a comma). Used whenever the client reports its text; other
+  clients keep the event-based rule. Unit test with LatinIME's own vectors
+  (CapsModeUtilsTests: en, fr-style, de) + engine test shown to fail without
+  the wiring ("U.S. ").
+- Gboard's hide button (⌄) at the right of the toolbar: commits the word being
+  composed, then asks KWin over D-Bus (org.kde.KWin /VirtualKeyboard
+  org.kde.kwin.VirtualKeyboard.active = false — verified in KWin's
+  virtualkeyboard_dbus.{h,cpp}). Injectable KeyboardHider; bridge + UI tests;
+  render checked (no overlap with the strip). Needs Qt6::DBus (qt6-base).

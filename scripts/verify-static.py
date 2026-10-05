@@ -296,6 +296,10 @@ for path, token, why in (
     ('tests/tst_smarttyping.cpp', 'emptyParagraphCommitsTheFirstLetterBeforeComposing', 'empty-paragraph test'),
     ('src/app/panelvisibility.cpp', 'PanelVisibility::setActive', 'panel hide grace time'),
     ('tests/tst_panelvisibility.cpp', 'showsAtOnceAndRidesOutAShortDeactivation', 'panel grace-time test'),
+    ('src/core/capsmode.cpp', 'bool sentenceCaps(', 'LatinIME capitalisation port (1.3.0)'),
+    ('tests/tst_capsmode.cpp', 'englishFollowsLatinIME', 'LatinIME caps test vectors'),
+    ('src/app/keyboardhider.cpp', 'org.kde.kwin.VirtualKeyboard', 'hide keyboard via KWin D-Bus'),
+    ('src/ui/Main.qml', 'objectName: "hideKeyboardButton"', 'Gboard hide button'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -307,4 +311,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v1.2.1 markers present: empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v1.3.0 markers present: LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

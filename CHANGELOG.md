@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+- Capitalisation follows Google's LatinIME: no capital after abbreviations
+  (e.g., U.S., т.е.) or German dates ("am 3. Oktober"), correct handling of
+  quotes, brackets and new paragraphs.
+- Hide button (⌄) on the toolbar, as in Gboard.
+
 ## 1.2.1
 - claude.ai/ChatGPT-style editors: the first letter typed into an empty
   paragraph is committed at once (their placeholder re-render broke the

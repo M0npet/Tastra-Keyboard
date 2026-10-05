@@ -15,6 +15,7 @@
 #include <QStandardPaths>
 
 #include "app/keyboarduibridge.h"
+#include "app/keyboardhider.h"
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 #include "core/keyboardmodel.h"
@@ -623,6 +624,36 @@ private Q_SLOTS:
         for (int i = 0; i < 3; ++i) bridge.backspace();
         typeBst(0.08, 0.55);                               // left edge of s -> a side
         QTRY_VERIFY2(before(QStringLiteral("bat"), QStringLiteral("bet")), qPrintable(bridge.suggestions().join(',')));
+    }
+
+    void hideButtonHidesTheKeyboardLikeGboard()
+    {
+        struct FakeHider final : V3Keyboard::KeyboardHider {
+            int calls = 0;
+            void hideKeyboard() override { ++calls; }
+        } hider;
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setKeyboardHider(&hider);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QQuickItem *button = findNamed(view.rootObject(), QStringLiteral("hideKeyboardButton"));
+        QVERIFY(button);
+        QTest::qWait(50);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, button->mapToScene(QPointF(button->width() / 2, button->height() / 2)).toPoint());
+        QTRY_COMPARE(hider.calls, 1);
+
+        // Without a hider (not on Plasma) there is no button.
+        V3Keyboard::KeyboardUiBridge plain(controller, model);
+        QQuickView other;
+        other.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &plain);
+        other.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        QVERIFY(!findNamed(other.rootObject(), QStringLiteral("hideKeyboardButton")));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

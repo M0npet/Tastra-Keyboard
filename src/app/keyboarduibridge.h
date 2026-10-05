@@ -130,6 +130,11 @@ public:
     QString voiceMessage() const;
     // Optional: only set when the binary was built with offline voice input.
     void setVoiceController(class VoiceController *voice);
+    void setKeyboardHider(class KeyboardHider *hider);
+    // Gboard ⌄: commit the word being composed, then hide the keyboard.
+    Q_INVOKABLE void hideKeyboard();
+    Q_PROPERTY(bool canHideKeyboard READ canHideKeyboard CONSTANT)
+    bool canHideKeyboard() const;
     double keyScale() const;
     bool keyBorders() const;
     bool keyPopups() const;
@@ -268,6 +273,7 @@ private:
     bool m_blockOffensive = true;
     QString m_layoutMode = QStringLiteral("full");
     class VoiceController *m_voice = nullptr;
+    class KeyboardHider *m_hider = nullptr;
     double m_keyScale = 1.0;
     bool m_keyBorders = true;
     bool m_keyPopups = true;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+#include "keyboardhider.h"
 
 #include <QGuiApplication>
 #include <QStyleHints>
@@ -113,6 +114,17 @@ QStringList KeyboardUiBridge::languageLabels() const { return m_model.languageLa
 QString KeyboardUiBridge::currentWord() const { return m_typingEngine.currentWord(); }
 QString KeyboardUiBridge::autocorrectSuggestion() const { return m_typingEngine.autocorrectTarget(); }
 QString KeyboardUiBridge::inputPurpose() const { return m_inputPurpose; }
+
+void KeyboardUiBridge::setKeyboardHider(KeyboardHider *hider) { m_hider = hider; }
+bool KeyboardUiBridge::canHideKeyboard() const { return m_hider != nullptr; }
+
+void KeyboardUiBridge::hideKeyboard()
+{
+    if (!m_hider) return;
+    m_typingEngine.commitComposition();      // like a focus change: keep the word
+    Q_EMIT suggestionsChanged();
+    m_hider->hideKeyboard();
+}
 QString KeyboardUiBridge::saveWordCandidate() const { return m_saveCandidate; }
 QStringList KeyboardUiBridge::userWords() const { return m_typingEngine.userWords(); }
 

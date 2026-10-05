@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "keyboardhider.h"
 #include "keyboarduibridge.h"
 #include "panelvisibility.h"
 #include "tracelog.h"
@@ -84,6 +85,9 @@ int main(int argc, char **argv)
     // Hide with a short grace time (see PanelVisibility). requestActivate()
     // was dropped: for an input-panel surface it is a no-op in QtWayland, and
     // KWin never gives input panels the focus anyway.
+    V3Keyboard::KWinKeyboardHider hider;
+    bridge.setKeyboardHider(&hider);
+
     V3Keyboard::PanelVisibility panel;
     QObject::connect(&panel, &V3Keyboard::PanelVisibility::visibleChanged, &view,
                      [&view](bool visible) { view.setVisible(visible); });

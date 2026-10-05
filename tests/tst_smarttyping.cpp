@@ -237,6 +237,24 @@ private Q_SLOTS:
         echo(engine, before);
     }
 
+    void capitalisationFollowsLatinIMEOnTheFieldText()
+    {
+        auto capsAfter = [](const QString &language, const QString &before) {
+            FakeBackend backend;
+            V3Keyboard::KeyboardController controller(backend);
+            V3Keyboard::TypingEngine engine(controller);
+            engine.setLanguage(language);
+            composing(backend, engine, before);
+            return engine.wantsAutoUppercase();
+        };
+        QVERIFY(!capsAfter(QStringLiteral("en"), QStringLiteral("We met in the U.S. ")));   // abbreviation
+        QVERIFY(capsAfter(QStringLiteral("en"), QStringLiteral("He said \"Hi.\" ")));     // American quotes
+        QVERIFY(!capsAfter(QStringLiteral("de"), QStringLiteral("Wir sehen uns am 3. ")));  // German date
+        QVERIFY(!capsAfter(QStringLiteral("de"), QStringLiteral("Liebe Sara,\n")));        // German letter line
+        QVERIFY(capsAfter(QStringLiteral("ru"), QStringLiteral("Привет! ")));
+        QVERIFY(!capsAfter(QStringLiteral("ru"), QStringLiteral("т.е. ")));                // abbreviation
+    }
+
     void emptyParagraphCommitsTheFirstLetterBeforeComposing()
     {
         // ProseMirror (claude.ai, ChatGPT) re-renders an empty paragraph's

@@ -530,7 +530,8 @@ Rectangle {
 
                     delegate: Rectangle {
                         width: Math.min(root.portrait ? 180 : 220,
-                            (root.contentWidth - toolToggle.width - root.keyGap * 4) / Math.max(1, keyboardBridge.suggestions.length))
+                            (root.contentWidth - toolToggle.width - (keyboardBridge.canHideKeyboard ? 2 * hideKeyboardButton.width : 0)
+                             - root.keyGap * 4) / Math.max(1, keyboardBridge.suggestions.length))
                         height: root.portrait ? 42 : 38
                         radius: 12
                         color: suggestionMouse.pressed ? root.specialKeyColor : "transparent"
@@ -680,6 +681,45 @@ Rectangle {
                         }
                     }
                 }
+            }
+        }
+
+        Rectangle {
+            // Gboard ⌄: hide the keyboard (KWin D-Bus, see KeyboardHider).
+            id: hideKeyboardButton
+            objectName: "hideKeyboardButton"
+            visible: keyboardBridge.canHideKeyboard
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: root.portrait ? 46 : 42
+            height: root.portrait ? 42 : 38
+            radius: 12
+            color: hideKeyboardMouse.pressed ? root.specialKeyColor : "transparent"
+            Canvas {
+                id: chevron
+                anchors.centerIn: parent
+                width: 20
+                height: 12
+                property color ink: root.textColor
+                onInkChanged: requestPaint()
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
+                    ctx.strokeStyle = ink
+                    ctx.lineWidth = 2.4
+                    ctx.lineCap = "round"
+                    ctx.lineJoin = "round"
+                    ctx.beginPath()
+                    ctx.moveTo(2, 2)
+                    ctx.lineTo(width / 2, height - 2)
+                    ctx.lineTo(width - 2, 2)
+                    ctx.stroke()
+                }
+            }
+            MouseArea {
+                id: hideKeyboardMouse
+                anchors.fill: parent
+                onClicked: keyboardBridge.hideKeyboard()
             }
         }
     }
