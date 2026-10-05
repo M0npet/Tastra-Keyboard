@@ -64,6 +64,9 @@ LibreOffice uk_UA dictionary (MPL-1.1), optional whisper.cpp + ggml model
 
 ## Development
 
+Continuous integration (`.github/workflows/ci.yml`) builds and runs the full
+test suite on Arch Linux for every push.
+
     cmake -S . -B build -G Ninja && cmake --build build && ctest --test-dir build
     python3 scripts/verify-static.py
 
