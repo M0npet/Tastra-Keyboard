@@ -189,8 +189,9 @@ QString TypingEngine::formatForSentence(const QString &word) const
     return result;
 }
 
-void TypingEngine::typeLetter(const QString &text)
+void TypingEngine::typeLetter(const QString &text, QPointF touch)
 {
+    const qsizetype wordBefore = m_currentWord.size();
     m_lastWasDoublePeriod = false;
     if (text.isEmpty()) return;
     m_spaceFromSuggestion = false;
@@ -220,6 +221,10 @@ void TypingEngine::typeLetter(const QString &text)
     m_sentenceStart = false;
     m_sentencePunctuationPending = false;
     m_lastActionWasSpace = false;
+    if (m_currentWord.size() == wordBefore + 1) {
+        m_touchOffsets.resize(wordBefore);
+        m_touchOffsets.append(touch);
+    }
     refreshSuggestions();
 }
 
@@ -722,6 +727,9 @@ QString TypingEngine::autocorrectTarget() const { return m_autocorrectTarget; }
 
 void TypingEngine::refreshSuggestions()
 {
+    // Touch offsets follow the word: shorter after Backspace, empty for a new one.
+    if (m_touchOffsets.size() > m_currentWord.size()) m_touchOffsets.resize(m_currentWord.size());
+    m_lexicon.setTouchOffsets(m_touchOffsets);
     // What Space would insert instead of the typed word (shown highlighted
     // in the middle of the strip, as Gboard does).
     m_autocorrectTarget.clear();

@@ -439,13 +439,15 @@ void KeyboardUiBridge::typingStateDidChange()
     Q_EMIT suggestionsChanged();
 }
 
-void KeyboardUiBridge::tapLetter(const QString &letter)
+void KeyboardUiBridge::tapLetter(const QString &letter) { tapLetterAt(letter, 0, 0); }
+
+void KeyboardUiBridge::tapLetterAt(const QString &letter, qreal dx, qreal dy)
 {
     m_saveCandidate.clear();
     const bool oneShotWasActive = m_model.uppercase() && !m_model.capsLock();
     const bool autoUpperWasActive = m_typingEngine.wantsAutoUppercase();
     const QString output = uppercase() ? letter.toUpper() : letter.toLower();
-    m_typingEngine.typeLetter(output);
+    m_typingEngine.typeLetter(output, QPointF(qBound(-0.5, dx, 0.5), qBound(-0.5, dy, 0.5)));
     m_model.consumeShiftAfterLetter();
 
     // Normal typing changes suggestions on every tap, but it does not need to

@@ -550,6 +550,26 @@ void LocalLexicon::setKeyboardRows(const QStringList &rows)
     }
 }
 
+void LocalLexicon::setTouchOffsets(const QVector<QPointF> &offsets) { m_touchOffsets = offsets; }
+
+// A slip to a neighbouring key is likelier when the finger landed near the
+// edge facing that key (LatinIME scores by the distance from the touch point
+// to key centres). Bonus 100 without touch data, 0..200 with it.
+int LocalLexicon::neighbourBonus(QChar typed, QChar intended, int index) const
+{
+    if (index < 0 || index >= m_touchOffsets.size()) return 100;
+    const auto from = m_keyCentres.constFind(typed.toLower());
+    const auto to = m_keyCentres.constFind(intended.toLower());
+    if (from == m_keyCentres.constEnd() || to == m_keyCentres.constEnd()) return 100;
+    QPointF dir = *to - *from;
+    const qreal length = std::hypot(dir.x(), dir.y());
+    if (length <= 0) return 100;
+    dir /= length;
+    const QPointF touch = m_touchOffsets.at(index);
+    const qreal towards = qBound(-0.5, touch.x() * dir.x() + touch.y() * dir.y(), 0.5);
+    return int(100 + 200 * towards);
+}
+
 bool LocalLexicon::neighbours(QChar a, QChar b) const
 {
     const auto pa = m_keyCentres.constFind(a.toLower());
@@ -779,7 +799,10 @@ QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString 
         else if (v.size() == typed.size()) {
             for (int k = 0; k < v.size(); ++k) {
                 if (v.at(k) != typed.at(k)) {
-                    if (neighbours(v.at(k), typed.at(k))) c.edit = Edit::NeighbourKey;
+                    if (neighbours(v.at(k), typed.at(k))) {
+                        c.edit = Edit::NeighbourKey;
+                        c.editIndex = k;
+                    }
                     break;
                 }
             }
@@ -787,7 +810,8 @@ QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString 
         c.score = 800 + priorScore(v, previousWord) - qAbs(v.size() - typed.size()) * 8;
         if (c.edit == Edit::Transposition) c.score += 150;
         if (c.edit == Edit::RepeatedLetter) c.score += 100;
-        if (c.edit == Edit::NeighbourKey) c.score += 100;      // a finger slip to the next key
+        if (c.edit == Edit::NeighbourKey)                       // a finger slip to the next key
+            c.score += neighbourBonus(typed.at(c.editIndex), v.at(c.editIndex), c.editIndex);
         result.append(c);
     }
     std::sort(result.begin(), result.end(), [](const Candidate &a, const Candidate &b) {

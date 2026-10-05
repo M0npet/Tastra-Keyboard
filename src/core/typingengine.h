@@ -7,6 +7,7 @@
 
 #include "locallexicon.h"
 
+#include <QPointF>
 #include <QString>
 #include <QStringList>
 
@@ -56,7 +57,8 @@ public:
     QString previousWord() const;
     QStringList suggestions() const;
 
-    void typeLetter(const QString &text);
+    // touch: where the key was hit, relative to its centre in key sizes.
+    void typeLetter(const QString &text, QPointF touch = {});
     void typeText(const QString &text);
     void backspace();
     void backspaceRepeated(int count);
@@ -135,6 +137,7 @@ private:
     QString m_pendingOriginal;      // what the user actually typed
     QString m_noCorrectionFor;      // word the user just reverted
     QString m_autocorrectTarget;
+    QVector<QPointF> m_touchOffsets;      // one per letter of m_currentWord
     bool m_autoSpaceAfterPunctuation = false;
     bool m_autoSpacePending = false;
     bool m_preeditRejected = false; // backend/client cannot show preedit

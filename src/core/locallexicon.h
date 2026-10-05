@@ -62,6 +62,9 @@ public:
     // Rows of the on-screen layout. Like LatinIME's ProximityInfo, a typo on a
     // neighbouring key is a cheaper (more likely) error than a distant one.
     void setKeyboardRows(const QStringList &rows);
+    // Where each letter of the current word was touched, relative to the
+    // key centre in key sizes (x right, y down; (0,0) = centre/unknown).
+    void setTouchOffsets(const QVector<QPointF> &offsets);
     // Gboard-style "remove suggestion": unlearn and never suggest it again.
     void forgetWord(const QString &word);
 
@@ -92,6 +95,7 @@ private:
         QString word;
         int score = 0;
         Edit edit = Edit::Other;
+        int editIndex = -1;
     };
 
     void startLoading();
@@ -126,6 +130,8 @@ private:
     QSet<QString> m_offensive;
     QSet<QString> m_forgotten;
     QHash<QChar, QPointF> m_keyCentres;
+    QVector<QPointF> m_touchOffsets;
+    int neighbourBonus(QChar typed, QChar intended, int index) const;
     QHash<QString, QString> m_userWords;   // lowercase -> as entered
     QHash<QString, QString> m_fileWords;   // from dictionary.txt (all languages)
 };

@@ -195,6 +195,9 @@ Rectangle {
         // Gboard-style long-press choices; first is preselected. More than
         // one opens a picker: slide to choose, release to insert.
         property var alternates: []
+        // Touch-down point (key coordinates) for touch-aware correction.
+        property real pressX: width / 2
+        property real pressY: height / 2
         property string hint: ""
         property bool choosing: false
         property int choiceIndex: 0
@@ -381,6 +384,8 @@ Rectangle {
                 held = false
                 lastX = point.x
                 lastY = point.y
+                key.pressX = point.x
+                key.pressY = point.y
                 key.consumeRelease = false
                 holdTimer.restart()
                 key.pressStarted(point.x, point.y)
@@ -913,7 +918,7 @@ Rectangle {
 
                     onTriggered: {
                         if (keyboardBridge.symbolsActive) keyboardBridge.tapText(modelData)
-                        else keyboardBridge.tapLetter(modelData)
+                        else keyboardBridge.tapLetterAt(modelData, (pressX - width / 2) / width, (pressY - height / 2) / height)
                     }
                     onLongPressed: keyboardBridge.tapAlternateText(alternates[0])
                 }
@@ -951,7 +956,7 @@ Rectangle {
 
                     onTriggered: {
                         if (keyboardBridge.symbolsActive) keyboardBridge.tapText(modelData)
-                        else keyboardBridge.tapLetter(modelData)
+                        else keyboardBridge.tapLetterAt(modelData, (pressX - width / 2) / width, (pressY - height / 2) / height)
                     }
                     onLongPressed: keyboardBridge.tapAlternateText(alternates[0])
                 }
@@ -1025,7 +1030,7 @@ Rectangle {
 
                     onTriggered: {
                         if (keyboardBridge.symbolsActive) keyboardBridge.tapText(modelData)
-                        else keyboardBridge.tapLetter(modelData)
+                        else keyboardBridge.tapLetterAt(modelData, (pressX - width / 2) / width, (pressY - height / 2) / height)
                     }
                     onLongPressed: keyboardBridge.tapAlternateText(alternates[0])
                 }

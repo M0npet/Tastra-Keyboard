@@ -895,3 +895,24 @@ updated to the case-following strip ("Hello").
 - Process: a scripted edit wrote the header before failing on the .cpp
   (half-applied change, caught by git diff); scripts now validate everything
   before writing any file.
+
+## 2026-10-04 — 1.2.0 touch-aware correction (user handed GBOARD_CLAUDE_HANDOFF.md)
+
+The user supplied third-party notes about Gboard 18.4.1's architecture
+(component and feature names from the APK). Used only at the architecture
+level, clean-room, as the notes themselves recommend; I did not decompile
+anything and no Google code or data is in the project. The notes describe
+Beta 0.2.1 symptoms that were fixed in 0.2.3–1.0.1. Mapping to 1.1.3: composing
+state, literal candidate, separate correction gate, short-token guard,
+suggestion taps through the engine, undo-on-Backspace memory, user n-grams and
+field policies already exist; async decoding is unnecessary at <= 4.4 ms per
+keystroke. Missing and implemented now: the touch point inside the key as a
+correction signal (also how AOSP LatinIME scores proximity): a neighbouring-key
+slip gets 0..200 instead of a flat 100 depending on whether the finger landed
+on the edge facing that key. QML passes the touch-down point; the engine keeps
+one offset per letter of the current word.
+RED->GREEN: wherTheFingerLandedDecidesBetweenNeighbours (lexicon),
+touchOffsetsTravelWithTheWord (engine), touchPointInsideTheKeyReachesCorrection
+(UI; shown to fail without the QML wiring: "bst,bat,bet"). The first UI test
+version wrongly expected the correction at position 0 — the literal is first by
+design since 1.1.0. Real-data bench unchanged. Not done: typing-speed signal.

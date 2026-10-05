@@ -153,6 +153,8 @@ public:
     Q_INVOKABLE QStringList emojiSearch(const QString &query, const QString &category = QStringLiteral("All")) const;
 
     Q_INVOKABLE void tapLetter(const QString &letter);
+    // dx/dy: touch point relative to the key centre, in key sizes.
+    Q_INVOKABLE void tapLetterAt(const QString &letter, qreal dx, qreal dy);
     Q_INVOKABLE void tapAlternate(const QString &base);
     Q_INVOKABLE void tapText(const QString &text);
     Q_INVOKABLE void selectSuggestion(const QString &word);

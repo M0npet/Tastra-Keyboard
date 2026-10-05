@@ -326,6 +326,23 @@ private Q_SLOTS:
         QVERIFY(reloaded.bestCorrection(QStringLiteral("teh")).isEmpty());
     }
 
+    void wherTheFingerLandedDecidesBetweenNeighbours()
+    {
+        // "bst": s touches both a (left) and e (up-right). The touch point
+        // inside the s key says which slip it was (LatinIME uses distances
+        // from the touch point to key centres the same way).
+        useFixtureDictionaries();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        lexicon.setKeyboardRows({QStringLiteral("qwertyuiop"), QStringLiteral("asdfghjkl"), QStringLiteral("zxcvbnm")});
+        lexicon.setTouchOffsets({{}, QPointF(-0.40, 0.05), {}});           // left edge of s
+        QCOMPARE(lexicon.suggestions(QStringLiteral("bst"), {}).value(0), QStringLiteral("bat"));
+        lexicon.setTouchOffsets({{}, QPointF(0.30, -0.42), {}});           // top-right edge of s
+        QCOMPARE(lexicon.suggestions(QStringLiteral("bst"), {}).value(0), QStringLiteral("bet"));
+        lexicon.setTouchOffsets({});                                       // unknown: old behaviour
+        QCOMPARE(lexicon.suggestions(QStringLiteral("bst"), {}).mid(0, 2).size(), 2);
+    }
+
     void prefixCompletionsUseDictionaryAndCoreWords()
     {
         useFixtureDictionaries();

@@ -588,6 +588,43 @@ private Q_SLOTS:
         QCOMPARE(backend.backspaces, whileHeld);                 // stops on release
     }
 
+    void touchPointInsideTheKeyReachesCorrection()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        bridge.addWordToDictionary(QStringLiteral("bat"));
+        bridge.addWordToDictionary(QStringLiteral("bet"));
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QTest::qWait(100);
+        auto keyOf = [&](const QString &label) { return findText(view.rootObject(), label)->parentItem(); };
+        auto tapAt = [&](QQuickItem *key, qreal fx, qreal fy) {
+            QTest::mouseClick(&view, Qt::LeftButton, {}, key->mapToScene(QPointF(key->width() * fx, key->height() * fy)).toPoint());
+            QTest::qWait(30);
+        };
+        auto typeBst = [&](qreal sx, qreal sy) {
+            tapAt(keyOf(QStringLiteral("b")), 0.5, 0.5);
+            tapAt(keyOf(QStringLiteral("s")), sx, sy);
+            tapAt(keyOf(QStringLiteral("t")), 0.5, 0.5);
+        };
+        // The literal "bst" stays first (kept/saveable); corrections follow.
+        auto before = [&](const QString &a, const QString &b) {
+            const QStringList s = bridge.suggestions();
+            return s.value(0) == QStringLiteral("bst") && s.contains(a) && (!s.contains(b) || s.indexOf(a) < s.indexOf(b));
+        };
+        typeBst(0.92, 0.10);                               // top-right edge of s -> e side
+        QTRY_VERIFY2(before(QStringLiteral("bet"), QStringLiteral("bat")), qPrintable(bridge.suggestions().join(',')));
+        for (int i = 0; i < 3; ++i) bridge.backspace();
+        typeBst(0.08, 0.55);                               // left edge of s -> a side
+        QTRY_VERIFY2(before(QStringLiteral("bat"), QStringLiteral("bet")), qPrintable(bridge.suggestions().join(',')));
+    }
+
     void caseChangesDoNotRecreateLetterKeys()
     {
         FakeBackend backend;

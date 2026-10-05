@@ -537,6 +537,25 @@ private Q_SLOTS:
         }
     }
 
+    void touchOffsetsTravelWithTheWord()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        engine.setKeyboardRows({QStringLiteral("qwertyuiop"), QStringLiteral("asdfghjkl"), QStringLiteral("zxcvbnm")});
+        engine.addUserWord(QStringLiteral("bat"));
+        engine.addUserWord(QStringLiteral("bet"));
+        engine.typeLetter(QStringLiteral("b"));
+        engine.typeLetter(QStringLiteral("s"), QPointF(0.30, -0.42));
+        engine.typeLetter(QStringLiteral("t"));
+        QCOMPARE(engine.suggestions().value(0), QStringLiteral("bet"));
+        engine.backspace();                                   // offsets shrink with the word
+        engine.typeLetter(QStringLiteral("t"));
+        QCOMPARE(engine.suggestions().value(0), QStringLiteral("bet"));
+    }
+
     void spaceAfterSuggestionIsNotADoubleSpace()
     {
         FakeBackend backend;

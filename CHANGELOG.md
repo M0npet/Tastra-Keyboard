@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+- Touch-aware correction: where your finger lands inside a key decides
+  between neighbouring-key slips ("bst" -> "bat" when s was hit on its left
+  edge, "bet" when on its upper-right edge).
+
 ## 1.1.3
 - Top-row key previews and pickers always fit inside the keyboard.
 - Double-space period follows Google's LatinIME: only for two quick spaces
