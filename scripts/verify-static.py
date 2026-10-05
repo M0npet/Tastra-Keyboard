@@ -292,6 +292,10 @@ for path, token, why in (
     ('src/core/locallexicon.cpp', 'int LocalLexicon::neighbourBonus', 'touch-aware neighbour correction (1.2.0)'),
     ('src/ui/Main.qml', 'keyboardBridge.tapLetterAt(modelData', 'touch point passed from the keys'),
     ('tests/tst_qmlkeyboard.cpp', 'touchPointInsideTheKeyReachesCorrection', 'touch point end-to-end test'),
+    ('src/core/typingengine.cpp', 'bool TypingEngine::atEmptyParagraph', 'empty-paragraph first letter (1.2.1)'),
+    ('tests/tst_smarttyping.cpp', 'emptyParagraphCommitsTheFirstLetterBeforeComposing', 'empty-paragraph test'),
+    ('src/app/panelvisibility.cpp', 'PanelVisibility::setActive', 'panel hide grace time'),
+    ('tests/tst_panelvisibility.cpp', 'showsAtOnceAndRidesOutAShortDeactivation', 'panel grace-time test'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -303,4 +307,4 @@ if errors:
     sys.exit(1)
 
 print('STATIC VERIFY: OK')
-print('v1.2.0 markers present: touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v1.2.1 markers present: empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

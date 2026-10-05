@@ -227,11 +227,40 @@ private Q_SLOTS:
     // ---- Composition (preedit): the current word never leaves the keyboard
     // until it is final, so no deletions and no Backspace keys are needed to
     // correct it. Works even when the client echoes stale text (Firefox).
-    static void composing(FakeBackend &backend, V3Keyboard::TypingEngine &engine)
+    // Mid-text by default ("Hi. " before the cursor: a sentence start, but not
+    // an empty paragraph); empty paragraphs have their own test below.
+    static void composing(FakeBackend &backend, V3Keyboard::TypingEngine &engine,
+                          const QString &before = QStringLiteral("Hi. "))
     {
         backend.textChannel = true;
         backend.preeditSupport = true;
-        echo(engine, QString());   // text-input client with an empty field
+        echo(engine, before);
+    }
+
+    void emptyParagraphCommitsTheFirstLetterBeforeComposing()
+    {
+        // ProseMirror (claude.ai, ChatGPT) re-renders an empty paragraph's
+        // placeholder on the first input and breaks a composition started
+        // there; known from ProseMirror's changelog and a Yjs report.
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine, QString());              // empty field
+        engine.setAutocorrectEnabled(true);
+        for (const QChar ch : QStringLiteral("Teh")) engine.typeLetter(QString(ch));
+        QCOMPARE(backend.commits, QStringList({QStringLiteral("T")}));   // first letter at once
+        QCOMPARE(backend.preedit, QStringLiteral("eh"));                // the rest composes
+        engine.space();                                                 // "Teh" -> "The"
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("The "));
+        engine.typeLetter(QStringLiteral("x"));
+        QCOMPARE(backend.commits.join(QString()) + backend.preedit, QStringLiteral("The x"));
+        // A new paragraph starts empty again.
+        engine.enter();
+        engine.typeLetter(QStringLiteral("O"));
+        QCOMPARE(backend.commits.last(), QStringLiteral("O"));
+        QCOMPARE(backend.preedit, QString());
+        // Suggestions never propose replacing the committed letter.
+        for (const QString &s : engine.suggestions()) QVERIFY2(s.startsWith(QLatin1Char('O'), Qt::CaseInsensitive), qPrintable(s));
     }
 
     void compositionCommitsCorrectedWordWithoutDeletions()
@@ -367,7 +396,10 @@ private Q_SLOTS:
         echo(engine, QStringLiteral("Slovo"));
         engine.typeLetter(QStringLiteral("i"));
 
-        QCOMPARE(backend.commits, QStringList({QStringLiteral("Slovo"), QStringLiteral(" ")}));
+        // The "\n" placeholder is an empty paragraph: since 1.2.1 "S" is
+        // committed before composing (ProseMirror placeholder issue).
+        QCOMPARE(backend.commits.first(), QStringLiteral("S"));
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("Slovo "));
         QCOMPARE(backend.preedit, QStringLiteral("i"));
     }
 

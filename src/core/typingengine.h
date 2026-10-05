@@ -102,6 +102,8 @@ private:
     bool inSyncWithClient() const;
     void rearmSentenceStartFromText();
     bool doubleSpaceAllowedAfter(const QString &textBeforeSpace) const;
+    bool atEmptyParagraph() const;
+    QString stripHead(const QString &text) const;
     bool compositionAvailable() const;
     bool setPreeditLocal(const QString &text);
     QString corrected(const QString &word) const;
@@ -138,6 +140,12 @@ private:
     QString m_noCorrectionFor;      // word the user just reverted
     QString m_autocorrectTarget;
     QVector<QPointF> m_touchOffsets;      // one per letter of m_currentWord
+    // Letters of the current word already committed: a word started in an
+    // empty paragraph commits its first letter before composing the rest,
+    // because rich web editors (ProseMirror: claude.ai, ChatGPT, …) re-render
+    // the empty paragraph's placeholder on the first input and break an IME
+    // composition started there (first letter lost / replaced).
+    QString m_committedHead;
     bool m_autoSpaceAfterPunctuation = false;
     bool m_autoSpacePending = false;
     bool m_preeditRejected = false; // backend/client cannot show preedit

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+- claude.ai/ChatGPT-style editors: the first letter typed into an empty
+  paragraph is committed at once (their placeholder re-render broke the
+  composition: first letter lost or replaced).
+- The keyboard no longer disappears for a moment when a web editor briefly
+  re-activates text input, so taps do not fall through onto the page.
+
 ## 1.2.0
 - Touch-aware correction: where your finger lands inside a key decides
   between neighbouring-key slips ("bst" -> "bat" when s was hit on its left

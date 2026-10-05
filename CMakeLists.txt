@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 1.2.0
+    VERSION 1.2.1
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -110,6 +110,7 @@ add_library(v3keyboard-app STATIC
     src/app/keyboarduibridge.cpp
     src/app/keyboardlayoutmetrics.cpp
     src/app/tracelog.cpp
+    src/app/panelvisibility.cpp
     src/app/voicecontroller.cpp
 )
 
@@ -419,4 +420,10 @@ option(V3KBD_BENCHMARKS "Build developer benchmarks" OFF)
 if(V3KBD_BENCHMARKS)
     add_executable(bench_keystroke tools/bench_keystroke.cpp)
     target_link_libraries(bench_keystroke PRIVATE v3keyboard-app)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(tst_panelvisibility tests/tst_panelvisibility.cpp)
+    target_link_libraries(tst_panelvisibility PRIVATE v3keyboard-app Qt6::Test)
+    add_test(NAME panelvisibility COMMAND tst_panelvisibility)
 endif()

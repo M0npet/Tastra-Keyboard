@@ -916,3 +916,24 @@ touchOffsetsTravelWithTheWord (engine), touchPointInsideTheKeyReachesCorrection
 (UI; shown to fail without the QML wiring: "bst,bat,bet"). The first UI test
 version wrongly expected the correction at position 0 — the literal is first by
 design since 1.1.0. Real-data bench unchanged. Not done: typing-speed signal.
+
+## 2026-10-04 — 1.2.1 web research on the two open Firefox/claude.ai bugs
+
+Sources (user asked to search the web):
+- ProseMirror changelog: composition regressions "when starting composition on
+  an empty line"; Yjs forum: IME typing in an empty ProseMirror paragraph "ends
+  up in the first character", intermittent, fine once the paragraph has text;
+  the empty paragraph carries a placeholder (is-empty) that is re-rendered on
+  the first input. claude.ai's composer is such an editor; our 0.2.5 trace
+  showed its empty composer reporting a 1-byte placeholder.
+- ubports morph-browser #468: on rich-editor sites the on-screen keyboard
+  disappears/"bounces" (text input briefly disabled and re-enabled).
+Changes (mitigations; still to be confirmed on the device):
+- A word started in an empty paragraph (model empty or ending in "\n") commits
+  its first letter before composing the rest; suggestions/corrections keep that
+  letter. Unit test + stress test with new paragraphs and stale echoes (all
+  variants green). Composition tests now run mid-text ("Hi. ") by default; the
+  claude.ai placeholder regression test now asserts the visible text.
+- The panel hides only after a 250 ms grace time and stays if the field is
+  re-activated meanwhile (PanelVisibility, own test, trace category
+  v3keyboard.panel). Dropped view.requestActivate() (no-op for panels).

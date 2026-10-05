@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+#include "panelvisibility.h"
 #include "tracelog.h"
 #include "voicecontroller.h"
 
@@ -80,21 +81,26 @@ int main(int argc, char **argv)
         &bridge,
         &V3Keyboard::KeyboardUiBridge::setPreferredLanguage);
 
+    // Hide with a short grace time (see PanelVisibility). requestActivate()
+    // was dropped: for an input-panel surface it is a no-op in QtWayland, and
+    // KWin never gives input panels the focus anyway.
+    V3Keyboard::PanelVisibility panel;
+    QObject::connect(&panel, &V3Keyboard::PanelVisibility::visibleChanged, &view,
+                     [&view](bool visible) { view.setVisible(visible); });
+
     QObject::connect(
         &inputMethod,
         &V3Keyboard::KWin::KWinInputMethodV1Connection::contextActiveChanged,
         &view,
-        [&view, &bridge](bool active) {
+        [&panel, &bridge](bool active) {
             // Every activation is a new client context (text-input version,
             // surrounding-text support, content type); never inherit the old one.
             bridge.resetInputContext();
-            view.setVisible(active);
-            if (active) {
-                view.requestActivate();
-            }
+            panel.setActive(active);
         });
 
-    view.setVisible(inputMethod.hasContext());
+    panel.setActive(inputMethod.hasContext());
+    view.setVisible(panel.visible());
 
     return app.exec();
 }

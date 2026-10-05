@@ -161,7 +161,7 @@ private Q_SLOTS:
         V3Keyboard::KeyboardController controller(backend);
         V3Keyboard::KeyboardModel model;
         V3Keyboard::KeyboardUiBridge bridge(controller, model);
-        bridge.setSurroundingText(QString(), 0, 0);        // text-input client
+        bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);   // mid-text        // text-input client
 
         bridge.tapLetter(QStringLiteral("o"));
         bridge.tapLetter(QStringLiteral("k"));
@@ -269,7 +269,7 @@ private Q_SLOTS:
         V3Keyboard::KeyboardModel model;
         V3Keyboard::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
-        bridge.setSurroundingText(QString(), 0, 0);
+        bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);   // mid-text
         for (const QChar ch : QStringLiteral("teh")) bridge.tapLetter(QString(ch));
         // Gboard: typed word (quoted in the UI) left, the correction centre.
         QCOMPARE(bridge.autocorrectSuggestion(), QStringLiteral("the"));
@@ -408,7 +408,7 @@ private Q_SLOTS:
         V3Keyboard::KeyboardController controller(backend);
         V3Keyboard::KeyboardModel model;
         V3Keyboard::KeyboardUiBridge bridge(controller, model);
-        bridge.setSurroundingText(QString(), 0, 0);                  // Firefox: preedit mode
+        bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);   // mid-text                  // Firefox: preedit mode
         for (const QChar ch : QStringLiteral("zorgle")) bridge.tapLetter(QString(ch));
         QCOMPARE(backend.preedit, QStringLiteral("Zorgle"));         // sentence start
         QVERIFY(bridge.typedWordUnknown());

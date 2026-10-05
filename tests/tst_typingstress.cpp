@@ -116,16 +116,24 @@ private Q_SLOTS:
             int wordLength = 0;        // letters of the word being composed
             bool heldAfterWord = false;
             bool swapped = false;
+            bool heldSpace = false;    // the trailing space is still in the preedit
             const QString letters = QStringLiteral("abcdeéжщї");
             for (int step = 0; step < 250; ++step) {
                 now += 5 + rng.bounded(300);
                 const int op = rng.bounded(100);
-                if (op < 62) {
+                if (op < 58) {
                     const QString ch(letters.at(rng.bounded(letters.size())));
                     engine.typeLetter(ch);
                     expected += ch;
                     ++wordLength;
-                    heldAfterWord = swapped = false;
+                    heldAfterWord = swapped = heldSpace = false;
+                } else if (op < 62) {
+                    // New paragraph: exercises the empty-paragraph first letter.
+                    engine.enter();
+                    if (composition && heldSpace) expected.chop(1);   // a held space is dropped
+                    expected += QLatin1Char('\n');
+                    wordLength = 0;
+                    heldAfterWord = swapped = heldSpace = false;
                 } else if (op < 78) {
                     engine.space();
                     if (composition && swapped) {
@@ -133,6 +141,7 @@ private Q_SLOTS:
                     } else {
                         expected += QLatin1Char(' ');
                         heldAfterWord = composition && wordLength > 0;
+                        heldSpace = composition && (wordLength > 0 || heldSpace);
                     }
                     wordLength = 0;
                 } else if (op < 86) {
@@ -143,9 +152,11 @@ private Q_SLOTS:
                         expected.chop(1);
                         expected += p + QLatin1Char(' ');
                         swapped = true;
+                        heldSpace = true;
                     } else {
                         expected += p;
                         swapped = false;
+                        heldSpace = false;
                     }
                     heldAfterWord = false;
                     wordLength = 0;
@@ -153,7 +164,7 @@ private Q_SLOTS:
                     engine.backspace();
                     if (!expected.isEmpty()) expected.chop(1);
                     if (wordLength > 0) --wordLength;
-                    heldAfterWord = swapped = false;
+                    heldAfterWord = swapped = heldSpace = false;
                 }
                 // Echoes the client might send after this step.
                 if (echoMode == 1) echo(backend.field);

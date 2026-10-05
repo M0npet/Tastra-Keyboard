@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "typingengine.h"
+
+#include <algorithm>
 #include "keyboardcontroller.h"
 
 #include <QElapsedTimer>
@@ -122,6 +124,8 @@ QString TypingEngine::takePendingText()
         m_currentWord = m_pendingWord;
         finalizeCurrentWord();
     }
+    text = stripHead(text);
+    m_committedHead.clear();
     if (m_pendingPeriod) text += QLatin1Char('.');
     m_pendingWord.clear();
     m_pendingOriginal.clear();
@@ -157,7 +161,8 @@ void TypingEngine::commitComposition()
     if (m_composing && !m_currentWord.isEmpty()) {
         const QString word = m_currentWord;
         finalizeCurrentWord();
-        commitLocal(word);
+        commitLocal(stripHead(word));
+        m_committedHead.clear();
     } else if (m_pendingSpace) {
         commitLocal(takePendingText() + QLatin1Char(' '));
     }
@@ -210,11 +215,16 @@ void TypingEngine::typeLetter(const QString &text, QPointF touch)
     }
     // Composition starts only at a word boundary so a word is never split
     // between committed text and preedit.
-    if (!m_composing && m_currentWord.isEmpty() && compositionAvailable()) m_composing = true;
+    const bool startingWord = !m_composing && m_currentWord.isEmpty() && compositionAvailable();
+    if (startingWord) m_composing = true;
     m_currentWord += text;
-    if (m_composing && !setPreeditLocal(m_currentWord)) {
+    if (startingWord && atEmptyParagraph()) {
+        commitLocal(text);                         // see m_committedHead
+        m_committedHead = text;
+    } else if (m_composing && !setPreeditLocal(stripHead(m_currentWord))) {
         m_composing = false;
-        commitLocal(m_currentWord);
+        commitLocal(stripHead(m_currentWord));
+        m_committedHead.clear();
     } else if (!m_composing) {
         commitLocal(text);
     }
@@ -252,7 +262,8 @@ void TypingEngine::typeText(const QString &text)
         m_currentWord = word;
         finalizeCurrentWord();
         m_composing = false;
-        commitLocal(word + text);
+        commitLocal(stripHead(word) + text);
+        m_committedHead.clear();
     } else if (m_pendingSpace) {
         const bool afterWord = m_pendingSpaceAfterWord;
         const QString held = takePendingText();
@@ -360,6 +371,17 @@ bool TypingEngine::doubleSpaceAllowedAfter(const QString &textBeforeSpace) const
         || last.category() == QChar::Symbol_Other;
 }
 
+bool TypingEngine::atEmptyParagraph() const
+{
+    return m_surroundingSupported && (m_model.isEmpty() || m_model.endsWith(QLatin1Char('\n')));
+}
+
+QString TypingEngine::stripHead(const QString &text) const
+{
+    if (!m_committedHead.isEmpty() && text.startsWith(m_committedHead)) return text.mid(m_committedHead.size());
+    return text;
+}
+
 // After deleting, an empty field (or one ending in . ! ?) starts a sentence
 // again (Gboard). Only for clients that report their text: otherwise the
 // keyboard cannot know what precedes the cursor.
@@ -435,10 +457,12 @@ void TypingEngine::space()
     }
     if (m_composing) {
         const QString original = m_currentWord;
-        const QString word = corrected(original);
+        const QString candidate = corrected(original);
+        // Never correct away the already committed first letter.
+        const QString word = (!m_committedHead.isEmpty() && !candidate.startsWith(m_committedHead)) ? original : candidate;
         m_composing = false;
         m_noCorrectionFor.clear();
-        if (word != original && setPreeditLocal(word + QLatin1Char(' '))) {
+        if (word != original && setPreeditLocal(stripHead(word) + QLatin1Char(' '))) {
             // Keep the correction revertible: Backspace right now restores
             // what was typed; any other key commits it. Nothing is deleted.
             m_pendingWord = word;
@@ -448,7 +472,8 @@ void TypingEngine::space()
         } else {
             m_currentWord = word;
             finalizeCurrentWord();
-            commitLocal(word);
+            commitLocal(stripHead(word));
+            m_committedHead.clear();
             // Hold the space in the preedit: a second Space can then become
             // ". " with a plain commit, no deletion needed.
             if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
@@ -572,7 +597,7 @@ void TypingEngine::backspace()
         m_lexicon.promoteWord(original);
         m_currentWord = original;
         m_composing = true;
-        setPreeditLocal(original);
+        setPreeditLocal(stripHead(original));
         m_lastActionWasSpace = false;
         rearmSentenceStartFromText();
         refreshSuggestions();
@@ -586,13 +611,17 @@ void TypingEngine::backspace()
         refreshSuggestions();
         return;
     }
-    if (m_composing && !m_currentWord.isEmpty()) {
+    if (m_composing && !m_currentWord.isEmpty() && m_currentWord.size() > m_committedHead.size()) {
         m_currentWord.chop(1);
-        setPreeditLocal(m_currentWord);
+        setPreeditLocal(stripHead(m_currentWord));
         if (m_currentWord.isEmpty()) m_composing = false;
         rearmSentenceStartFromText();
         refreshSuggestions();
         return;
+    }
+    if (m_composing && !m_committedHead.isEmpty()) {
+        m_composing = false;                       // only the committed head is left
+        m_committedHead.clear();
     }
     backspaceLocal();
     if (m_sensitiveContext) {
@@ -625,15 +654,19 @@ void TypingEngine::backspaceRepeated(int count)
             m_composing = true;
         }
         m_pendingSpace = false;
-        setPreeditLocal(m_composing ? m_currentWord : QString());
+        setPreeditLocal(m_composing ? stripHead(m_currentWord) : QString());
         --bounded;
     }
     if (m_composing && bounded > 0) {
-        const int fromPreedit = qMin(bounded, int(m_currentWord.size()));
+        const int fromPreedit = qMin(bounded, int(m_currentWord.size() - m_committedHead.size()));
         m_currentWord.chop(fromPreedit);
-        setPreeditLocal(m_currentWord);
+        setPreeditLocal(stripHead(m_currentWord));
         bounded -= fromPreedit;
         if (m_currentWord.isEmpty()) m_composing = false;
+        if (bounded > 0 && !m_committedHead.isEmpty()) {
+            m_composing = false;                   // continue into the committed head
+            m_committedHead.clear();
+        }
         if (bounded == 0) {
             m_lastActionWasSpace = false;
             rearmSentenceStartFromText();
@@ -701,7 +734,8 @@ void TypingEngine::chooseSuggestion(const QString &word)
     if (m_pendingSpace) commitLocal(takePendingText() + QLatin1Char(' '));
     if (m_composing) {
         m_composing = false;
-        commitLocal(selected);               // replaces the preedit atomically
+        commitLocal(stripHead(selected));    // replaces the preedit atomically
+        m_committedHead.clear();
     } else if (!m_currentWord.isEmpty()) {
         // A deliberate tap: fall back to key events if the client has not
         // confirmed the word yet rather than ignoring the user's choice.
@@ -727,6 +761,7 @@ QString TypingEngine::autocorrectTarget() const { return m_autocorrectTarget; }
 
 void TypingEngine::refreshSuggestions()
 {
+    if (m_currentWord.isEmpty() && m_pendingWord.isEmpty()) m_committedHead.clear();
     // Touch offsets follow the word: shorter after Backspace, empty for a new one.
     if (m_touchOffsets.size() > m_currentWord.size()) m_touchOffsets.resize(m_currentWord.size());
     m_lexicon.setTouchOffsets(m_touchOffsets);
@@ -738,6 +773,7 @@ void TypingEngine::refreshSuggestions()
         // Cheap preview per keystroke; Space runs the full Hunspell check.
         QString target = m_lexicon.correctionPreview(m_currentWord, m_previousWord);
         if (!target.isEmpty() && m_currentWord.front().isUpper()) target[0] = target.at(0).toUpper();
+        if (!m_committedHead.isEmpty() && !target.startsWith(m_committedHead, Qt::CaseInsensitive)) target.clear();
         if (!target.isEmpty() && target != m_currentWord) m_autocorrectTarget = target;
     }
     if (m_sensitiveContext || !m_suggestionsEnabled) {
@@ -746,6 +782,11 @@ void TypingEngine::refreshSuggestions()
     }
     if (!m_currentWord.isEmpty()) {
         m_suggestions = m_lexicon.suggestions(m_currentWord, m_previousWord, 3);
+        if (!m_committedHead.isEmpty()) {
+            m_suggestions.erase(std::remove_if(m_suggestions.begin(), m_suggestions.end(), [this](const QString &s) {
+                return !s.startsWith(m_committedHead, Qt::CaseInsensitive);
+            }), m_suggestions.end());
+        }
         // Gboard: suggestions follow the case of what was typed ("Hel" ->
         // "Hello", "HEL" -> "HELLO"); words with their own casing ("iPhone")
         // are left alone.
