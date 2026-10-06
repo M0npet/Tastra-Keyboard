@@ -1228,3 +1228,18 @@ grid (click landed outside the window); the test now taps ";-)" in the first
 row. Rendered the tab and all 58 faces offscreen: every face draws with the
 Noto fonts; the few with Katakana need a CJK font on the device.
 
+## 2026-10-06 — 0.6.3 release checks; glide decoder weakness found
+
+ASan/UBSan: 17/18 clean; qmlkeyboard's singleFingerGlideAndLongPressStillWork
+failed 4/8 runs alone under ASan (1/8 with companion loading disabled, so the
+extra background load only made a pre-existing timing effect more likely).
+Traced: QML side identical in good and bad runs; the key sequence differed
+(h g r e t j l o -> "hello"; h g r e r t j k l o -> nothing). The decoder
+scores Levenshtein distance to the raw key sequence, so every key the finger
+merely crosses costs as much as a wrong letter, and "hello" fell below the
+threshold. A real finger crosses more keys than this straight-line test, so
+glide typing would often fail on the device. TSan: smarttyping, lexicon and
+bridge clean (0 races). Next (0.6.4): a geometric glide decoder (path vs. the
+word's ideal path through key centres, as in SHARK2 / LatinIME's gesture
+recogniser) instead of key-sequence edit distance.
+

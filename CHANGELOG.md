@@ -4,7 +4,7 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
-## 0.6.3 (in progress)
+## 0.6.3
 - Multilingual typing like Gboard: with English and German (or Ukrainian and
   Russian) both enabled, a word of the other language is left as typed —
   `danke` is no longer "corrected" to `dance`, nor `привет` to `привіт` — and

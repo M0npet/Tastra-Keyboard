@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.6.2, in development**. The typing core is done and tested; the
+Status: **0.6.3, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
@@ -42,6 +42,9 @@ previous binary is kept for rolling back.
   next best; completions; next-word predictions learned from your own typing;
   emoji suggestions; long-press a suggestion to forget it. Offensive words are
   never suggested.
+- Several languages at once: with English and German (or Ukrainian and
+  Russian) enabled, words of the other one are left as typed, so `danke` is
+  not "corrected" while English is active.
 - Typed in the wrong layout? `ghbdtn` offers `привет`; picking it switches the
   language.
 - Tap into the middle of a word for suggestions for the whole word.
@@ -65,8 +68,8 @@ previous binary is kept for rolling back.
   `~/.config/tastra/dictionary.txt`. Words you type 3 times become yours; a
   single typo is never learned.
 - Text shortcuts in `~/.config/tastra/shortcuts.txt` (`omw = on my way`).
-- Emoji panel with search in all four languages, recent emoji, skin tones on
-  long-press, and an optional emoji row.
+- Emoji panel with search in all four languages, a `:-)` tab of text faces,
+  recent emoji, skin tones on long-press, and an optional emoji row.
 - Clipboard: a chip offers what you just copied; history keeps items for an
   hour; long-press to pin an item for good.
 - Text-editing panel with arrows (including up/down), Home/End and paste.
