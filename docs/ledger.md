@@ -1364,3 +1364,17 @@ clipboard panels before and after are pixel-identical, full suite green.
 The static check now reads all QML files in src/ui and balances braces per
 file.
 
+## 2026-10-07 — 0.6.8 checks: keystroke frame cost, qmllint, CI QML warnings
+
+- Keystroke cost on the QML side (offscreen, synthetic taps on the real
+  keys, event + bindings + rendered frame): p50 1.3 ms, p90 2.6 ms, max
+  13-18 ms (Space with the full Hunspell check), over 64 keys. Nothing to fix.
+- qmllint 6.4 on all QML files: 465 "unqualified access" (root and
+  keyboardBridge through the context, by design) and 25 others, all from
+  the old linter (Timer and Image.sourceSize unresolved, GridView.view typed
+  as ItemView, a JS array's concat); no real defect.
+- The CI's Qt is the tablet's (6.11), but its logs cannot be fetched from
+  here (they are served from blob storage the proxy refuses). CI now runs
+  ctest verbosely and turns QML runtime warnings into annotations
+  (scripts/ci-qml-warnings.py), which the repository API returns.
+

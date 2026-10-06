@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.6.7, in development**. The typing core is done and tested; the
+Status: **0.6.8, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
@@ -90,7 +90,8 @@ previous binary is kept for rolling back.
 ## Memory and speed
 
 One language is in memory at a time, and its dictionary loads in the
-background. Resident memory with the dictionary loaded (`tools/bench_memory`):
+background. The panels (settings, emoji, clipboard) are built when first
+opened, so the keyboard itself starts in under 0.2 s. Resident memory with the dictionary loaded (`tools/bench_memory`):
 English and German about 25 MB, Russian about 36 MB, Ukrainian about 62 MB
 (Hunspell's Ukrainian dictionary alone is about 39 MB). A keystroke costs
 about one million instructions (`tools/bench_keystroke`).
