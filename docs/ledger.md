@@ -1282,3 +1282,18 @@ glideAlternativeAlsoReplacesWithoutAPreedit. The ASan glide UI test that
 failed 4/8 now passes 10/10. Cost: 1.6-6 ms per glide in the 1-vCPU sandbox
 (once per word, on release).
 
+## 2026-10-07 — 0.6.5 glide polish, next-word setting
+
+- Gboard after a glide: "tap Backspace once. That'll erase the entire word"
+  (Computerworld, Gboard shortcuts by JR Raphael). Implemented for path and
+  key-sequence glides: deletes the word (and its committed space, or drops the
+  held one) on the text channel, takes back its learning, restores the
+  previous word; the next Backspace is ordinary. RED->GREEN
+  oneBackspaceErasesTheWholeGlidedWord (with and without preedit).
+- Shift / Caps Lock before a glide: capitalized / all caps (the case rule
+  for tapped letters; the one-shot Shift is used up). RED->GREEN engine
+  shiftAndCapsLockApplyToTheGlidedWord, bridge
+  shiftBeforeAGlideCapitalizesTheWord.
+- Next-word suggestions setting (Gboard Text correction). RED->GREEN engine
+  nextWordSuggestionsCanBeTurnedOff, persistence in the bridge test.
+

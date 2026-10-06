@@ -25,6 +25,9 @@ public:
     QString language() const;
 
     void setSuggestionsEnabled(bool enabled);
+    // Gboard "Next-word suggestions": predictions after a word (on by default).
+    void setNextWordSuggestionsEnabled(bool enabled);
+    bool nextWordSuggestionsEnabled() const { return m_nextWordSuggestions; }
     void setAutocorrectEnabled(bool enabled);
     void setLearningEnabled(bool enabled);
     void setAutoCapitalizationEnabled(bool enabled);
@@ -94,14 +97,21 @@ public:
     // Glide from the finger's path and the layout's key centres (Gboard /
     // LatinIME gesture typing). Afterwards the strip offers the other
     // readings of the path; choosing one replaces the glided word.
-    QString endGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres, qreal keyWidth);
+    // Shift before a glide capitalizes the word, Caps Lock writes it in
+    // capitals; otherwise sentence case applies.
+    enum class GlideCase { Auto, Capitalized, AllCaps };
+    QString endGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres, qreal keyWidth,
+                         GlideCase glideCase = GlideCase::Auto);
     QStringList glideTrace() const;
 
 private:
     QString formatForSentence(const QString &word) const;
     // The other readings of the last glide, while nothing has happened since.
     bool glideAlternativesShown() const;
-    void dropGlideAlternatives() { m_glideAlternatives.clear(); }
+    void dropGlideAlternatives() { m_glideAlternatives.clear(); m_glidedWord.clear(); }
+    // The last thing that happened was a glide (nothing typed since).
+    bool glidedWordIsLast() const;
+    void eraseGlidedWord();
     void replaceGlidedWord(const QString &word);
     void refreshSuggestions();
     bool replaceBeforeCursor(const QString &existing, const QString &replacement, bool allowUnconfirmed);
@@ -138,6 +148,7 @@ private:
     QString m_glidedWord;              // as committed
     QString m_wordBeforeGlide;
     bool m_suggestionsEnabled = true;
+    bool m_nextWordSuggestions = true;
     bool m_autocorrectEnabled = true;
     bool m_learningEnabled = true;
     bool m_autoCapitalizationEnabled = true;

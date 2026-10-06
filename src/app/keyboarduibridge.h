@@ -80,6 +80,7 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool canPlayKeySound READ canPlayKeySound CONSTANT)
     Q_PROPERTY(bool glideTrail READ glideTrail WRITE setGlideTrail NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool emojiSuggestionsEnabled READ emojiSuggestionsEnabled WRITE setEmojiSuggestionsEnabled NOTIFY typingPreferencesChanged)
+    Q_PROPERTY(bool nextWordSuggestions READ nextWordSuggestions WRITE setNextWordSuggestions NOTIFY typingPreferencesChanged)
     Q_PROPERTY(bool blockOffensive READ blockOffensive WRITE setBlockOffensive NOTIFY typingPreferencesChanged)
     Q_PROPERTY(QString layoutMode READ layoutMode WRITE setLayoutMode NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool voiceBuilt READ voiceBuilt NOTIFY voiceChanged)
@@ -123,6 +124,7 @@ public:
     QVariantList toolbarActions() const;
     QStringList languageCodes() const;
     QStringList companionLanguages() const { return m_typingEngine.companionLanguages(); }
+    bool waitForDictionaryForTesting(int timeoutMs) { return m_typingEngine.waitForDictionaryForTesting(timeoutMs); }
     QStringList languageLabels() const;
     QString currentWord() const;
     QString autocorrectSuggestion() const;
@@ -139,6 +141,7 @@ public:
     QString effectiveTheme() const;
     QString version() const;
     bool emojiSuggestionsEnabled() const;
+    bool nextWordSuggestions() const;
     bool keySound() const;
     bool canPlayKeySound() const;
     bool glideTrail() const;
@@ -233,6 +236,7 @@ public:
     Q_INVOKABLE void setTheme(const QString &theme);
     Q_INVOKABLE void cycleTheme();
     Q_INVOKABLE void setEmojiSuggestionsEnabled(bool enabled);
+    Q_INVOKABLE void setNextWordSuggestions(bool enabled);
     // Gboard clipboard: pinned items stay (and are the only ones on disk).
     Q_INVOKABLE bool isClipboardPinned(const QString &text) const;
     Q_INVOKABLE void toggleClipboardPin(const QString &text);
@@ -311,6 +315,7 @@ private:
     bool m_amoled = false;
     QString m_theme = QStringLiteral("system");
     bool m_emojiSuggestions = true;
+    bool m_nextWordSuggestions = true;
     bool m_keySound = false;
     int m_longPressDelay = 300;
     bool m_glideTrail = true;

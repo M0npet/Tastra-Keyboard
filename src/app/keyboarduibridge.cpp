@@ -74,6 +74,8 @@ KeyboardUiBridge::KeyboardUiBridge(
 #endif
     loadShortcuts();
     m_emojiSuggestions = settings.value(QStringLiteral("emojiSuggestions"), true).toBool();
+    m_nextWordSuggestions = settings.value(QStringLiteral("nextWordSuggestions"), true).toBool();
+    m_typingEngine.setNextWordSuggestionsEnabled(m_nextWordSuggestions);
     for (const QString &code : settings.value(QStringLiteral("enabledLanguages")).toStringList()) {
         if (m_model.languageCodes().contains(code)) m_enabledLanguages.append(code);
     }
@@ -337,6 +339,17 @@ QStringList KeyboardUiBridge::suggestions() const
 }
 
 bool KeyboardUiBridge::emojiSuggestionsEnabled() const { return m_emojiSuggestions; }
+bool KeyboardUiBridge::nextWordSuggestions() const { return m_nextWordSuggestions; }
+
+void KeyboardUiBridge::setNextWordSuggestions(bool enabled)
+{
+    if (m_nextWordSuggestions == enabled) return;
+    m_nextWordSuggestions = enabled;
+    m_typingEngine.setNextWordSuggestionsEnabled(enabled);
+    persistPreference(QStringLiteral("nextWordSuggestions"), enabled);
+    Q_EMIT typingPreferencesChanged();
+    Q_EMIT suggestionsChanged();
+}
 bool KeyboardUiBridge::keySound() const { return m_keySound; }
 bool KeyboardUiBridge::glideTrail() const { return m_glideTrail; }
 
@@ -888,9 +901,15 @@ QString KeyboardUiBridge::endGlidePath(const QVariantList &points, const QVarian
         if (it.key().size() == 1) centres.insert(it.key().front().toLower(), it.value().toPointF());
     }
     const bool uppercaseBefore = uppercase();
-    const QString word = m_typingEngine.endGlidePath(path, centres, keyWidth);
+    // Shift before the glide capitalizes the word, Caps Lock writes it in
+    // capitals (as for tapped letters); otherwise sentence case.
+    const TypingEngine::GlideCase glideCase = m_model.capsLock() ? TypingEngine::GlideCase::AllCaps
+        : m_model.uppercase() ? TypingEngine::GlideCase::Capitalized
+                              : TypingEngine::GlideCase::Auto;
+    const QString word = m_typingEngine.endGlidePath(path, centres, keyWidth, glideCase);
     if (!word.isEmpty()) {
-        if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+        m_model.consumeShiftAfterLetter();
+        if (uppercaseBefore != uppercase() || glideCase == TypingEngine::GlideCase::Capitalized) Q_EMIT keyboardStateChanged();
         Q_EMIT suggestionsChanged();
     }
     return word;

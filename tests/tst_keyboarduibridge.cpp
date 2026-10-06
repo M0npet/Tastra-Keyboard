@@ -10,6 +10,7 @@
 #include "app/tracelog.h"
 #include "app/voicecontroller.h"
 #include "core/locallexicon.h"
+#include "glidepaths.h"
 
 #include <QFile>
 #include <QLoggingCategory>
@@ -471,6 +472,10 @@ private Q_SLOTS:
         Tastra::KeyboardUiBridge reloaded(controller, model);
         QCOMPARE(reloaded.keySound(), reloaded.canPlayKeySound());   // only kept if playable
         QVERIFY(!reloaded.glideTrail());
+        QVERIFY(reloaded.nextWordSuggestions());                     // Gboard: on by default
+        reloaded.setNextWordSuggestions(false);
+        Tastra::KeyboardUiBridge again(controller, model);
+        QVERIFY(!again.nextWordSuggestions());
     }
 
     void onlyEnabledLanguagesAreInTheRotation()
@@ -536,6 +541,33 @@ private Q_SLOTS:
         QCOMPARE(bridge.companionLanguages(), QStringList{QStringLiteral("ru")});
         bridge.setLanguageEnabled(QStringLiteral("ru"), false);
         QVERIFY(bridge.companionLanguages().isEmpty());
+    }
+
+    void shiftBeforeAGlideCapitalizesTheWord()
+    {
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setLanguage(QStringLiteral("en"));
+        bridge.setAutoCapitalizationEnabled(false);
+        QVERIFY(bridge.waitForDictionaryForTesting(10000));
+        const auto centres = GlidePaths::centresFor(QStringLiteral("en"));
+        QVariantList points;
+        for (const QPointF &p : GlidePaths::pathFor(QStringLiteral("hello"), centres, 0.0, 5)) points.append(p);
+        QVariantMap keys;
+        for (auto it = centres.constBegin(); it != centres.constEnd(); ++it) keys.insert(QString(it.key()), it.value());
+
+        bridge.shift();                                              // one-shot Shift
+        QCOMPARE(bridge.endGlidePath(points, keys, GlidePaths::KeyWidth), QStringLiteral("Hello"));
+        QVERIFY(!bridge.uppercase());                                // used up by the word
+        bridge.shift();
+        bridge.shift();                                              // Caps Lock
+        QVERIFY(bridge.capsLock());
+        QCOMPARE(bridge.endGlidePath(points, keys, GlidePaths::KeyWidth), QStringLiteral("HELLO"));
+        QVERIFY(bridge.capsLock());                                  // stays on
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
     void emoticonsAreATabOfTextFacesLikeGboard()

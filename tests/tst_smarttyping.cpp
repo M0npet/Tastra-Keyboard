@@ -552,6 +552,32 @@ private Q_SLOTS:
         }
     }
 
+    void nextWordSuggestionsCanBeTurnedOff()
+    {
+        // Gboard: Settings -> Text correction -> Next-word suggestions.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        auto type = [&](const QString &word) {
+            for (const QChar ch : word) engine.typeLetter(QString(ch));
+            engine.space();
+        };
+        for (const QString &word : {QStringLiteral("good"), QStringLiteral("morning"), QStringLiteral("good"),
+                                    QStringLiteral("morning"), QStringLiteral("good")}) {
+            type(word);
+        }
+        QVERIFY2(engine.suggestions().contains(QStringLiteral("morning")), qPrintable(engine.suggestions().join(',')));
+        engine.setNextWordSuggestionsEnabled(false);
+        QVERIFY2(engine.suggestions().isEmpty(), qPrintable(engine.suggestions().join(',')));
+        type(QStringLiteral("morning"));
+        type(QStringLiteral("good"));
+        QVERIFY(engine.suggestions().isEmpty());
+        engine.typeLetter(QStringLiteral("m"));                    // completions still work
+        QVERIFY(!engine.suggestions().isEmpty());
+    }
+
     void compositionDoubleSpaceAndNextWord()
     {
         FakeBackend backend;
@@ -661,6 +687,59 @@ private Q_SLOTS:
         engine.endGlidePath(GlidePaths::pathFor(QStringLiteral("too"), centres, 0.0, 3), centres, GlidePaths::KeyWidth);
         engine.typeLetter(QStringLiteral("a"));
         QVERIFY(!engine.suggestions().contains(QStringLiteral("too")));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
+    void oneBackspaceErasesTheWholeGlidedWord()
+    {
+        // Gboard: "When you're swiping and a word appears that isn't what you
+        // actually wanted, tap Backspace once. That'll erase the entire word."
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        const auto centres = GlidePaths::centresFor(QStringLiteral("en"));
+        for (const bool preedit : {true, false}) {
+            FakeBackend backend;
+            Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller);
+            engine.setLanguage(QStringLiteral("en"));
+            QVERIFY(engine.waitForDictionaryForTesting(10000));
+            backend.textChannel = true;
+            backend.preeditSupport = preedit;
+            echo(engine, QStringLiteral("Hi. "));
+            engine.setAutoCapitalizationEnabled(false);
+            QCOMPARE(engine.endGlidePath(GlidePaths::pathFor(QStringLiteral("hello"), centres, 0.0, 5), centres,
+                                         GlidePaths::KeyWidth), QStringLiteral("hello"));
+            backend.events.clear();
+            engine.backspace();
+            QCOMPARE(backend.deletions.value(0), preedit ? QStringLiteral("hello") : QStringLiteral("hello "));
+            QCOMPARE(backend.preedit, QString());
+            QCOMPARE(backend.backspaces, 0);
+            QVERIFY(engine.previousWord().isEmpty() || engine.previousWord() != QStringLiteral("hello"));
+            // The next Backspace is an ordinary one again.
+            engine.backspace();
+            QCOMPARE(backend.deletions.size(), 1);
+        }
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
+    void shiftAndCapsLockApplyToTheGlidedWord()
+    {
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        const auto centres = GlidePaths::centresFor(QStringLiteral("en"));
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        engine.setLanguage(QStringLiteral("en"));
+        QVERIFY(engine.waitForDictionaryForTesting(10000));
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        const auto path = GlidePaths::pathFor(QStringLiteral("too"), centres, 0.0, 3);
+        QCOMPARE(engine.endGlidePath(path, centres, GlidePaths::KeyWidth, Tastra::TypingEngine::GlideCase::Capitalized),
+                 QStringLiteral("To"));
+        QVERIFY2(engine.suggestions().contains(QStringLiteral("Too")), qPrintable(engine.suggestions().join(',')));
+        engine.space();
+        QCOMPARE(engine.endGlidePath(path, centres, GlidePaths::KeyWidth, Tastra::TypingEngine::GlideCase::AllCaps),
+                 QStringLiteral("TO"));
+        QVERIFY2(engine.suggestions().contains(QStringLiteral("TOO")), qPrintable(engine.suggestions().join(',')));
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 

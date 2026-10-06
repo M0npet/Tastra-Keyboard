@@ -59,4 +59,6 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 37. Glide `hello`, `keyboard`, `привет`, `спасибо` quickly and with sloppy curves: the right word appears.
 38. Glide `too` (the same path as `to`): if `to` appears, the strip shows `too`; tap it -> `to` is replaced by `too`, the space stays.
 39. Glide `всё` over е: `всё`/`все` appear (one inserted, the other in the strip).
+40. Glide a word, then Backspace once: the whole word (and its space) is gone. Shift, then glide: `Hello`; Caps Lock: `HELLO`.
+41. Settings → Next-word suggestions Off: after a word the strip stays empty; completions while typing still appear.
 

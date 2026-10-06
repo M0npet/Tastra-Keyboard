@@ -177,6 +177,13 @@ void TypingEngine::commitComposition()
 }
 
 bool TypingEngine::suggestionsEnabled() const { return m_suggestionsEnabled; }
+
+void TypingEngine::setNextWordSuggestionsEnabled(bool enabled)
+{
+    if (m_nextWordSuggestions == enabled) return;
+    m_nextWordSuggestions = enabled;
+    refreshSuggestions();
+}
 bool TypingEngine::autocorrectEnabled() const { return m_autocorrectEnabled; }
 bool TypingEngine::learningEnabled() const { return m_learningEnabled; }
 bool TypingEngine::autoCapitalizationEnabled() const { return m_autoCapitalizationEnabled; }
@@ -629,6 +636,10 @@ void TypingEngine::space()
 
 void TypingEngine::backspace()
 {
+    if (glidedWordIsLast()) {
+        eraseGlidedWord();
+        return;
+    }
     dropGlideAlternatives();
     m_autoSpacePending = false;
     m_spaceFromSuggestion = false;
@@ -966,6 +977,10 @@ void TypingEngine::refreshSuggestions()
         m_suggestions = m_glideAlternatives.mid(0, 3);
         return;
     }
+    if (!m_nextWordSuggestions) {
+        m_suggestions.clear();
+        return;
+    }
     m_suggestions = m_lexicon.nextWords(m_previousWord, 3);
 }
 
@@ -1127,7 +1142,8 @@ void TypingEngine::glideThrough(const QString &key)
     if (m_glideTrace.isEmpty() || m_glideTrace.back() != normalized) m_glideTrace.append(normalized);
 }
 
-QString TypingEngine::endGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres, qreal keyWidth)
+QString TypingEngine::endGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres, qreal keyWidth,
+                                   GlideCase glideCase)
 {
     if (m_sensitiveContext) { m_glideTrace.clear(); return {}; }
     const QStringList readings = m_lexicon.decodeGlidePathCandidates(path, keyCentres, keyWidth, m_previousWord, 4);
@@ -1135,19 +1151,56 @@ QString TypingEngine::endGlidePath(const QVector<QPointF> &path, const QHash<QCh
     if (readings.isEmpty()) return endGlide();
     m_glideTrace.clear();
     const QString before = m_previousWord;
-    const QString formatted = formatForSentence(readings.first());
+    auto inCase = [glideCase](const QString &word) {
+        if (glideCase == GlideCase::AllCaps) return word.toUpper();
+        QString cased = word;
+        if (glideCase == GlideCase::Capitalized && !cased.isEmpty()) cased[0] = cased.at(0).toUpper();
+        return cased;
+    };
+    const QString formatted = glideCase == GlideCase::Auto ? formatForSentence(readings.first()) : inCase(readings.first());
     chooseSuggestion(formatted);
     m_glidedWord = formatted;
     m_wordBeforeGlide = before;
     m_glideAlternatives.clear();
     for (const QString &reading : readings.mid(1)) {
-        QString shown = reading;
+        QString shown = inCase(reading);
         // The same case as the glided word ("To" -> "Too").
         if (formatted.front().isUpper() && shown.front().isLower()) shown[0] = shown.at(0).toUpper();
         if (shown != formatted) m_glideAlternatives.append(shown);
     }
     refreshSuggestions();
     return formatted;
+}
+
+bool TypingEngine::glidedWordIsLast() const
+{
+    return !m_glidedWord.isEmpty() && m_currentWord.isEmpty() && !m_composing
+        && m_previousWord == m_glidedWord.toLower();
+}
+
+void TypingEngine::eraseGlidedWord()
+{
+    // Gboard: one Backspace right after a glide erases the whole word (with
+    // the space added after it); nothing happened since, so the text before
+    // the cursor is exactly what the glide committed.
+    const QString glided = m_glidedWord;
+    const bool held = m_pendingSpace;
+    dropGlideAlternatives();
+    if (m_learningEnabled) m_lexicon.unlearnWordWithContext(glided, m_wordBeforeGlide);
+    const QString committed = held ? glided : glided + QLatin1Char(' ');
+    if (held) {
+        m_pendingSpace = false;
+        setPreeditLocal(QString());
+    }
+    if (!deleteLocal(committed)) {
+        for (int i = 0; i < committed.size(); ++i) backspaceLocal();
+    }
+    m_previousWord = m_wordBeforeGlide;
+    m_pendingSpaceAfterWord = false;
+    m_spaceFromSuggestion = false;
+    m_lastActionWasSpace = false;
+    rearmSentenceStartFromText();
+    refreshSuggestions();
 }
 
 bool TypingEngine::glideAlternativesShown() const
@@ -1196,9 +1249,12 @@ QString TypingEngine::endGlide()
     if (decoded.isEmpty()) return {};
 
     const QString formatted = formatForSentence(decoded);
+    const QString before = m_previousWord;
     // Same flow as tapping a suggestion: commit the word, hold the automatic
     // space so a following Space confirms it instead of making ". ".
     chooseSuggestion(formatted);
+    m_glidedWord = formatted;           // one Backspace erases it
+    m_wordBeforeGlide = before;
     return formatted;
 }
 

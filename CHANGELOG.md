@@ -4,6 +4,12 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.6.5
+- One Backspace right after a glide erases the whole glided word (Gboard).
+- Shift before a glide capitalizes the word, Caps Lock writes it in capitals.
+- Settings → Text correction → Next-word suggestions (on by default, as in
+  Gboard): turns off the predictions shown after a word.
+
 ## 0.6.4
 - Glide typing rebuilt the way Gboard and Android's keyboard do it: the
   finger's path is compared with each word's ideal path over the keys

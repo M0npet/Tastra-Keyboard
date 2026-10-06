@@ -350,6 +350,10 @@ for path, token, why in (
     ('src/core/typingengine.cpp', 'void TypingEngine::replaceGlidedWord', 'Gboard: other readings of a glide in the strip'),
     ('tests/tst_glide.cpp', 'commonEnglishWordsFromCleanAndShakyPaths', 'glide accuracy tests'),
     ('tests/tst_smarttyping.cpp', 'glideOffersTheOtherReadingsAndReplacesTheWord', 'glide alternatives test'),
+    ('src/core/typingengine.cpp', 'void TypingEngine::eraseGlidedWord', 'Gboard: one Backspace erases a glided word (0.6.5)'),
+    ('src/app/keyboarduibridge.cpp', 'TypingEngine::GlideCase::Capitalized', 'Shift / Caps Lock apply to glides'),
+    ('src/ui/Main.qml', 'objectName: "nextWordSuggestionsButton"', 'Gboard next-word suggestions setting'),
+    ('tests/tst_smarttyping.cpp', 'oneBackspaceErasesTheWholeGlidedWord', 'glide backspace test'),
     ('tools/merge-apostrophe-words.py', 'wordfreq', 'apostrophe words back in the frequency lists'),
     ('data/frequency/ATTRIBUTION.md', 'SUBTLEX', 'wordfreq / SUBTLEX credit'),
 ):
@@ -389,4 +393,4 @@ if not wav.exists() or wav.read_bytes()[:4] != b'RIFF':
     print('STATIC VERIFY: FAILED')
     print(' - data/sounds/click.wav missing or not a WAV file')
     sys.exit(1)
-print('v0.6.4 markers present: path-based glide typing + alternatives, emoticon tab, multilingual typing, Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.6.5 markers present: glide backspace/shift, next-word setting, path-based glide typing + alternatives, emoticon tab, multilingual typing, Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

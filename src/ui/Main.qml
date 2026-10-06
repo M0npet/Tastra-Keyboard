@@ -1898,6 +1898,12 @@ Rectangle {
 
                     Row {
                         width: parent.width; spacing: 12
+                        Text { width: parent.width - nextWordButton.width - parent.spacing; height: nextWordButton.height; verticalAlignment: Text.AlignVCenter; text: "Next-word suggestions"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: nextWordButton; objectName: "nextWordSuggestionsButton"; width: root.portrait ? 170 : 150; label: keyboardBridge.nextWordSuggestions ? "On" : "Off"; onTriggered: keyboardBridge.setNextWordSuggestions(!keyboardBridge.nextWordSuggestions) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
                         Text { width: parent.width - emojiSuggestButton.width - parent.spacing; height: emojiSuggestButton.height; verticalAlignment: Text.AlignVCenter; text: "Emoji suggestions"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: emojiSuggestButton; width: root.portrait ? 170 : 150; label: keyboardBridge.emojiSuggestionsEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setEmojiSuggestionsEnabled(!keyboardBridge.emojiSuggestionsEnabled) }
                     }
