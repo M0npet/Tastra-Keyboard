@@ -16,7 +16,7 @@ On Arch Linux:
 
     sudo pacman -S --needed git base-devel cmake ninja pkgconf python hunspell \
         qt6-base qt6-declarative qt6-wayland qt6-svg wayland wayland-protocols libxkbcommon
-    git clone https://github.com/M0npet/Tastra.git ~/.local/src/tastra
+    git clone https://github.com/M0npet/Tastra-Keyboard.git ~/.local/src/tastra
     ~/.local/src/tastra/scripts/tastra-install.sh
     kcmshell6 kcm_virtualkeyboard      # None -> Apply -> Tastra -> Apply
 

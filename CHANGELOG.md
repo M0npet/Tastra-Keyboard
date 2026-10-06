@@ -6,7 +6,7 @@ internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
 ## 0.6.2
 - New name: **Tastra** (from German *Tastatur*), and a home on GitHub:
-  https://github.com/M0npet/Tastra. Settings, learned and added words,
+  https://github.com/M0npet/Tastra-Keyboard. Settings, learned and added words,
   shortcuts, dictionaries, the voice model and backups move over from the
   "V3 Keyboard" folders automatically on the first start; the old folders
   become links, so rolling back to 0.6.1 still works.

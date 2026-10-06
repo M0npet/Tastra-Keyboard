@@ -1186,3 +1186,7 @@ results; rerun with the lists linked in):
   (QWaitCondition in QThread, the QTest watchdog, QSoundEffect -> glib
   eventfd), none with a project frame; with tools/tsan-qt.supp (those
   libraries only) 5/5 clean.
+- The user renamed the repository to M0npet/Tastra-Keyboard after 0.6.2 was
+  pushed; README, tastra-update and CHANGELOG point there (GitHub redirects
+  the old name). GitHub Actions on 0.6.2 (039033a): green.
+

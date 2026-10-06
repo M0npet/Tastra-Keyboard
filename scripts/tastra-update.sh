@@ -8,7 +8,7 @@
 #   tastra-update --check    only report whether an update is available
 set -euo pipefail
 
-REPO="${TASTRA_REPO:-https://github.com/M0npet/Tastra.git}"
+REPO="${TASTRA_REPO:-https://github.com/M0npet/Tastra-Keyboard.git}"
 SRC="${TASTRA_SOURCE:-$HOME/.local/src/tastra}"
 
 command -v git >/dev/null 2>&1 || { echo "STOP: git is missing (sudo pacman -S git)"; exit 1; }
