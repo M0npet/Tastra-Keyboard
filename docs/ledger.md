@@ -1297,3 +1297,17 @@ failed 4/8 now passes 10/10. Cost: 1.6-6 ms per glide in the 1-vCPU sandbox
 - Next-word suggestions setting (Gboard Text correction). RED->GREEN engine
   nextWordSuggestionsCanBeTurnedOff, persistence in the bridge test.
 
+## 2026-10-07 — startup time measured (no change made)
+
+Offscreen, 1-vCPU sandbox, from process start: QGuiApplication 1 ms, bridge
+1-2 ms, Main.qml loaded ~300 ms, first frame ~320 ms. Bisected: without the
+panel surface the first frame comes at ~130 ms; of the ~190 ms, settings
+~110, clipboard ~45, emoji ~45, text editing ~30. Wrapping each panel in an
+inactive Loader with an inline Component saved only ~25 ms: the cost is
+compiling the definitions, not creating the hidden objects (the QML disk
+cache made no difference either). Moving the panels into separate .qml files
+(loaded on first open) would save it, but needs Key and PanelButton moved out
+of Main.qml too; on the tablet's CPU that is roughly 60 ms once per session,
+so it was left for later. Resident memory at the first frame ~75 MB with the
+English dictionary loading in the background.
+
