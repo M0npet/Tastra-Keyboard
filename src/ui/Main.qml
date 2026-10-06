@@ -1596,10 +1596,76 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: root.portrait ? 12 : 8
 
+                    Text {
+                        objectName: "settingsSection_Languages"
+                        width: parent.width
+                        topPadding: 14
+                        text: "Languages"
+                        color: root.accentColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
+                    }
+
+                    Repeater {
+                        // Gboard: choose which languages the globe cycles through.
+                        model: keyboardBridge.allLanguageCodes
+                        delegate: Row {
+                            required property string modelData
+                            required property int index
+                            width: parent ? parent.width : 0
+                            spacing: 12
+                            Text { width: parent.width - languageToggle.width - parent.spacing; height: languageToggle.height; verticalAlignment: Text.AlignVCenter; text: keyboardBridge.allLanguageLabels[index]; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                            PanelButton {
+                                id: languageToggle
+                                objectName: "languageToggle_" + modelData
+                                width: root.portrait ? 170 : 150
+                                label: (keyboardBridge.languageCodes, keyboardBridge.isLanguageEnabled(modelData)) ? "On" : "Off"
+                                onTriggered: keyboardBridge.setLanguageEnabled(modelData, !keyboardBridge.isLanguageEnabled(modelData))
+                            }
+                        }
+                    }
+
+                    Text {
+                        objectName: "settingsSection_Preferences"
+                        width: parent.width
+                        topPadding: 14
+                        text: "Preferences"
+                        color: root.accentColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
+                    }
+
                     Row {
                         width: parent.width; spacing: 12
-                        Text { width: parent.width - themeButton.width - parent.spacing; height: themeButton.height; verticalAlignment: Text.AlignVCenter; text: "Theme"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: themeButton; width: root.portrait ? 170 : 150; label: keyboardBridge.theme === "system" ? "System" : keyboardBridge.theme === "light" ? "Light" : keyboardBridge.theme === "amoled" ? "AMOLED" : "Dark"; onTriggered: keyboardBridge.cycleTheme() }
+                        Text { width: parent.width - numberRowButton.width - parent.spacing; height: numberRowButton.height; verticalAlignment: Text.AlignVCenter; text: "Number row"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: numberRowButton; width: root.portrait ? 170 : 150; label: keyboardBridge.numberRow ? "On" : "Off"; onTriggered: keyboardBridge.setNumberRow(!keyboardBridge.numberRow) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - hintsButton.width - parent.spacing; height: hintsButton.height; verticalAlignment: Text.AlignVCenter; text: "Long-press symbols (key hints)"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: hintsButton; width: root.portrait ? 170 : 150; label: keyboardBridge.symbolHints ? "On" : "Off"; onTriggered: keyboardBridge.setSymbolHints(!keyboardBridge.symbolHints) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - emojiRowButton.width - parent.spacing; height: emojiRowButton.height; verticalAlignment: Text.AlignVCenter; text: "Emoji fast-access row"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: emojiRowButton; width: root.portrait ? 170 : 150; label: keyboardBridge.emojiRow ? "On" : "Off"; onTriggered: keyboardBridge.setEmojiRow(!keyboardBridge.emojiRow) }
+                    }
+
+                    Row {
+                        visible: keyboardBridge.canPlayKeySound
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - keySoundButton.width - parent.spacing; height: keySoundButton.height; verticalAlignment: Text.AlignVCenter; text: "Sound on keypress"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: keySoundButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keySound ? "On" : "Off"; onTriggered: keyboardBridge.setKeySound(!keyboardBridge.keySound) }
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - popupButton.width - parent.spacing; height: popupButton.height; verticalAlignment: Text.AlignVCenter; text: "Key popups"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: popupButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keyPopups ? "On" : "Off"; onTriggered: keyboardBridge.setKeyPopups(!keyboardBridge.keyPopups) }
                     }
 
                     Row {
@@ -1615,40 +1681,48 @@ Rectangle {
 
                     Row {
                         width: parent.width; spacing: 12
-                        Text { width: parent.width - borderButton.width - parent.spacing; height: borderButton.height; verticalAlignment: Text.AlignVCenter; text: "Key borders"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: borderButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keyBorders ? "On" : "Off"; onTriggered: keyboardBridge.setKeyBorders(!keyboardBridge.keyBorders) }
+                        Text { width: parent.width - layoutButton.width - parent.spacing; height: layoutButton.height; verticalAlignment: Text.AlignVCenter; text: "Keyboard layout"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: layoutButton; width: root.portrait ? 170 : 150; label: keyboardBridge.layoutMode === "left" ? "Compact left" : keyboardBridge.layoutMode === "right" ? "Compact right" : "Full width"; onTriggered: keyboardBridge.cycleLayoutMode() }
+                    }
+
+                    Text {
+                        objectName: "settingsSection_Theme"
+                        width: parent.width
+                        topPadding: 14
+                        text: "Theme"
+                        color: root.accentColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
                     }
 
                     Row {
                         width: parent.width; spacing: 12
-                        Text { width: parent.width - popupButton.width - parent.spacing; height: popupButton.height; verticalAlignment: Text.AlignVCenter; text: "Key popups"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: popupButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keyPopups ? "On" : "Off"; onTriggered: keyboardBridge.setKeyPopups(!keyboardBridge.keyPopups) }
+                        Text { width: parent.width - themeButton.width - parent.spacing; height: themeButton.height; verticalAlignment: Text.AlignVCenter; text: "Theme"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: themeButton; width: root.portrait ? 170 : 150; label: keyboardBridge.theme === "system" ? "System" : keyboardBridge.theme === "light" ? "Light" : keyboardBridge.theme === "amoled" ? "AMOLED" : "Dark"; onTriggered: keyboardBridge.cycleTheme() }
                     }
 
-                    Rectangle { width: parent.width; height: 1; color: root.borderColor }
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - borderButton.width - parent.spacing; height: borderButton.height; verticalAlignment: Text.AlignVCenter; text: "Key borders"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: borderButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keyBorders ? "On" : "Off"; onTriggered: keyboardBridge.setKeyBorders(!keyboardBridge.keyBorders) }
+                    }
+
+                    Text {
+                        objectName: "settingsSection_Text correction"
+                        width: parent.width
+                        topPadding: 14
+                        text: "Text correction"
+                        color: root.accentColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
+                    }
 
                     Row {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - suggestionsButton.width - parent.spacing; height: suggestionsButton.height; verticalAlignment: Text.AlignVCenter; text: "Suggestions"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: suggestionsButton; width: root.portrait ? 170 : 150; label: keyboardBridge.suggestionsEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setSuggestionsEnabled(!keyboardBridge.suggestionsEnabled) }
-                    }
-
-                    Row {
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - autocorrectButton.width - parent.spacing; height: autocorrectButton.height; verticalAlignment: Text.AlignVCenter; text: "Autocorrect"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: autocorrectButton; width: root.portrait ? 170 : 150; label: keyboardBridge.autocorrectEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setAutocorrectEnabled(!keyboardBridge.autocorrectEnabled) }
-                    }
-
-                    Row {
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - hintsButton.width - parent.spacing; height: hintsButton.height; verticalAlignment: Text.AlignVCenter; text: "Long-press symbols (key hints)"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: hintsButton; width: root.portrait ? 170 : 150; label: keyboardBridge.symbolHints ? "On" : "Off"; onTriggered: keyboardBridge.setSymbolHints(!keyboardBridge.symbolHints) }
-                    }
-
-                    Row {
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - numberRowButton.width - parent.spacing; height: numberRowButton.height; verticalAlignment: Text.AlignVCenter; text: "Number row"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: numberRowButton; width: root.portrait ? 170 : 150; label: keyboardBridge.numberRow ? "On" : "Off"; onTriggered: keyboardBridge.setNumberRow(!keyboardBridge.numberRow) }
                     }
 
                     Row {
@@ -1665,46 +1739,8 @@ Rectangle {
 
                     Row {
                         width: parent.width; spacing: 12
-                        Text { width: parent.width - autoSpaceButton.width - parent.spacing; height: autoSpaceButton.height; verticalAlignment: Text.AlignVCenter; text: "Auto-space after punctuation"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: autoSpaceButton; width: root.portrait ? 170 : 150; label: keyboardBridge.autoSpaceAfterPunctuation ? "On" : "Off"; onTriggered: keyboardBridge.setAutoSpaceAfterPunctuation(!keyboardBridge.autoSpaceAfterPunctuation) }
-                    }
-
-                    Row {
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - emojiRowButton.width - parent.spacing; height: emojiRowButton.height; verticalAlignment: Text.AlignVCenter; text: "Emoji fast-access row"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: emojiRowButton; width: root.portrait ? 170 : 150; label: keyboardBridge.emojiRow ? "On" : "Off"; onTriggered: keyboardBridge.setEmojiRow(!keyboardBridge.emojiRow) }
-                    }
-
-                    Row {
-                        visible: true
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - glideTrailButton.width - parent.spacing; height: glideTrailButton.height; verticalAlignment: Text.AlignVCenter; text: "Gesture trail"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: glideTrailButton; width: root.portrait ? 170 : 150; label: keyboardBridge.glideTrail ? "On" : "Off"; onTriggered: keyboardBridge.setGlideTrail(!keyboardBridge.glideTrail) }
-                    }
-
-                    Row {
-                        visible: keyboardBridge.canPlayKeySound
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - keySoundButton.width - parent.spacing; height: keySoundButton.height; verticalAlignment: Text.AlignVCenter; text: "Sound on keypress"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: keySoundButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keySound ? "On" : "Off"; onTriggered: keyboardBridge.setKeySound(!keyboardBridge.keySound) }
-                    }
-
-                    Row {
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - layoutButton.width - parent.spacing; height: layoutButton.height; verticalAlignment: Text.AlignVCenter; text: "Keyboard layout"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: layoutButton; width: root.portrait ? 170 : 150; label: keyboardBridge.layoutMode === "left" ? "Compact left" : keyboardBridge.layoutMode === "right" ? "Compact right" : "Full width"; onTriggered: keyboardBridge.cycleLayoutMode() }
-                    }
-
-                    Row {
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - compositionButton.width - parent.spacing; height: compositionButton.height; verticalAlignment: Text.AlignVCenter; text: "Underline word while typing"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: compositionButton; width: root.portrait ? 170 : 150; label: keyboardBridge.compositionEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setCompositionEnabled(!keyboardBridge.compositionEnabled) }
-                    }
-
-                    Row {
-                        width: parent.width; spacing: 12
-                        Text { width: parent.width - learningButton.width - parent.spacing; height: learningButton.height; verticalAlignment: Text.AlignVCenter; text: "Local learning"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: learningButton; width: root.portrait ? 170 : 150; label: keyboardBridge.learningEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setLearningEnabled(!keyboardBridge.learningEnabled) }
+                        Text { width: parent.width - autocorrectButton.width - parent.spacing; height: autocorrectButton.height; verticalAlignment: Text.AlignVCenter; text: "Autocorrect"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: autocorrectButton; width: root.portrait ? 170 : 150; label: keyboardBridge.autocorrectEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setAutocorrectEnabled(!keyboardBridge.autocorrectEnabled) }
                     }
 
                     Row {
@@ -1721,8 +1757,43 @@ Rectangle {
 
                     Row {
                         width: parent.width; spacing: 12
+                        Text { width: parent.width - autoSpaceButton.width - parent.spacing; height: autoSpaceButton.height; verticalAlignment: Text.AlignVCenter; text: "Auto-space after punctuation"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: autoSpaceButton; width: root.portrait ? 170 : 150; label: keyboardBridge.autoSpaceAfterPunctuation ? "On" : "Off"; onTriggered: keyboardBridge.setAutoSpaceAfterPunctuation(!keyboardBridge.autoSpaceAfterPunctuation) }
+                    }
+
+                    Text {
+                        objectName: "settingsSection_Glide typing"
+                        width: parent.width
+                        topPadding: 14
+                        text: "Glide typing"
+                        color: root.accentColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
                         Text { width: parent.width - glideButton.width - parent.spacing; height: glideButton.height; verticalAlignment: Text.AlignVCenter; text: "Glide typing engine"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: glideButton; width: root.portrait ? 170 : 150; label: keyboardBridge.glideEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setGlideEnabled(!keyboardBridge.glideEnabled) }
+                    }
+
+                    Row {
+                        visible: true
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - glideTrailButton.width - parent.spacing; height: glideTrailButton.height; verticalAlignment: Text.AlignVCenter; text: "Gesture trail"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: glideTrailButton; width: root.portrait ? 170 : 150; label: keyboardBridge.glideTrail ? "On" : "Off"; onTriggered: keyboardBridge.setGlideTrail(!keyboardBridge.glideTrail) }
+                    }
+
+                    Text {
+                        objectName: "settingsSection_Clipboard"
+                        width: parent.width
+                        topPadding: 14
+                        text: "Clipboard"
+                        color: root.accentColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
                     }
 
                     Row {
@@ -1731,13 +1802,30 @@ Rectangle {
                         PanelButton { id: clipboardHistoryButton; width: root.portrait ? 170 : 150; label: keyboardBridge.clipboardHistoryEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setClipboardHistoryEnabled(!keyboardBridge.clipboardHistoryEnabled) }
                     }
 
+                    Text {
+                        objectName: "settingsSection_Dictionary"
+                        width: parent.width
+                        topPadding: 14
+                        text: "Dictionary"
+                        color: root.accentColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - learningButton.width - parent.spacing; height: learningButton.height; verticalAlignment: Text.AlignVCenter; text: "Local learning"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: learningButton; width: root.portrait ? 170 : 150; label: keyboardBridge.learningEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setLearningEnabled(!keyboardBridge.learningEnabled) }
+                    }
+
                     PanelButton {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: root.portrait ? 230 : 210
                         label: "Clear learned words"
                         onTriggered: keyboardBridge.clearLearnedWords()
                     }
-                
+
                     Text {
                         width: parent.width
                         topPadding: 8
@@ -1783,6 +1871,23 @@ Rectangle {
                         font.pixelSize: root.portrait ? 14 : 12
                         text: "Add words: tap a typed word in the suggestion strip, then \uFF0B. "
                             + "Many at once: ~/.config/v3-keyboard/dictionary.txt (one per line, all languages)."
+                    }
+
+                    Text {
+                        objectName: "settingsSection_Advanced"
+                        width: parent.width
+                        topPadding: 14
+                        text: "Advanced"
+                        color: root.accentColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                        font.weight: Font.DemiBold
+                        font.capitalization: Font.AllUppercase
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - compositionButton.width - parent.spacing; height: compositionButton.height; verticalAlignment: Text.AlignVCenter; text: "Underline word while typing"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: compositionButton; width: root.portrait ? 170 : 150; label: keyboardBridge.compositionEnabled ? "On" : "Off"; onTriggered: keyboardBridge.setCompositionEnabled(!keyboardBridge.compositionEnabled) }
                     }
 
                     Text {

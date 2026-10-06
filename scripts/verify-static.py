@@ -308,6 +308,9 @@ for path, token, why in (
     ('src/core/clipboardhistory.cpp', 'void ClipboardHistory::setPinned', 'clipboard pins + 1 h expiry (0.5.0)'),
     ('src/ui/Main.qml', 'objectName: "panelInputBlocker"', 'panels opaque to touch'),
     ('tests/tst_qmlkeyboard.cpp', 'clipboardItemsArePinnedWithALongPress', 'clipboard pin + panel-through-tap UI test'),
+    ('src/ui/Main.qml', 'objectName: "settingsSection_Text correction"', 'settings grouped like Gboard (0.5.1)'),
+    ('src/app/keyboarduibridge.cpp', 'void KeyboardUiBridge::setLanguageEnabled', 'choose languages for the globe'),
+    ('tests/tst_qmlkeyboard.cpp', 'settingsAreGroupedLikeGboard', 'settings sections UI test'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -324,4 +327,4 @@ if not wav.exists() or wav.read_bytes()[:4] != b'RIFF':
     print('STATIC VERIFY: FAILED')
     print(' - data/sounds/click.wav missing or not a WAV file')
     sys.exit(1)
-print('v0.5.0 markers present: clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.5.1 markers present: settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

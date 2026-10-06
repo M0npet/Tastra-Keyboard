@@ -71,6 +71,9 @@ KeyboardUiBridge::KeyboardUiBridge(
 #endif
     loadShortcuts();
     m_emojiSuggestions = settings.value(QStringLiteral("emojiSuggestions"), true).toBool();
+    for (const QString &code : settings.value(QStringLiteral("enabledLanguages")).toStringList()) {
+        if (m_model.languageCodes().contains(code)) m_enabledLanguages.append(code);
+    }
     m_keySound = canPlayKeySound() && settings.value(QStringLiteral("keySound"), false).toBool();
     m_glideTrail = settings.value(QStringLiteral("glideTrail"), true).toBool();
     m_autoSpaceAfterPunctuation = settings.value(QStringLiteral("autoSpaceAfterPunctuation"), false).toBool();
@@ -115,8 +118,51 @@ QStringList KeyboardUiBridge::row2() const { return m_model.row2(); }
 QStringList KeyboardUiBridge::row3() const { return m_model.row3(); }
 QString KeyboardUiBridge::activePanel() const { return panelIdName(m_panelManager.activePanel()); }
 QStringList KeyboardUiBridge::toolbarActionIds() const { return m_toolbarModel.visibleActionIds(); }
-QStringList KeyboardUiBridge::languageCodes() const { return m_model.languageCodes(); }
-QStringList KeyboardUiBridge::languageLabels() const { return m_model.languageLabels(); }
+QStringList KeyboardUiBridge::allLanguageCodes() const { return m_model.languageCodes(); }
+QStringList KeyboardUiBridge::allLanguageLabels() const { return m_model.languageLabels(); }
+
+bool KeyboardUiBridge::isLanguageEnabled(const QString &code) const
+{
+    return m_enabledLanguages.isEmpty() ? m_model.languageCodes().contains(code) : m_enabledLanguages.contains(code);
+}
+
+QStringList KeyboardUiBridge::languageCodes() const
+{
+    QStringList codes;
+    for (const QString &code : m_model.languageCodes()) {
+        if (isLanguageEnabled(code)) codes.append(code);
+    }
+    return codes;
+}
+
+void KeyboardUiBridge::setLanguageEnabled(const QString &code, bool enabled)
+{
+    if (!m_model.languageCodes().contains(code) || isLanguageEnabled(code) == enabled) return;
+    QStringList now = languageCodes();
+    if (enabled) {
+        now.append(code);
+    } else {
+        if (now.size() <= 1) return;                 // keep at least one language
+        now.removeAll(code);
+    }
+    // Keep the layout order.
+    QStringList ordered;
+    for (const QString &c : m_model.languageCodes()) if (now.contains(c)) ordered.append(c);
+    m_enabledLanguages = ordered;
+    persistPreference(QStringLiteral("enabledLanguages"), ordered);
+    if (!enabled && m_model.languageCode() == code) nextLanguage();
+    Q_EMIT keyboardStateChanged();
+}
+QStringList KeyboardUiBridge::languageLabels() const
+{
+    QStringList labels;
+    const QStringList codes = m_model.languageCodes();
+    const QStringList all = m_model.languageLabels();
+    for (int i = 0; i < codes.size() && i < all.size(); ++i) {
+        if (isLanguageEnabled(codes.at(i))) labels.append(all.at(i));
+    }
+    return labels;
+}
 QString KeyboardUiBridge::currentWord() const { return m_typingEngine.currentWord(); }
 QString KeyboardUiBridge::autocorrectSuggestion() const { return m_typingEngine.autocorrectTarget(); }
 QString KeyboardUiBridge::inputPurpose() const { return m_inputPurpose; }
@@ -582,7 +628,11 @@ void KeyboardUiBridge::toggleSymbols()
 void KeyboardUiBridge::nextLanguage()
 {
     m_typingEngine.commitComposition();
-    m_model.nextLanguage();
+    // Only languages the user enabled take part in the rotation.
+    for (int guard = 0; guard < m_model.languageCodes().size(); ++guard) {
+        m_model.nextLanguage();
+        if (isLanguageEnabled(m_model.languageCode())) break;
+    }
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});

@@ -710,6 +710,56 @@ private Q_SLOTS:
         QVERIFY2(backend.commits.isEmpty(), qPrintable(backend.commits.join(',')));
     }
 
+    void settingsAreGroupedLikeGboard()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        bridge.activateToolbarAction(QStringLiteral("settings"));
+        const QStringList sections = {QStringLiteral("Languages"), QStringLiteral("Preferences"), QStringLiteral("Theme"), QStringLiteral("Text correction"),
+                                      QStringLiteral("Glide typing"), QStringLiteral("Clipboard"), QStringLiteral("Dictionary"),
+                                      QStringLiteral("Advanced")};
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("settingsSection_Languages")));
+        auto yOf = [&](QQuickItem *item) { return item->mapToScene(QPointF(0, 0)).y(); };
+        QList<qreal> sectionY;
+        for (const QString &name : sections) {
+            QQuickItem *header = findNamed(view.rootObject(), QStringLiteral("settingsSection_") + name);
+            QVERIFY2(header, qPrintable(name));
+            sectionY.append(yOf(header));
+            if (sectionY.size() > 1) QVERIFY2(sectionY.last() > sectionY.at(sectionY.size() - 2), qPrintable(name));
+        }
+        auto under = [&](const QString &label, const QString &section) {
+            QQuickItem *item = findText(view.rootObject(), label);
+            if (!item) return false;
+            const qreal y = yOf(item);
+            const int s = sections.indexOf(section);
+            return y > sectionY.at(s) && (s + 1 >= sectionY.size() || y < sectionY.at(s + 1));
+        };
+        QVERIFY(under(QStringLiteral("Deutsch"), QStringLiteral("Languages")));
+        QVERIFY(under(QStringLiteral("Number row"), QStringLiteral("Preferences")));
+        // Toggling a language in settings takes it out of the globe rotation.
+        QQuickItem *toggle = findNamed(view.rootObject(), QStringLiteral("languageToggle_de"));
+        QVERIFY(toggle);
+        QTest::qWait(100);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, toggle->mapToScene(QPointF(toggle->width() / 2, toggle->height() / 2)).toPoint());
+        QTRY_VERIFY(!bridge.isLanguageEnabled(QStringLiteral("de")));
+        QVERIFY(!bridge.languageCodes().contains(QStringLiteral("de")));
+        bridge.setLanguageEnabled(QStringLiteral("de"), true);
+        QVERIFY(under(QStringLiteral("Key borders"), QStringLiteral("Theme")));
+        QVERIFY(under(QStringLiteral("Autocorrect"), QStringLiteral("Text correction")));
+        QVERIFY(under(QStringLiteral("Double-space period"), QStringLiteral("Text correction")));
+        QVERIFY(under(QStringLiteral("Gesture trail"), QStringLiteral("Glide typing")));
+        QVERIFY(under(QStringLiteral("Clipboard history"), QStringLiteral("Clipboard")));
+        QVERIFY(under(QStringLiteral("Local learning"), QStringLiteral("Dictionary")));
+        QVERIFY(under(QStringLiteral("Underline word while typing"), QStringLiteral("Advanced")));
+    }
+
     void caseChangesDoNotRecreateLetterKeys()
     {
         FakeBackend backend;

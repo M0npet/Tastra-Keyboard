@@ -41,6 +41,9 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QVariantList toolbarActions READ toolbarActions NOTIFY toolbarStateChanged)
     Q_PROPERTY(QStringList languageCodes READ languageCodes NOTIFY keyboardStateChanged)
     Q_PROPERTY(QStringList languageLabels READ languageLabels NOTIFY keyboardStateChanged)
+    // Gboard: the user chooses which languages the globe cycles through.
+    Q_PROPERTY(QStringList allLanguageCodes READ allLanguageCodes CONSTANT)
+    Q_PROPERTY(QStringList allLanguageLabels READ allLanguageLabels CONSTANT)
     Q_PROPERTY(QString currentWord READ currentWord NOTIFY suggestionsChanged)
     Q_PROPERTY(QString autocorrectSuggestion READ autocorrectSuggestion NOTIFY suggestionsChanged)
     // Personal dictionary (Gboard "Touch again to save" flow).
@@ -175,6 +178,10 @@ public:
     Q_INVOKABLE void shift();
     Q_INVOKABLE void toggleSymbols();
     Q_INVOKABLE void nextLanguage();
+    Q_INVOKABLE bool isLanguageEnabled(const QString &code) const;
+    Q_INVOKABLE void setLanguageEnabled(const QString &code, bool enabled);
+    QStringList allLanguageCodes() const;
+    QStringList allLanguageLabels() const;
     Q_INVOKABLE void setLanguage(const QString &code);
     Q_INVOKABLE void activateToolbarAction(const QString &id);
     Q_INVOKABLE void openLanguagePanel();
@@ -283,6 +290,7 @@ private:
     bool m_autoSpaceAfterPunctuation = false;
     bool m_emojiRow = false;
     QString m_inputPurpose = QStringLiteral("text");
+    QStringList m_enabledLanguages;         // empty = all
     QString m_saveCandidate;
     QHash<QString, QString> m_shortcuts;
     void loadShortcuts();

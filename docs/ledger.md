@@ -991,3 +991,17 @@ Also in 0.5.0:
   blocker disabled ("G" typed) and GREEN with it. A first version of that
   check (bottom-right corner, no key underneath) could not fail and was
   replaced.
+
+## 2026-10-05 — 0.5.1 settings like Gboard
+
+- Settings grouped into Gboard-style sections (Languages, Preferences, Theme,
+  Text correction, Glide typing, Clipboard, Dictionary, Advanced, About). The
+  regrouping script mapped every existing block by its label and refused to
+  write if any block was unclassified or missing. UI test checks the section
+  order and that representative settings sit under the right section; the
+  personal-dictionary UI test (scrolls to the section) still passes; render
+  checked.
+- Languages: choose which languages the globe and the language panel offer
+  (Gboard "Languages"); at least one stays on; switching off the current one
+  moves to the next enabled one; persisted. A first test expected the wrong
+  order (the layout order is en, de, uk, ru) — debugged with state output.

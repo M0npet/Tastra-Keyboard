@@ -4,6 +4,11 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.5.1
+- Settings are grouped into sections like Gboard (Languages, Preferences,
+  Theme, Text correction, Glide typing, Clipboard, Dictionary, Advanced).
+- Choose which languages the globe switches between.
+
 ## 0.5.0
 - Clipboard like Gboard: items are kept for one hour unless pinned
   (long-press an item); only pinned items are stored on disk.

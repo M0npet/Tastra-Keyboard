@@ -471,6 +471,36 @@ private Q_SLOTS:
         QVERIFY(!reloaded.glideTrail());
     }
 
+    void onlyEnabledLanguagesAreInTheRotation()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        {
+            V3Keyboard::KeyboardUiBridge bridge(controller, model);
+            QCOMPARE(bridge.languageCodes(), bridge.allLanguageCodes());          // all on by default
+            bridge.setLanguage(QStringLiteral("ru"));
+            bridge.setLanguageEnabled(QStringLiteral("en"), false);
+            bridge.setLanguageEnabled(QStringLiteral("de"), false);
+            // Layout order (en, de, uk, ru) is kept.
+            QCOMPARE(bridge.languageCodes(), QStringList({QStringLiteral("uk"), QStringLiteral("ru")}));
+            bridge.nextLanguage();
+            QCOMPARE(bridge.languageCode(), QStringLiteral("uk"));
+            bridge.nextLanguage();
+            QCOMPARE(bridge.languageCode(), QStringLiteral("ru"));
+            // Turning off the current language moves to the next enabled one.
+            bridge.setLanguageEnabled(QStringLiteral("ru"), false);
+            QCOMPARE(bridge.languageCode(), QStringLiteral("uk"));
+            // The last one cannot be turned off.
+            bridge.setLanguageEnabled(QStringLiteral("uk"), false);
+            QVERIFY(bridge.isLanguageEnabled(QStringLiteral("uk")));
+            QCOMPARE(bridge.languageCodes(), QStringList({QStringLiteral("uk")}));
+        }
+        V3Keyboard::KeyboardUiBridge reloaded(controller, model);
+        QCOMPARE(reloaded.languageCodes(), QStringList({QStringLiteral("uk")}));
+        QCOMPARE(reloaded.languageLabels().size(), 1);
+    }
+
     void tapTextReachesController()
     {
         FakeBackend backend;
