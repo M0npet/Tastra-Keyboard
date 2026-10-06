@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.6.6, in development**. The typing core is done and tested; the
+Status: **0.6.7, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
@@ -67,10 +67,11 @@ previous binary is kept for rolling back.
 - Layouts: full, split for thumb typing, and one-handed left/right. Choose
   which languages the globe key cycles through. A button hides the keyboard.
 - Personal dictionary: tap an unknown word (shown in quotes), then
-  "+ Add to dictionary". Manage it in Settings, or add many words at once in
+  "+ Add to dictionary", or Settings → "+ Add word" with an optional shortcut.
+  Manage both in Settings, or add many words at once in
   `~/.config/tastra/dictionary.txt`. Words you type 3 times become yours; a
   single typo is never learned.
-- Text shortcuts in `~/.config/tastra/shortcuts.txt` (`omw = on my way`).
+- Text shortcuts from Settings or `~/.config/tastra/shortcuts.txt` (`omw = on my way`).
 - Emoji panel with search in all four languages (typed on the keyboard itself),
   a `:-)` tab of text faces, recent emoji, skin tones on long-press, and an
   optional emoji row.

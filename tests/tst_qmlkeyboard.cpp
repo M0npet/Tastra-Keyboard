@@ -914,6 +914,46 @@ private Q_SLOTS:
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiSearchBar")));
     }
 
+    void addWordFromSettingsTypedOnTheKeys()
+    {
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto click = [&](QQuickItem *item) {
+            QTest::mouseClick(&view, Qt::LeftButton, {}, item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
+            QTest::qWait(30);
+        };
+        bridge.activateToolbarAction(QStringLiteral("settings"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("addWordButton")));
+        QQuickItem *add = findNamed(view.rootObject(), QStringLiteral("addWordButton"));
+        // Scroll the settings so the button is on screen, then tap it.
+        QQuickItem *flick = findNamed(view.rootObject(), QStringLiteral("settingsFlick"));
+        const qreal y = add->mapToItem(flick->property("contentItem").value<QQuickItem *>(), QPointF(0, 0)).y();
+        flick->setProperty("contentY", qMax(0.0, y - 20));
+        QTest::qWait(50);
+        click(add);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("wordEntryBar")));
+        for (const QString &letter : {QStringLiteral("t"), QStringLiteral("a"), QStringLiteral("s"), QStringLiteral("t"),
+                                      QStringLiteral("r"), QStringLiteral("a")}) {
+            click(findText(view.rootObject(), letter)->parentItem());
+        }
+        QTRY_COMPARE(findNamed(view.rootObject(), QStringLiteral("wordEntryText"))->property("text").toString(), QStringLiteral("tastra"));
+        click(findNamed(view.rootObject(), QStringLiteral("wordEntryConfirm")));    // the word
+        QTRY_COMPARE(bridge.wordEntryStep(), QStringLiteral("shortcut"));
+        click(findNamed(view.rootObject(), QStringLiteral("wordEntryConfirm")));    // no shortcut
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("wordEntryBar")));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("userWord_tastra")));   // back in settings
+        QVERIFY(backend.commits.isEmpty());
+        bridge.removeWordFromDictionary(QStringLiteral("tastra"));
+    }
+
     void emoticonTabShowsWideTilesAndInsertsTheFace()
     {
         FakeBackend backend;

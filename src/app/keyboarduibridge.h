@@ -76,6 +76,9 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool emojiSearchActive READ emojiSearchActive NOTIFY emojiSearchChanged)
     Q_PROPERTY(QString emojiSearchText READ emojiSearchText NOTIFY emojiSearchChanged)
     Q_PROPERTY(QStringList emojiSearchResults READ emojiSearchResults NOTIFY emojiSearchChanged)
+    Q_PROPERTY(QString wordEntryStep READ wordEntryStep NOTIFY wordEntryChanged)
+    Q_PROPERTY(QString wordEntryText READ wordEntryText NOTIFY wordEntryChanged)
+    Q_PROPERTY(QStringList shortcutList READ shortcutList NOTIFY shortcutsChanged)
     // Gboard "Sound on keypress" (off by default) and "Show gesture trail".
     Q_PROPERTY(bool keySound READ keySound WRITE setKeySound NOTIFY uiPreferencesChanged)
     // Gboard "Key long press delay" (default 300 ms).
@@ -196,6 +199,15 @@ public:
     QStringList emojiSearchResults() const;
     Q_INVOKABLE void startEmojiSearch();
     Q_INVOKABLE void stopEmojiSearch();
+    // Gboard "add word": a personal-dictionary word, then an optional
+    // shortcut for it, typed on the keyboard itself (Settings -> Dictionary).
+    QString wordEntryStep() const { return m_wordEntryStep; }    // "", "word" or "shortcut"
+    QString wordEntryText() const { return m_wordEntryText; }
+    QStringList shortcutList() const;                              // "shortcut = expansion", sorted
+    Q_INVOKABLE void startWordEntry();
+    Q_INVOKABLE void stopWordEntry();                              // ✕: nothing is added
+    Q_INVOKABLE void confirmWordEntry();                           // Enter / ✓
+    Q_INVOKABLE void removeShortcut(const QString &shortcut);
     Q_INVOKABLE QStringList emojiSearch(const QString &query, const QString &category = QStringLiteral("All")) const;
 
     Q_INVOKABLE void tapLetter(const QString &letter);
@@ -299,6 +311,8 @@ public:
 
 Q_SIGNALS:
     void emojiSearchChanged();
+    void wordEntryChanged();
+    void shortcutsChanged();
     void keyboardStateChanged();
     void toolbarStateChanged();
     void uiPreferencesChanged();
@@ -331,8 +345,19 @@ private:
     bool m_nextWordSuggestions = true;
     bool m_emojiSearchActive = false;
     QString m_emojiSearchText;
-    // Keys typed while the emoji search is open go to its query.
-    bool typeIntoEmojiSearch(const QString &text);
+    QString m_wordEntryStep;
+    QString m_wordEntryText;
+    QString m_wordEntryWord;
+    // Keys typed while the emoji search or the word entry is open go there.
+    bool typeIntoField(const QString &text);
+    bool inlineFieldActive() const { return m_emojiSearchActive || !m_wordEntryStep.isEmpty(); }
+    // Ends the emoji search and the word entry without saving (another
+    // panel, paste, hiding, a new input field).
+    void cancelInlineFields();
+    static QString shortcutsFilePath();
+    // Rewrites shortcuts.txt keeping comments and other lines as they are:
+    // the line for `key` is replaced by `line` (removed if empty) or appended.
+    void writeShortcutLine(const QString &key, const QString &line);
     bool m_keySound = false;
     int m_longPressDelay = 300;
     bool m_glideTrail = true;

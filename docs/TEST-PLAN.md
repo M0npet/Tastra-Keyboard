@@ -62,4 +62,5 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 40. Glide a word, then Backspace once: the whole word (and its space) is gone. Shift, then glide: `Hello`; Caps Lock: `HELLO`.
 41. Settings → Next-word suggestions Off: after a word the strip stays empty; completions while typing still appear.
 42. Emoji panel → "Search emoji": the panel closes, letters (lowercase) type into the search bar, matching emoji appear; tap one -> inserted, normal typing again; ✕ leaves without typing anything.
+43. Settings → Dictionary → "+ Add word": Shift + `oldenburg` -> `Oldenburg`, ✓, shortcut `olb`, ✓ -> back in Settings, word and `olb → Oldenburg` listed; typing `olb` offers `Oldenburg`; tap the shortcut chip -> removed.
 

@@ -325,6 +325,66 @@ private Q_SLOTS:
         qunsetenv("TASTRA_SHORTCUTS_FILE");
     }
 
+    void wordsAndShortcutsAreAddedFromSettings()
+    {
+        // Gboard: Settings -> Dictionary -> Personal dictionary -> +: a word
+        // and an optional shortcut, typed on the keyboard itself.
+        QTemporaryDir dir;
+        QFile file(dir.path() + QStringLiteral("/shortcuts.txt"));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("# my shortcuts\nomw = on my way\n");
+        file.close();
+        qputenv("TASTRA_SHORTCUTS_FILE", file.fileName().toUtf8());
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        bridge.activateToolbarAction(QStringLiteral("settings"));
+        bridge.startWordEntry();
+        QCOMPARE(bridge.wordEntryStep(), QStringLiteral("word"));
+        QCOMPARE(bridge.activePanel(), QStringLiteral("typing"));     // the letters come back
+        bridge.shift();                                                // capitals as typed
+        for (const QChar ch : QStringLiteral("Oldenburx")) bridge.tapLetter(QString(ch));
+        bridge.backspace();
+        bridge.tapLetter(QStringLiteral("g"));
+        bridge.space();                                                // no spaces in a word
+        QCOMPARE(bridge.wordEntryText(), QStringLiteral("Oldenburg"));
+        bridge.enter();
+        QCOMPARE(bridge.wordEntryStep(), QStringLiteral("shortcut"));
+        QVERIFY(bridge.wordEntryText().isEmpty());
+        for (const QChar ch : QStringLiteral("olb")) bridge.tapLetter(QString(ch));
+        bridge.enter();
+        QVERIFY(bridge.wordEntryStep().isEmpty());
+        QVERIFY(backend.commits.isEmpty());                            // nothing reached the app
+        QVERIFY(bridge.userWords().contains(QStringLiteral("Oldenburg")));
+        QCOMPARE(bridge.shortcutList(), QStringList({QStringLiteral("olb = Oldenburg"), QStringLiteral("omw = on my way")}));
+        QCOMPARE(bridge.activePanel(), QStringLiteral("settings"));   // back where it started
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QString saved = QString::fromUtf8(file.readAll());
+        file.close();
+        QVERIFY2(saved.contains(QStringLiteral("# my shortcuts")) && saved.contains(QStringLiteral("olb = Oldenburg")), qPrintable(saved));
+        bridge.closePanel();
+        for (const QChar ch : QStringLiteral("olb")) bridge.tapLetter(QString(ch));
+        QCOMPARE(bridge.suggestions().value(0), QStringLiteral("Oldenburg"));
+        // Removing a shortcut keeps the rest of the file.
+        bridge.removeShortcut(QStringLiteral("omw"));
+        QCOMPARE(bridge.shortcutList(), QStringList{QStringLiteral("olb = Oldenburg")});
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QString after = QString::fromUtf8(file.readAll());
+        file.close();
+        QVERIFY2(after.contains(QStringLiteral("# my shortcuts")) && !after.contains(QStringLiteral("omw")), qPrintable(after));
+        // ✕ adds nothing; an empty word cannot be confirmed.
+        bridge.startWordEntry();
+        bridge.enter();
+        QCOMPARE(bridge.wordEntryStep(), QStringLiteral("word"));
+        bridge.tapLetter(QStringLiteral("x"));
+        bridge.stopWordEntry();
+        QVERIFY(bridge.wordEntryStep().isEmpty());
+        QVERIFY(!bridge.userWords().contains(QStringLiteral("x")));
+        qunsetenv("TASTRA_SHORTCUTS_FILE");
+    }
+
     void apostropheOnSymbolsReturnsToLetters()
     {
         FakeBackend backend;

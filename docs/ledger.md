@@ -1334,3 +1334,19 @@ and "heart" is not a built-in core word; replaying the captured path through
 the decoder gave heart, heat, hat, beat, ... — the test now loads the bundled
 list.
 
+## 2026-10-07 — 0.6.7 add word + shortcut in settings (Gboard dictionary)
+
+Gboard's personal dictionary has "+": a word and an optional shortcut. Ours
+needed the strip ("tap the typed word, then +") or editing dictionary.txt /
+shortcuts.txt. Same mechanism as the emoji search: the keyboard types into a
+bar above the keys (word step keeps Shift capitals and refuses spaces;
+shortcut step is lowercase), Enter/✓ goes on, ✕ adds nothing; afterwards
+Settings open again with the new word listed. The shortcut is written into
+shortcuts.txt by rewriting only its own line (comments and other lines stay),
+and removing one deletes only its line. RED->GREEN: bridge
+wordsAndShortcutsAreAddedFromSettings (capitals, Backspace, space refused,
+two steps, nothing reaches the app, file content, the shortcut works,
+removal, cancel, empty word cannot be confirmed); UI
+addWordFromSettingsTypedOnTheKeys. Rendered the bar ("New word | Oldenburg
+| ✓").
+

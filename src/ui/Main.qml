@@ -845,6 +845,78 @@ Rectangle {
             }
         }
 
+        // Gboard "add word": the word, then an optional shortcut, typed on
+        // the keyboard's own keys (Settings -> Dictionary -> Add word).
+        Rectangle {
+            objectName: "wordEntryBar"
+            visible: keyboardBridge.wordEntryStep.length > 0
+            anchors.fill: parent
+            z: 50
+            color: root.backgroundColor
+            MouseArea { anchors.fill: parent }
+
+            Rectangle {
+                id: wordEntryClose
+                anchors.left: parent.left
+                anchors.leftMargin: root.keyGap
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.height - 10
+                height: width
+                radius: width / 2
+                color: wordEntryCloseMouse.pressed ? root.pressedColor : root.keyColor
+                Text { anchors.centerIn: parent; text: "\u2715"; color: root.textColor; font.pixelSize: root.portrait ? 18 : 16 }
+                MouseArea { id: wordEntryCloseMouse; anchors.fill: parent; onClicked: keyboardBridge.stopWordEntry() }
+            }
+
+            Text {
+                id: wordEntryPrompt
+                anchors.left: wordEntryClose.right
+                anchors.leftMargin: root.keyGap * 2
+                anchors.verticalCenter: parent.verticalCenter
+                text: keyboardBridge.wordEntryStep === "word" ? "New word" : "Shortcut (optional)"
+                color: root.secondaryTextColor
+                font.pixelSize: root.portrait ? 15 : 13
+            }
+
+            Rectangle {
+                anchors.left: wordEntryPrompt.right
+                anchors.leftMargin: root.keyGap * 2
+                anchors.right: wordEntryConfirm.left
+                anchors.rightMargin: root.keyGap * 2
+                anchors.verticalCenter: parent.verticalCenter
+                height: parent.height - 10
+                radius: height / 2
+                color: root.keyColor
+                Text {
+                    objectName: "wordEntryText"
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: 14
+                    width: parent.width - 28
+                    elide: Text.ElideLeft
+                    text: keyboardBridge.wordEntryText
+                    color: root.textColor
+                    font.pixelSize: root.portrait ? 17 : 15
+                }
+            }
+
+            Rectangle {
+                id: wordEntryConfirm
+                objectName: "wordEntryConfirm"
+                readonly property bool ready: keyboardBridge.wordEntryStep === "shortcut" || keyboardBridge.wordEntryText.length > 0
+                anchors.right: parent.right
+                anchors.rightMargin: root.keyGap
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.height - 10
+                height: width
+                radius: width / 2
+                opacity: ready ? 1 : 0.4
+                color: wordEntryConfirmMouse.pressed ? root.pressedColor : root.selectedColor
+                Text { anchors.centerIn: parent; text: "\u2713"; color: root.accentColor; font.pixelSize: root.portrait ? 20 : 18 }
+                MouseArea { id: wordEntryConfirmMouse; anchors.fill: parent; onClicked: keyboardBridge.confirmWordEntry() }
+            }
+        }
+
         // Gboard emoji search: the query typed on the keyboard's own letters
         // and the matching emoji, in place of the suggestion strip.
         Rectangle {
@@ -2112,13 +2184,61 @@ Rectangle {
                         }
                     }
 
+                    PanelButton {
+                        objectName: "addWordButton"
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: root.portrait ? 230 : 210
+                        label: "\uFF0B Add word"
+                        onTriggered: keyboardBridge.startWordEntry()
+                    }
+
+                    Text {
+                        width: parent.width
+                        topPadding: 8
+                        visible: keyboardBridge.shortcutList.length > 0
+                        text: "Shortcuts (" + keyboardBridge.shortcutList.length + ") \u2014 tap one to remove it"
+                        color: root.textColor
+                        font.pixelSize: root.portrait ? 17 : 15
+                    }
+
+                    Flow {
+                        width: parent.width
+                        spacing: 8
+                        Repeater {
+                            model: keyboardBridge.shortcutList
+                            delegate: Rectangle {
+                                required property string modelData
+                                objectName: "shortcut_" + modelData.split(" = ")[0]
+                                width: shortcutText.implicitWidth + 24
+                                height: root.portrait ? 40 : 34
+                                radius: height / 2
+                                color: shortcutMouse.pressed ? root.pressedColor : root.keyColor
+                                border.width: 1
+                                border.color: root.borderColor
+                                Text {
+                                    id: shortcutText
+                                    anchors.centerIn: parent
+                                    text: modelData.replace(" = ", " \u2192 ") + "  \u00D7"
+                                    color: root.textColor
+                                    font.pixelSize: root.portrait ? 16 : 14
+                                }
+                                MouseArea {
+                                    id: shortcutMouse
+                                    anchors.fill: parent
+                                    onClicked: keyboardBridge.removeShortcut(modelData.split(" = ")[0])
+                                }
+                            }
+                        }
+                    }
+
                     Text {
                         width: parent.width
                         wrapMode: Text.WordWrap
                         color: root.secondaryTextColor
                         font.pixelSize: root.portrait ? 14 : 12
-                        text: "Add words: tap a typed word in the suggestion strip, then \uFF0B. "
-                            + "Many at once: ~/.config/tastra/dictionary.txt (one per line, all languages)."
+                        text: "Add words with \uFF0B (a shortcut is optional: typing it offers the word), or tap a "
+                            + "typed word in the suggestion strip. Many at once: ~/.config/tastra/dictionary.txt "
+                            + "(one per line) and ~/.config/tastra/shortcuts.txt (shortcut = text)."
                     }
 
                     Text {
