@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "locallexicon.h"
+#include "glidegeometry.h"
 #include <QThreadPool>
 #include <QMutex>
 
@@ -8,6 +9,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QLineF>
 #include <QLoggingCategory>
 #include <QSet>
 #include <QSettings>
@@ -25,6 +27,7 @@
 #include <algorithm>
 #include <cmath>
 #include <chrono>
+#include <limits>
 #include <thread>
 
 Q_LOGGING_CATEGORY(lcLexicon, "tastra.lexicon", QtWarningMsg)
@@ -1304,6 +1307,117 @@ QStringList LocalLexicon::nextWords(const QString &previousWord, int limit) cons
     return result;
 }
 
+QString LocalLexicon::decodeGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres,
+                                      qreal keyWidth, const QString &previousWord) const
+{
+    return decodeGlidePathCandidates(path, keyCentres, keyWidth, previousWord, 1).value(0);
+}
+
+QStringList LocalLexicon::decodeGlidePathCandidates(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres,
+                                                    qreal keyWidth, const QString &previousWord, int limit) const
+{
+    if (path.size() < 2 || keyCentres.isEmpty() || keyWidth <= 0 || limit <= 0) return {};
+    double length = 0.0;
+    for (int i = 1; i < path.size(); ++i) length += QLineF(path.at(i - 1), path.at(i)).length();
+    if (length < keyWidth * 0.5) return {};   // a wobble on one key, not a glide
+    adoptLoadedData();
+    const QString prev = normalize(previousWord);
+
+    // Where the finger came down and lifted: that key, and any whose centre
+    // is close enough to have been meant.
+    auto keysNear = [&](const QPointF &point) {
+        QSet<QChar> keys;
+        QChar nearest;
+        double best = std::numeric_limits<double>::infinity();
+        for (auto it = keyCentres.constBegin(); it != keyCentres.constEnd(); ++it) {
+            const double d = QLineF(point, it.value()).length();
+            if (d < best) { best = d; nearest = it.key(); }
+            if (d <= keyWidth * 0.9) keys.insert(it.key());
+        }
+        keys.insert(nearest);
+        return keys;
+    };
+    const QSet<QChar> starts = keysNear(path.first());
+    const QSet<QChar> ends = keysNear(path.last());
+
+    QSet<QString> seen;
+    QStringList candidates;
+    auto consider = [&](const QString &word) {
+        if (word.size() < 2 || seen.contains(word)) return;
+        if (!starts.contains(word.front()) || !ends.contains(word.back())) return;
+        if (!suggestible(word)) return;
+        seen.insert(word);
+        candidates.append(word);
+    };
+    for (auto it = m_personalFrequency.constBegin(); it != m_personalFrequency.constEnd(); ++it) {
+        if (isUserWord(it.key()) || isCore(it.key()) || knownCheaply(it.key())) consider(it.key());
+    }
+    for (const QHash<QString, QString> *words : {&m_fileWords, &m_userWords}) {
+        for (auto it = words->constBegin(); it != words->constEnd(); ++it) consider(it.key());
+    }
+    for (const QString &core : m_coreWords) consider(core);
+    if (m_data) {
+        for (const QChar start : starts) {
+            if (!m_data->freq.empty()) {
+                const auto [lo, hi] = m_data->freqRange(QString(start));
+                for (size_t i = lo; i < hi; ++i) consider(m_data->freq[i].word);
+            } else {
+                const auto [lo, hi] = m_data->prefixRange(QString(start));
+                for (size_t i = lo; i < hi; ++i) consider(m_data->wordAt(i).toString());
+            }
+        }
+    }
+
+    // SHARK2-style channels on evenly resampled paths: location (point by
+    // point, in key widths), shape (position and size normalised), and how
+    // close each of the word's keys comes to the finger's path.
+    constexpr int Samples = 32;
+    const QVector<QPointF> sampled = Glide::resample(path, Samples);
+    const QVector<QPointF> dense = Glide::resample(path, 96);
+    struct Reading { QString word; double score; double location; };
+    QVector<Reading> readings;
+    for (const QString &word : std::as_const(candidates)) {
+        const QVector<QPointF> ideal = Glide::idealPath(word, keyCentres);
+        if (ideal.size() < 2) continue;
+        double letters = 0.0;
+        double worstLetter = 0.0;
+        for (const QPointF &key : ideal) {
+            const double d = Glide::distanceToPath(key, dense) / keyWidth;
+            letters += d;
+            worstLetter = std::max(worstLetter, d);
+        }
+        if (worstLetter > 1.0) continue;   // the finger never came near one of its keys
+        letters /= ideal.size();
+        const QVector<QPointF> idealSampled = Glide::resample(ideal, Samples);
+        double location = 0.0;
+        for (int i = 0; i < Samples; ++i) location += QLineF(sampled.at(i), idealSampled.at(i)).length();
+        location /= Samples * keyWidth;
+        if (location > 1.5) continue;
+        const double shape = Glide::shapeDistance(sampled, idealSampled);
+        // Weights from a grid search on synthetic glides of the 200 most
+        // frequent words per language (tools in docs/ledger.md): the plateau
+        // is flat (1527-1530 of 1600); the misses left are ambiguous paths
+        // ("too"/"to", "dass"/"das"), which the strip offers as alternatives.
+        const double score = 1000.0 - 420.0 * location - 260.0 * letters - 200.0 * shape
+                           + 0.6 * priorScore(word, prev);
+        readings.append({word, score, location});
+    }
+    std::sort(readings.begin(), readings.end(), [](const Reading &a, const Reading &b) {
+        return a.score != b.score ? a.score > b.score : a.word < b.word;
+    });
+    // Nothing if even the best reading strays far from the path; the others
+    // only while they are close to the best one.
+    if (readings.isEmpty() || readings.first().location > 1.2) return {};
+    QStringList result;
+    for (const Reading &reading : std::as_const(readings)) {
+        if (result.size() >= limit || reading.score < readings.first().score - 220.0) break;
+        if (reading.location > 1.2) continue;
+        const QString form = dictionaryForm(reading.word);
+        if (!result.contains(form)) result.append(form);
+    }
+    return result;
+}
+
 QString LocalLexicon::decodeGlide(const QStringList &trace, const QString &previousWord) const
 {
     if (trace.isEmpty()) return {};
@@ -1401,6 +1515,21 @@ void LocalLexicon::learnWordWithContext(const QString &word, const QString &prev
     // Batch disk writes: one settings flush per 16 words (and on context or
     // language change / shutdown) instead of one per word.
     if (++m_unsavedLearning >= 16) flushLearning();
+}
+
+void LocalLexicon::unlearnWordWithContext(const QString &word, const QString &previousWord)
+{
+    const QString w = normalize(word);
+    if (w.isEmpty()) return;
+    if (const int count = m_personalFrequency.value(w); count > 1) m_personalFrequency[w] = count - 1;
+    else m_personalFrequency.remove(w);
+    const QString prev = normalize(previousWord);
+    if (!prev.isEmpty()) {
+        const QString key = bigramKey(prev, w);
+        if (const int count = m_bigramFrequency.value(key); count > 1) m_bigramFrequency[key] = count - 1;
+        else m_bigramFrequency.remove(key);
+    }
+    ++m_unsavedLearning;
 }
 
 void LocalLexicon::flushLearning()

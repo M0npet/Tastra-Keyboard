@@ -1243,3 +1243,42 @@ bridge clean (0 races). Next (0.6.4): a geometric glide decoder (path vs. the
 word's ideal path through key centres, as in SHARK2 / LatinIME's gesture
 recogniser) instead of key-sequence edit distance.
 
+## 2026-10-07 — 0.6.4 glide typing from the finger's path (SHARK2 / LatinIME)
+
+Root cause from the 0.6.3 ASan finding: the decoder took the sequence of keys
+under the finger and scored Levenshtein distance to each word, so every key
+merely crossed counted as an error. Measured on synthetic glides (finger path
+through the word's keys, corners up to 0.25/0.45 key widths off centre,
+seeded): the old decoder got 7/200 (en), 11/200 (ru), 6/200 (de), 8/200 (uk)
+of the 200 most frequent words.
+
+New decoder (src/core/glidegeometry.cpp, LocalLexicon::
+decodeGlidePathCandidates): QML sends the whole path and the centres of the
+letter keys; candidates start and end at keys near the touch-down and
+lift-off points (frequency list, core, personal and user words); a word is
+dropped if one of its keys stays more than a key width from the path; the
+rest are scored on SHARK2's location channel (32 evenly resampled points, in
+key widths), its shape channel (centroid and scale normalised), the mean
+distance of the word's keys to the path, plus 0.6 x the frequency/personal
+prior. Grid search over the weights (L 300-600, K 200-450, S 150-400,
+prior 0.25-1.0) on 4 x 200 words x 2 noise levels: a flat plateau
+1527-1530/1600; kept the first setting. Result: en 194/190, ru 198/195,
+de 192/187, uk 187/183 (jitter 0.25/0.45). What is left is mostly paths
+that are the same for two words (too/to, dass/das, всё/все, them/then) and,
+for uk, Russian words from the subtitle list that are not Ukrainian (all
+"valid: 0" in Hunspell uk; the uk layout has no ы/э). For those Gboard shows
+the other readings: the engine now keeps the next 3 readings (within 220
+points of the best) and shows them in the strip right after the glide;
+choosing one deletes the glided word on the text channel (Backspace key
+events would arrive after the commit in Firefox) and takes back its
+learning. Any input, a client reset or an adopted external edit drops them.
+Letters without a key (ё, ß) are glided over their base key.
+
+Tests: tst_glide (8: resampling, ideal path, crossing keys, sloppy start and
+end, 40 en words at 0.12 and 0.32 jitter >= 95 % / 85 %, 16 ru words, empty
+input) RED -> GREEN; engine glideOffersTheOtherReadingsAndReplacesTheWord
+(RED: key-fallback "bs bs" until the deletion used the text channel) and
+glideAlternativeAlsoReplacesWithoutAPreedit. The ASan glide UI test that
+failed 4/8 now passes 10/10. Cost: 1.6-6 ms per glide in the 1-vCPU sandbox
+(once per word, on release).
+

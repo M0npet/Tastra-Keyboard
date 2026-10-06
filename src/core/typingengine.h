@@ -91,10 +91,18 @@ public:
     void beginGlide(const QString &key);
     void glideThrough(const QString &key);
     QString endGlide();
+    // Glide from the finger's path and the layout's key centres (Gboard /
+    // LatinIME gesture typing). Afterwards the strip offers the other
+    // readings of the path; choosing one replaces the glided word.
+    QString endGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres, qreal keyWidth);
     QStringList glideTrace() const;
 
 private:
     QString formatForSentence(const QString &word) const;
+    // The other readings of the last glide, while nothing has happened since.
+    bool glideAlternativesShown() const;
+    void dropGlideAlternatives() { m_glideAlternatives.clear(); }
+    void replaceGlidedWord(const QString &word);
     void refreshSuggestions();
     bool replaceBeforeCursor(const QString &existing, const QString &replacement, bool allowUnconfirmed);
     void finalizeCurrentWord(bool updatePrevious = true);
@@ -126,6 +134,9 @@ private:
     QString m_previousWord;
     QStringList m_suggestions;
     QStringList m_glideTrace;
+    QStringList m_glideAlternatives;   // Gboard: other readings of the last glide
+    QString m_glidedWord;              // as committed
+    QString m_wordBeforeGlide;
     bool m_suggestionsEnabled = true;
     bool m_autocorrectEnabled = true;
     bool m_learningEnabled = true;

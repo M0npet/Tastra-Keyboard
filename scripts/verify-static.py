@@ -344,6 +344,12 @@ for path, token, why in (
     ('tests/tst_lexicon.cpp', 'aNearlyFreeFixInTheActiveLanguageBeatsAnotherLanguagesWord', 'free edit beats companion word'),
     ('src/core/emojicatalog.cpp', 'QStringList EmojiCatalog::emoticons', "Gboard ':-)' emoticon tab"),
     ('tests/tst_qmlkeyboard.cpp', 'emoticonTabShowsWideTilesAndInsertsTheFace', 'emoticon tab UI test'),
+    ('src/core/glidegeometry.cpp', 'double shapeDistance', 'glide decoder: SHARK2 shape channel (0.6.4)'),
+    ('src/core/locallexicon.cpp', 'QStringList LocalLexicon::decodeGlidePathCandidates', 'glide decoder from the finger path'),
+    ('src/ui/Main.qml', 'keyboardBridge.endGlidePath(glidePath', 'QML passes the glide path and key centres'),
+    ('src/core/typingengine.cpp', 'void TypingEngine::replaceGlidedWord', 'Gboard: other readings of a glide in the strip'),
+    ('tests/tst_glide.cpp', 'commonEnglishWordsFromCleanAndShakyPaths', 'glide accuracy tests'),
+    ('tests/tst_smarttyping.cpp', 'glideOffersTheOtherReadingsAndReplacesTheWord', 'glide alternatives test'),
     ('tools/merge-apostrophe-words.py', 'wordfreq', 'apostrophe words back in the frequency lists'),
     ('data/frequency/ATTRIBUTION.md', 'SUBTLEX', 'wordfreq / SUBTLEX credit'),
 ):
@@ -383,4 +389,4 @@ if not wav.exists() or wav.read_bytes()[:4] != b'RIFF':
     print('STATIC VERIFY: FAILED')
     print(' - data/sounds/click.wav missing or not a WAV file')
     sys.exit(1)
-print('v0.6.3 markers present: emoticon tab, multilingual typing, Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.6.4 markers present: path-based glide typing + alternatives, emoticon tab, multilingual typing, Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

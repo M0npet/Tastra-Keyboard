@@ -178,6 +178,22 @@ Rectangle {
     }
 
     property var glidePoints: []
+    // The whole finger path of the current glide (the trail keeps only its end).
+    property var glidePath: []
+
+    // Centres of the letter keys in root coordinates, for the glide decoder.
+    function letterKeyGeometry() {
+        var centres = {}
+        var keyWidth = 0
+        for (var i = 0; i < glideKeys.length; ++i) {
+            var k = glideKeys[i]
+            if (!k || !k.visible || !k.glideEligible || !k.glideValue) continue
+            var p = k.mapToItem(root, k.width / 2, k.height / 2)
+            centres[k.glideValue.toLowerCase()] = Qt.point(p.x, p.y)
+            if (keyWidth === 0 || k.width < keyWidth) keyWidth = k.width
+        }
+        return { centres: centres, keyWidth: keyWidth }
+    }
 
     Canvas {
         id: glideTrail
@@ -215,8 +231,10 @@ Rectangle {
             item.consumeRelease = true
             keyboardBridge.beginGlide(glideStartItem.glideValue)
             glideLastValue = glideStartItem.glideValue
+            glidePath = [Qt.point(glideStartX, glideStartY)]
         }
         if (!glideActive) return
+        if (glidePath.length < 1200) glidePath.push(Qt.point(p.x, p.y))
         item.consumeRelease = true
         // Gboard-style gesture trail (Settings: Gesture trail).
         if (!keyboardBridge.glideTrail) { glidePoints = []; }
@@ -238,8 +256,11 @@ Rectangle {
         if (item !== glideStartItem) return
         if (glideActive) {
             item.consumeRelease = true
-            keyboardBridge.endGlide()
+            // The path decides (LatinIME-style); the key sequence is the fallback.
+            var geometry = letterKeyGeometry()
+            keyboardBridge.endGlidePath(glidePath, geometry.centres, geometry.keyWidth)
         }
+        glidePath = []
         glideStartItem = null
         glideActive = false
         glideLastValue = ""

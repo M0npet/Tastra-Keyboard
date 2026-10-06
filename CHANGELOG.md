@@ -4,6 +4,17 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.6.4
+- Glide typing rebuilt the way Gboard and Android's keyboard do it: the
+  finger's path is compared with each word's ideal path over the keys
+  (position and shape) together with how common the word is. Keys the finger
+  only crosses no longer break a word. On synthetic glides of the 200 most
+  common words per language: 95–98 % right (the old decoder: 3–6 %).
+- After a glide the strip shows the other words the path could mean
+  ("to" / "too", "das" / "dass"); tapping one replaces the glided word.
+- Letters without their own key are glided over their base key (ё over е,
+  ß over s).
+
 ## 0.6.3
 - Multilingual typing like Gboard: with English and German (or Ukrainian and
   Russian) both enabled, a word of the other language is left as typed —

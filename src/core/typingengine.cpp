@@ -140,6 +140,7 @@ QString TypingEngine::takePendingText()
 
 void TypingEngine::insertDictation(const QString &text)
 {
+    dropGlideAlternatives();
     QString phrase = text.simplified();
     if (phrase.isEmpty()) return;
     const bool hadWord = (m_composing && !m_currentWord.isEmpty()) || !m_currentWord.isEmpty();
@@ -162,6 +163,7 @@ void TypingEngine::insertDictation(const QString &text)
 
 void TypingEngine::commitComposition()
 {
+    dropGlideAlternatives();
     if (m_composing && !m_currentWord.isEmpty()) {
         const QString word = m_currentWord;
         finalizeCurrentWord();
@@ -214,6 +216,7 @@ QString TypingEngine::formatForSentence(const QString &word) const
 
 void TypingEngine::typeLetter(const QString &text, QPointF touch)
 {
+    dropGlideAlternatives();
     const qsizetype wordBefore = m_currentWord.size();
     m_lastWasDoublePeriod = false;
     if (text.isEmpty()) return;
@@ -258,6 +261,7 @@ void TypingEngine::typeLetter(const QString &text, QPointF touch)
 
 void TypingEngine::typeText(const QString &text)
 {
+    dropGlideAlternatives();
     m_wordAfterCursor.clear();
     m_lastWasDoublePeriod = false;
     if (text.isEmpty()) return;
@@ -480,6 +484,7 @@ void TypingEngine::finalizeCurrentWord(bool updatePrevious)
 
 void TypingEngine::space()
 {
+    dropGlideAlternatives();
     // A Space inside a word splits it: never autocorrect the left part.
     const bool splittingWord = !m_wordAfterCursor.isEmpty() && !m_composing;
     m_wordAfterCursor.clear();
@@ -624,6 +629,7 @@ void TypingEngine::space()
 
 void TypingEngine::backspace()
 {
+    dropGlideAlternatives();
     m_autoSpacePending = false;
     m_spaceFromSuggestion = false;
     if (m_pendingSpace && !m_pendingPunct.isEmpty()) {
@@ -714,6 +720,7 @@ void TypingEngine::backspace()
 
 void TypingEngine::backspaceRepeated(int count)
 {
+    dropGlideAlternatives();
     m_spaceFromSuggestion = false;
     int bounded = qBound(1, count, 32);
     if (m_pendingSpace && bounded > 0) {
@@ -770,6 +777,7 @@ void TypingEngine::backspaceRepeated(int count)
 
 void TypingEngine::enter()
 {
+    dropGlideAlternatives();
     m_wordAfterCursor.clear();
     m_lastWasDoublePeriod = false;
     m_autoSpacePending = false;
@@ -796,6 +804,11 @@ void TypingEngine::enter()
 void TypingEngine::chooseSuggestion(const QString &word)
 {
     if (word.isEmpty() || m_sensitiveContext) return;
+    if (glideAlternativesShown() && m_glideAlternatives.contains(word)) {
+        replaceGlidedWord(word);
+        return;
+    }
+    dropGlideAlternatives();
     QString selected = word;
     if (!m_currentWord.isEmpty() && m_currentWord.front().isUpper()) {
         selected[0] = selected.at(0).toUpper();
@@ -949,11 +962,16 @@ void TypingEngine::refreshSuggestions()
         }
         return;
     }
+    if (glideAlternativesShown()) {
+        m_suggestions = m_glideAlternatives.mid(0, 3);
+        return;
+    }
     m_suggestions = m_lexicon.nextWords(m_previousWord, 3);
 }
 
 void TypingEngine::resetComposition()
 {
+    dropGlideAlternatives();
     m_wordAfterCursor.clear();
     m_spaceFromSuggestion = false;
     m_pendingWord.clear();
@@ -974,6 +992,7 @@ void TypingEngine::resetComposition()
 
 void TypingEngine::resetInputContext()
 {
+    dropGlideAlternatives();
     m_surroundingSupported = false;
     m_preeditRejected = false;
     m_autoCapitalizationAllowed = true;
@@ -1033,6 +1052,7 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
     // selection, or the application changed the text. The client is the
     // source of truth.
     qCDebug(lcEngine) << "echo bytes" << bounded << "unknown state -> adopt";
+    dropGlideAlternatives();
     m_composing = false;
     m_pendingSpace = false;
     m_spaceFromSuggestion = false;
@@ -1093,6 +1113,7 @@ void TypingEngine::clearLearning()
 
 void TypingEngine::beginGlide(const QString &key)
 {
+    dropGlideAlternatives();
     if (m_sensitiveContext) return;
     commitComposition();
     m_glideTrace.clear();
@@ -1104,6 +1125,67 @@ void TypingEngine::glideThrough(const QString &key)
     if (key.isEmpty() || m_sensitiveContext) return;
     const QString normalized = key.left(1).toLower();
     if (m_glideTrace.isEmpty() || m_glideTrace.back() != normalized) m_glideTrace.append(normalized);
+}
+
+QString TypingEngine::endGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres, qreal keyWidth)
+{
+    if (m_sensitiveContext) { m_glideTrace.clear(); return {}; }
+    const QStringList readings = m_lexicon.decodeGlidePathCandidates(path, keyCentres, keyWidth, m_previousWord, 4);
+    // No geometry (or no reading near the path): the key sequence decoder.
+    if (readings.isEmpty()) return endGlide();
+    m_glideTrace.clear();
+    const QString before = m_previousWord;
+    const QString formatted = formatForSentence(readings.first());
+    chooseSuggestion(formatted);
+    m_glidedWord = formatted;
+    m_wordBeforeGlide = before;
+    m_glideAlternatives.clear();
+    for (const QString &reading : readings.mid(1)) {
+        QString shown = reading;
+        // The same case as the glided word ("To" -> "Too").
+        if (formatted.front().isUpper() && shown.front().isLower()) shown[0] = shown.at(0).toUpper();
+        if (shown != formatted) m_glideAlternatives.append(shown);
+    }
+    refreshSuggestions();
+    return formatted;
+}
+
+bool TypingEngine::glideAlternativesShown() const
+{
+    return !m_glideAlternatives.isEmpty() && m_currentWord.isEmpty() && !m_composing
+        && m_previousWord == m_glidedWord.toLower();
+}
+
+void TypingEngine::replaceGlidedWord(const QString &word)
+{
+    const QString glided = m_glidedWord;
+    m_glideAlternatives.clear();
+    if (m_learningEnabled) m_lexicon.unlearnWordWithContext(glided, m_wordBeforeGlide);
+    // Nothing happened since the glide (any input, a client reset or an
+    // external edit drops the alternatives), so the text before the cursor
+    // is exactly what was committed: delete it on the text channel, which
+    // stays ordered with the commit (Backspace key events would not).
+    const bool held = m_pendingSpace;
+    const QString committed = held ? glided : glided + QLatin1Char(' ');
+    if (held) {
+        m_pendingSpace = false;
+        setPreeditLocal(QString());
+    }
+    if (!deleteLocal(committed)) {
+        for (int i = 0; i < committed.size(); ++i) backspaceLocal();   // no text channel: keys only
+    }
+    commitLocal(held ? word : word + QLatin1Char(' '));
+    if (held) {
+        if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
+        else commitLocal(QStringLiteral(" "));
+    }
+    m_pendingSpaceAfterWord = m_pendingSpace;
+    m_spaceFromSuggestion = true;
+    m_previousWord = m_wordBeforeGlide;
+    m_currentWord = word;
+    finalizeCurrentWord();
+    m_glidedWord = word;
+    refreshSuggestions();
 }
 
 QString TypingEngine::endGlide()

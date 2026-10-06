@@ -11,6 +11,7 @@
 #include "core/locallexicon.h"
 #include "core/keyboardmodel.h"
 #include "core/typingengine.h"
+#include "glidepaths.h"
 
 class FakeBackend final : public Tastra::InputMethodBackend
 {
@@ -629,6 +630,62 @@ private Q_SLOTS:
         now += 1000;                                // a human-speed external edit
         echo(engine, QStringLiteral("hello wor"));
         QCOMPARE(engine.currentWord(), QStringLiteral("wor"));
+    }
+
+    void glideOffersTheOtherReadingsAndReplacesTheWord()
+    {
+        // Gboard: right after a glide the strip shows the other words the
+        // path could mean ("too" and "to" share a path); tapping one replaces
+        // the glided word, and the next key press moves on.
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        engine.setLanguage(QStringLiteral("en"));
+        QVERIFY(engine.waitForDictionaryForTesting(10000));
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        const auto centres = GlidePaths::centresFor(QStringLiteral("en"));
+        const QString glided = engine.endGlidePath(GlidePaths::pathFor(QStringLiteral("too"), centres, 0.0, 3), centres,
+                                                   GlidePaths::KeyWidth);
+        QCOMPARE(glided, QStringLiteral("to"));                     // the commoner reading
+        QVERIFY2(engine.suggestions().contains(QStringLiteral("too")), qPrintable(engine.suggestions().join(',')));
+        echo(engine, QStringLiteral("Hi. to "));                       // the client confirms (with the held space)
+        QVERIFY2(engine.suggestions().contains(QStringLiteral("too")), "an echo does not drop the alternatives");
+        engine.chooseSuggestion(QStringLiteral("too"));
+        QCOMPARE(backend.commits.last(), QStringLiteral("too"));
+        QVERIFY2(backend.deletions.contains(QStringLiteral("to")), qPrintable(backend.events.join(' ')));
+        QCOMPARE(backend.preedit, QStringLiteral(" "));            // the space is still held
+        QVERIFY(!engine.suggestions().contains(QStringLiteral("to")));
+        // Typing moves on: the alternatives of the next glide do not linger.
+        engine.endGlidePath(GlidePaths::pathFor(QStringLiteral("too"), centres, 0.0, 3), centres, GlidePaths::KeyWidth);
+        engine.typeLetter(QStringLiteral("a"));
+        QVERIFY(!engine.suggestions().contains(QStringLiteral("too")));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
+    void glideAlternativeAlsoReplacesWithoutAPreedit()
+    {
+        // Clients without preedit get "to " committed at once; the
+        // alternative replaces the word and its space on the text channel.
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        FakeBackend backend;
+        backend.textChannel = true;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        engine.setLanguage(QStringLiteral("en"));
+        QVERIFY(engine.waitForDictionaryForTesting(10000));
+        echo(engine, QStringLiteral("Hi. "));
+        engine.setAutoCapitalizationEnabled(false);
+        const auto centres = GlidePaths::centresFor(QStringLiteral("en"));
+        QCOMPARE(engine.endGlidePath(GlidePaths::pathFor(QStringLiteral("too"), centres, 0.0, 3), centres, GlidePaths::KeyWidth),
+                 QStringLiteral("to"));
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("to "));
+        engine.chooseSuggestion(QStringLiteral("too"));
+        QCOMPARE(backend.deletions.value(0), QStringLiteral("to "));
+        QCOMPARE(backend.commits.last(), QStringLiteral("too "));
+        QCOMPARE(backend.backspaces, 0);
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
     void glidedWordBehavesLikeASuggestion()

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     Tastra
-    VERSION 0.6.3
+    VERSION 0.6.4
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -43,6 +43,7 @@ add_library(tastra-core STATIC
     src/core/clipboardhistory.cpp
     src/core/emojicatalog.cpp
     src/core/legacymigration.cpp
+    src/core/glidegeometry.cpp
 )
 
 target_include_directories(tastra-core
@@ -453,4 +454,11 @@ if(BUILD_TESTING)
     add_executable(tst_legacymigration tests/tst_legacymigration.cpp)
     target_link_libraries(tst_legacymigration PRIVATE tastra-core Qt6::Test)
     add_test(NAME legacymigration COMMAND tst_legacymigration)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(tst_glide tests/tst_glide.cpp)
+    target_compile_definitions(tst_glide PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_glide PRIVATE tastra-core Qt6::Test)
+    add_test(NAME glide COMMAND tst_glide)
 endif()

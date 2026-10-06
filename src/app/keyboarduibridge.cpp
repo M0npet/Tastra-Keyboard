@@ -877,6 +877,25 @@ QString KeyboardUiBridge::endGlide()
     return word;
 }
 
+QString KeyboardUiBridge::endGlidePath(const QVariantList &points, const QVariantMap &keyCentres, double keyWidth)
+{
+    if (!m_glideEnabled || m_model.symbolsActive()) return {};
+    QVector<QPointF> path;
+    path.reserve(points.size());
+    for (const QVariant &point : points) path.append(point.toPointF());
+    QHash<QChar, QPointF> centres;
+    for (auto it = keyCentres.constBegin(); it != keyCentres.constEnd(); ++it) {
+        if (it.key().size() == 1) centres.insert(it.key().front().toLower(), it.value().toPointF());
+    }
+    const bool uppercaseBefore = uppercase();
+    const QString word = m_typingEngine.endGlidePath(path, centres, keyWidth);
+    if (!word.isEmpty()) {
+        if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+        Q_EMIT suggestionsChanged();
+    }
+    return word;
+}
+
 void KeyboardUiBridge::captureClipboard()
 {
     m_clipboardHistory.capture(clipboardText());

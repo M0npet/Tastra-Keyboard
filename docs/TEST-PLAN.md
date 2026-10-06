@@ -55,3 +55,8 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 35. Ukrainian + Russian on, Ukrainian active: `привет` stays; `пять` -> `п'ять`.
 36. Emoji panel → last chip `:-)`: faces on wide tiles; tap `¯\_(ツ)_/¯` -> inserted as shown (boxes instead of ツ: install `noto-fonts-cjk`); it does not appear under Recent.
 
+## H. Glide typing (0.6.4)
+37. Glide `hello`, `keyboard`, `привет`, `спасибо` quickly and with sloppy curves: the right word appears.
+38. Glide `too` (the same path as `to`): if `to` appears, the strip shows `too`; tap it -> `to` is replaced by `too`, the space stays.
+39. Glide `всё` over е: `всё`/`все` appear (one inserted, the other in the strip).
+

@@ -96,8 +96,19 @@ public:
     QString correctionPreview(const QString &word, const QString &previousWord = {}) const;
     QStringList nextWords(const QString &previousWord, int limit = 3) const;
     QString decodeGlide(const QStringList &trace, const QString &previousWord = {}) const;
+    // Glide typing from the finger's path (root coordinates) and the key
+    // centres of the current layout: SHARK2 / LatinIME-style comparison of the
+    // path with each candidate word's ideal path, plus the word's frequency.
+    QString decodeGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres,
+                            qreal keyWidth, const QString &previousWord = {}) const;
+    // The best readings of the path, best first (Gboard shows the others in
+    // the strip after a glide).
+    QStringList decodeGlidePathCandidates(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres,
+                                          qreal keyWidth, const QString &previousWord = {}, int limit = 4) const;
 
     void learnWordWithContext(const QString &word, const QString &previousWord);
+    // Takes back one learnWordWithContext() (a glided word the user replaced).
+    void unlearnWordWithContext(const QString &word, const QString &previousWord);
     void flushLearning();
     void clearLearning();
 

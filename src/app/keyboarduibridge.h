@@ -219,6 +219,9 @@ public:
     Q_INVOKABLE void beginGlide(const QString &key);
     Q_INVOKABLE void glideThrough(const QString &key);
     Q_INVOKABLE QString endGlide();
+    // Glide from the finger's path (root coordinates) and the letter keys'
+    // centres ({"a": point, ...}); falls back to the key sequence.
+    Q_INVOKABLE QString endGlidePath(const QVariantList &points, const QVariantMap &keyCentres, double keyWidth);
 
     Q_INVOKABLE void pasteClipboard();
     Q_INVOKABLE void pasteClipboardHistory(int index);

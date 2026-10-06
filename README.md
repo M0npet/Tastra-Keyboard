@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.6.3, in development**. The typing core is done and tested; the
+Status: **0.6.4, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
@@ -52,7 +52,9 @@ previous binary is kept for rolling back.
   after abbreviations such as "e.g."; quotes are handled, and German letters
   and dates too (no capital on the line after "Liebe Anna," or after "3.").
   Double Space types ". ", and a space is added after punctuation.
-- Glide typing with a trail (can be turned off), two-thumb typing,
+- Glide typing matched on the shape of the finger's path, with the other
+  readings offered in the strip afterwards; a trail (can be turned off);
+  two-thumb typing,
   long-press for accents and symbols (ß, ё, ґ, digits) with an adjustable delay
   (200–700 ms), two symbol pages with your currency, number row, key popups,
   optional key click.
