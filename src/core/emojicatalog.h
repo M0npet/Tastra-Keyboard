@@ -23,6 +23,9 @@ public:
     EmojiCatalog();
 
     QStringList categories() const;
+    // Gboard's ":-)" tab of text faces (classic emoticons and kaomoji).
+    static QString emoticonCategory() { return QStringLiteral(":-)"); }
+    static QStringList emoticons();
     QStringList glyphs(const QString &category = {}, const QString &query = {}, int limit = 240) const;
     // Adds CLDR keywords of the keyboard language (English is always used).
     void setKeywordLanguage(const QString &code);

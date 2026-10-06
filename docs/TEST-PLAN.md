@@ -53,4 +53,5 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 ## G. Several languages at once (0.6.3)
 34. Settings → Languages: English + German on. English active: `danke` Space stays `danke`, `teh` still -> `the`; no "+ Add to dictionary" for `danke`.
 35. Ukrainian + Russian on, Ukrainian active: `привет` stays; `пять` -> `п'ять`.
+36. Emoji panel → last chip `:-)`: faces on wide tiles; tap `¯\_(ツ)_/¯` -> inserted as shown (boxes instead of ツ: install `noto-fonts-cjk`); it does not appear under Recent.
 

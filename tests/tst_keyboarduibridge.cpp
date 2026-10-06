@@ -538,6 +538,28 @@ private Q_SLOTS:
         QVERIFY(bridge.companionLanguages().isEmpty());
     }
 
+    void emoticonsAreATabOfTextFacesLikeGboard()
+    {
+        // Gboard's emoji keyboard has a ":-)" tab of text emoticons.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        QCOMPARE(bridge.emojiCategories().value(bridge.emojiCategories().size() - 1), QStringLiteral(":-)"));
+        const QStringList faces = bridge.emojiSearch(QString(), QStringLiteral(":-)"));
+        for (const QString &face : {QStringLiteral(":-)"), QStringLiteral(";-)"), QStringLiteral(":-D"),
+                                    QStringLiteral("¯\\_(ツ)_/¯"), QStringLiteral("(╯°□°)╯︵ ┻━┻")}) {
+            QVERIFY2(faces.contains(face), qPrintable(face));
+        }
+        QVERIFY(faces.size() >= 40);
+        QCOMPARE(QSet<QString>(faces.cbegin(), faces.cend()).size(), faces.size());   // no duplicates
+        // A face goes in exactly as shown and is not an emoji for "Recent".
+        const QStringList recentBefore = bridge.recentEmojis();
+        bridge.insertEmoticon(QStringLiteral("¯\\_(ツ)_/¯"));
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("¯\\_(ツ)_/¯"));
+        QCOMPARE(bridge.recentEmojis(), recentBefore);
+    }
+
     void choosingAWrongLayoutFixSwitchesTheLanguage()
     {
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/frequency-foreign")});

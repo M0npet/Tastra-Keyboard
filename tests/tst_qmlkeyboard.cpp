@@ -837,6 +837,36 @@ private Q_SLOTS:
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiTonePicker")));
     }
 
+    void emoticonTabShowsWideTilesAndInsertsTheFace()
+    {
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        bridge.activateToolbarAction(QStringLiteral("emoji"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("emojiCategory_:-)")));
+        QTest::qWait(100);
+        QQuickItem *chip = findNamed(view.rootObject(), QStringLiteral("emojiCategory_:-)"));
+        QTest::mouseClick(&view, Qt::LeftButton, {}, chip->mapToScene(QPointF(chip->width() / 2, chip->height() / 2)).toPoint());
+        // ";-)" sits in the first row (":-)" would also match the chip label).
+        const QString wink = QStringLiteral(";-)");
+        QTRY_VERIFY(findText(view.rootObject(), wink));
+        QTest::qWait(100);
+        QQuickItem *face = findText(view.rootObject(), wink);
+        QQuickItem *tile = face->parentItem();
+        // Faces get wide tiles (an emoji tile is 58 px): "¯\\_(ツ)_/¯" fits.
+        QVERIFY2(tile->width() >= 100, qPrintable(QString::number(tile->width())));
+        QVERIFY(face->width() <= tile->width());
+        QTest::mouseClick(&view, Qt::LeftButton, {}, tile->mapToScene(QPointF(tile->width() / 2, tile->height() / 2)).toPoint());
+        QTRY_COMPARE(backend.commits, QStringList{wink});
+        QVERIFY(!bridge.recentEmojis().contains(wink));
+    }
+
     void justCopiedTextIsOfferedForPasting()
     {
         FakeBackend backend;

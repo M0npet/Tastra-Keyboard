@@ -1590,6 +1590,7 @@ Rectangle {
                         Repeater {
                             model: keyboardBridge.emojiCategories
                             delegate: Rectangle {
+                                objectName: "emojiCategory_" + modelData
                                 height: root.portrait ? 40 : 34
                                 width: categoryText.implicitWidth + 24
                                 radius: height / 2
@@ -1611,16 +1612,18 @@ Rectangle {
                 }
 
                 GridView {
+                    // Gboard's ":-)" tab: text faces get wide tiles.
+                    readonly property bool faces: root.emojiCategory === ":-)"
                     width: parent.width
                     height: parent.height - (root.portrait ? 100 : 88)
                     clip: true
-                    cellWidth: root.portrait ? 58 : 50
-                    cellHeight: cellWidth
+                    cellWidth: faces ? Math.floor(width / (root.portrait ? 3 : 5)) : (root.portrait ? 58 : 50)
+                    cellHeight: root.portrait ? 58 : 50
                     model: (keyboardBridge.emojiCategories, keyboardBridge.emojiSearch(emojiSearchInput.text, root.emojiCategory))
 
                     delegate: Rectangle {
                         width: GridView.view.cellWidth - root.keyGap
-                        height: width
+                        height: GridView.view.cellHeight - root.keyGap
                         radius: 12
                         color: emojiMouse.pressed ? root.specialKeyColor : root.keyColor
                         border.width: keyboardBridge.keyBorders ? 1 : 0
@@ -1629,7 +1632,13 @@ Rectangle {
                         Text {
                             anchors.centerIn: parent
                             text: modelData
-                            font.pixelSize: root.portrait ? 28 : 24
+                            color: root.textColor
+                            font.pixelSize: parent.GridView.view.faces ? (root.portrait ? 18 : 16) : (root.portrait ? 28 : 24)
+                            // A long face shrinks to fit its tile.
+                            width: parent.GridView.view.faces ? parent.width - 8 : implicitWidth
+                            horizontalAlignment: Text.AlignHCenter
+                            fontSizeMode: parent.GridView.view.faces ? Text.HorizontalFit : Text.FixedSize
+                            minimumPixelSize: 10
                         }
 
                         MouseArea {
@@ -1646,7 +1655,8 @@ Rectangle {
                             }
                             onClicked: {
                                 if (picked) return
-                                keyboardBridge.insertEmoji(modelData)
+                                if (parent.GridView.view.faces) keyboardBridge.insertEmoticon(modelData)
+                                else keyboardBridge.insertEmoji(modelData)
                             }
                         }
                     }

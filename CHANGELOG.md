@@ -10,6 +10,10 @@ internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
   `danke` is no longer "corrected" to `dance`, nor `привет` to `привіт` — and
   is not offered for the personal dictionary. A nearly free fix in the active
   language still wins (`пять` -> `п'ять` on the Ukrainian layout).
+- Emoticons: the emoji panel has Gboard's `:-)` tab with 58 text faces, from
+  `:-)` and `<3` to `¯\_(ツ)_/¯` and `(╯°□°)╯︵ ┻━┻`, on wide tiles. A face goes
+  in exactly as shown and does not crowd the recent emoji. (The Japanese
+  characters in a few faces need a CJK font: `sudo pacman -S noto-fonts-cjk`.)
 
 ## 0.6.2
 - New name: **Tastra** (from German *Tastatur*), and a home on GitHub:

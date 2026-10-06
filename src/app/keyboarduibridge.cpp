@@ -268,6 +268,11 @@ void KeyboardUiBridge::insertEmoji(const QString &glyph)
     Q_EMIT emojiChanged();
 }
 
+void KeyboardUiBridge::insertEmoticon(const QString &face)
+{
+    tapText(face);
+}
+
 // Gboard "personal dictionary" shortcuts: one "shortcut<TAB>expansion" or
 // "shortcut = expansion" per line in ~/.config/tastra/shortcuts.txt.
 void KeyboardUiBridge::loadShortcuts()

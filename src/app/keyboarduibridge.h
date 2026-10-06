@@ -179,6 +179,8 @@ public:
 
     Q_INVOKABLE QVariantMap layoutMetrics(bool portrait) const;
     Q_INVOKABLE QString alternateForKey(const QString &text) const;
+    // Gboard's ":-)" tab: a text face goes in as typed, not into "Recent".
+    Q_INVOKABLE void insertEmoticon(const QString &face);
     Q_INVOKABLE QStringList emojiSearch(const QString &query, const QString &category = QStringLiteral("All")) const;
 
     Q_INVOKABLE void tapLetter(const QString &letter);

@@ -1212,3 +1212,19 @@ words above kept; teh->the, dont->don't, nciht->nicht, uber->über,
 The session hit its usage limit right after this; the work was resumed from
 the session log (uncommitted tree intact, full suite green).
 
+## 2026-10-06 — 0.6.3 emoticon tab (Gboard ":-)")
+
+Gboard's emoji keyboard has a ":-)" tab of text emoticons; ours had only
+emoji categories. Added 58 faces (own selection of generic short faces:
+classic ASCII first, then kaomoji) as the last category chip. Tiles are a
+third (portrait) or fifth (landscape) of the width, and long faces shrink to
+fit (Text.HorizontalFit). Faces are inserted as typed text and are not added
+to the recent emoji. RED->GREEN: bridge emoticonsAreATabOfTextFacesLikeGboard
+(category last, required faces, no duplicates, exact insert, recent
+untouched); UI emoticonTabShowsWideTilesAndInsertsTheFace (chip by
+objectName, tile >= 100 px wide where an emoji tile is 58, tap commits). The
+first UI version tapped the shrug, which is item 38 and below the visible
+grid (click landed outside the window); the test now taps ";-)" in the first
+row. Rendered the tab and all 58 faces offscreen: every face draws with the
+Noto fonts; the few with Katakana need a CJK font on the device.
+

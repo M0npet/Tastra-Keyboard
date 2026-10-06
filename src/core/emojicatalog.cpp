@@ -208,7 +208,32 @@ QStringList EmojiCatalog::categories() const
             if (entry.category == category) { result.append(category); break; }
         }
     }
+    result.append(emoticonCategory());
     return result;
+}
+
+QStringList EmojiCatalog::emoticons()
+{
+    // Most common first. Our own selection of generic text faces; the few
+    // with Japanese characters (the shrug, the table flip) need a CJK font.
+    static const QStringList faces = {
+        QStringLiteral(":-)"), QStringLiteral(";-)"), QStringLiteral(":-D"), QStringLiteral(":-P"),
+        QStringLiteral(":-("), QStringLiteral(":'-("), QStringLiteral(":-O"), QStringLiteral(":-*"),
+        QStringLiteral("<3"), QStringLiteral("</3"), QStringLiteral(":-|"), QStringLiteral(":-/"),
+        QStringLiteral("B-)"), QStringLiteral("XD"), QStringLiteral(":3"), QStringLiteral(">:-("),
+        QStringLiteral("O:-)"), QStringLiteral("^_^"), QStringLiteral("^^"), QStringLiteral("-_-"),
+        QStringLiteral("o_O"), QStringLiteral("T_T"), QStringLiteral(">_<"), QStringLiteral("^o^"),
+        QStringLiteral("\\(^o^)/"), QStringLiteral("(^_~)"), QStringLiteral("(•_•)"), QStringLiteral("(•‿•)"),
+        QStringLiteral("(◕‿◕)"), QStringLiteral("(≧▽≦)"), QStringLiteral("(*^‿^*)"), QStringLiteral("(¬‿¬)"),
+        QStringLiteral("(⌐■_■)"), QStringLiteral("( •_•)>⌐■-■"), QStringLiteral("ಠ_ಠ"), QStringLiteral("ʕ•ᴥ•ʔ"),
+        QStringLiteral("(ᵔᴥᵔ)"), QStringLiteral("¯\\_(ツ)_/¯"), QStringLiteral("¯\\(°_o)/¯"),
+        QStringLiteral("(╯°□°)╯︵ ┻━┻"), QStringLiteral("┬─┬ノ( º _ ºノ)"), QStringLiteral("( ͡° ͜ʖ ͡°)"),
+        QStringLiteral("(づ◕‿◕)づ"), QStringLiteral("٩(◕‿◕)۶"), QStringLiteral("\\(•‿•)/"), QStringLiteral("(ʘ‿ʘ)"),
+        QStringLiteral("♥‿♥"), QStringLiteral("(✿◠‿◠)"), QStringLiteral("(•́︿•̀)"), QStringLiteral("(ง'̀-'́)ง"),
+        QStringLiteral("ᕕ( ᐛ )ᕗ"), QStringLiteral("(っ˘ڡ˘ς)"), QStringLiteral("(=^.^=)"), QStringLiteral("(⊙_⊙)"),
+        QStringLiteral("♪~ ᕕ(ᐛ)ᕗ"), QStringLiteral("(-‿-)"), QStringLiteral("(^▽^)"), QStringLiteral("(T_T)"),
+    };
+    return faces;
 }
 
 namespace
@@ -312,6 +337,12 @@ QStringList EmojiCatalog::glyphs(const QString &category, const QString &query, 
     const QString q = query.trimmed().toLower();
     const QString cat = category.isEmpty() ? QStringLiteral("All") : category;
     if (cat == QStringLiteral("Recent") && q.isEmpty()) return m_recent.mid(0, limit);
+    if (cat == emoticonCategory()) {
+        if (q.isEmpty()) return emoticons().mid(0, limit);
+        QStringList matching;
+        for (const QString &face : emoticons()) if (face.contains(q, Qt::CaseInsensitive)) matching << face;
+        return matching.mid(0, limit);
+    }
     if (!q.isEmpty()) ensureKeywords();
     QStringList exact;
     QStringList strong;
