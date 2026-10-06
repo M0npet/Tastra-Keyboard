@@ -1078,3 +1078,14 @@ Performance follow-up in the same batch (measured, not guessed):
 - Emoji suggestions scanned the whole catalog per strip read (on the device
   with the system emoji list, ~1900 entries); now an exact-keyword index built
   once per language.
+
+## 2026-10-06 — 0.6.1 symbol pages (Gboard "?123" / "=\<")
+
+The symbols layer had a single page (~27 symbols): no _ = < > [ ] { } \ | ~ ^,
+no € £ ₴ ₽, no « » „ “, no dashes. Now two pages like Gboard: page 1 carries
+the language's currency ($ / € / ₽ / ₴) and "_"; page 2 has programming and
+typographic symbols; long-press extras on symbol keys (" -> « » „ “ ”,
+- -> – —, currency -> other currencies, digits -> fractions/superscripts,
+< > ( ) = …). The page key replaces Shift on the symbols layer. Render check
+showed the third row wider than the others (its width formula assumed no key
+on the left); fixed and covered by a row-width assertion in the UI test.

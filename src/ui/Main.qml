@@ -1035,7 +1035,7 @@ Rectangle {
 
             Repeater {
                 model: keyboardBridge.symbolsActive
-                    ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+                    ? keyboardBridge.symbolRow1
                     : keyboardBridge.row1
 
                 delegate: Key {
@@ -1045,7 +1045,7 @@ Rectangle {
                         ? modelData
                         : (keyboardBridge.uppercase ? modelData.toUpperCase() : modelData)
                     alternate: keyboardBridge.symbolsActive ? "" : keyboardBridge.alternateForKey(modelData)
-                    alternates: keyboardBridge.symbolsActive ? [] : (keyboardBridge.uppercase, keyboardBridge.alternatesForKey(modelData))
+                    alternates: (keyboardBridge.uppercase, keyboardBridge.symbolsActive, keyboardBridge.symbolPage, keyboardBridge.alternatesForKey(modelData))
                     hint: keyboardBridge.symbolsActive ? "" : (keyboardBridge.symbolHints, keyboardBridge.symbolHintForKey(modelData))
                     longPressEnabled: alternates.length > 0
                     onAlternateChosen: (text) => keyboardBridge.tapAlternateText(text)
@@ -1073,7 +1073,7 @@ Rectangle {
 
             Repeater {
                 model: keyboardBridge.symbolsActive
-                    ? ["@", "#", "$", "%", "&", "-", "+", "(", ")"]
+                    ? keyboardBridge.symbolRow2
                     : keyboardBridge.row2
 
                 delegate: Key {
@@ -1083,7 +1083,7 @@ Rectangle {
                         ? modelData
                         : (keyboardBridge.uppercase ? modelData.toUpperCase() : modelData)
                     alternate: keyboardBridge.symbolsActive ? "" : keyboardBridge.alternateForKey(modelData)
-                    alternates: keyboardBridge.symbolsActive ? [] : (keyboardBridge.uppercase, keyboardBridge.alternatesForKey(modelData))
+                    alternates: (keyboardBridge.uppercase, keyboardBridge.symbolsActive, keyboardBridge.symbolPage, keyboardBridge.alternatesForKey(modelData))
                     hint: keyboardBridge.symbolsActive ? "" : (keyboardBridge.symbolHints, keyboardBridge.symbolHintForKey(modelData))
                     longPressEnabled: alternates.length > 0
                     onAlternateChosen: (text) => keyboardBridge.tapAlternateText(text)
@@ -1140,24 +1140,37 @@ Rectangle {
                 onTriggered: keyboardBridge.shift()
             }
 
+            Key {
+                // Symbols layer: switch between "?123" and "=\<" (Gboard).
+                objectName: "symbolPageKey"
+                visible: keyboardBridge.symbolsActive
+                preferredWidth: root.baseKeyWidth * 1.25
+                special: true
+                popupEnabled: false
+                label: keyboardBridge.symbolPage === 0 ? "=\\<" : "?123"
+                onTriggered: keyboardBridge.toggleSymbolPage()
+            }
+
             Repeater {
                 model: keyboardBridge.symbolsActive
-                    ? ["*", "\"", "'", ":", ";", "!", "?", "/"]
+                    ? keyboardBridge.symbolRow3
                     : keyboardBridge.row3
 
                 delegate: Key {
                     id: row3LetterKey
                     preferredWidth: {
-                        var count = keyboardBridge.symbolsActive ? 8 : keyboardBridge.row3.length
-                        var sideWidth = root.baseKeyWidth * (keyboardBridge.symbolsActive ? 1.25 : 2.5)
-                        var gaps = keyboardBridge.symbolsActive ? count : count + 1
+                        // Both layers now have a key on each side (Shift or the
+                        // symbol-page key, and Backspace).
+                        var count = keyboardBridge.symbolsActive ? keyboardBridge.symbolRow3.length : keyboardBridge.row3.length
+                        var sideWidth = root.baseKeyWidth * 2.5
+                        var gaps = count + 1
                         return (root.contentWidth - sideWidth - root.keyGap * gaps) / count
                     }
                     label: keyboardBridge.symbolsActive
                         ? modelData
                         : (keyboardBridge.uppercase ? modelData.toUpperCase() : modelData)
                     alternate: keyboardBridge.symbolsActive ? "" : keyboardBridge.alternateForKey(modelData)
-                    alternates: keyboardBridge.symbolsActive ? [] : (keyboardBridge.uppercase, keyboardBridge.alternatesForKey(modelData))
+                    alternates: (keyboardBridge.uppercase, keyboardBridge.symbolsActive, keyboardBridge.symbolPage, keyboardBridge.alternatesForKey(modelData))
                     hint: keyboardBridge.symbolsActive ? "" : (keyboardBridge.symbolHints, keyboardBridge.symbolHintForKey(modelData))
                     longPressEnabled: alternates.length > 0
                     onAlternateChosen: (text) => keyboardBridge.tapAlternateText(text)

@@ -325,6 +325,9 @@ for path, token, why in (
     ('src/app/keyboarduibridge.cpp', 'void KeyboardUiBridge::cycleLongPressDelay', 'long-press delay setting'),
     ('src/platform/kwin/kwininputmethodv1backend.cpp', 'void KWinInputMethodV1Backend::moveUp', 'Up/Down keys'),
     ('tests/tst_qmlkeyboard.cpp', 'justCopiedTextIsOfferedForPasting', 'clipboard chip UI test'),
+    ('src/core/keyboardmodel.cpp', 'QList<QStringList> KeyboardModel::symbolRows', 'two symbol pages + locale currency (0.6.1)'),
+    ('src/ui/Main.qml', 'objectName: "symbolPageKey"', 'symbol page key'),
+    ('tests/tst_qmlkeyboard.cpp', 'secondSymbolPageAndSymbolExtras', 'symbol pages UI test'),
 ):
     require(path, token, why)
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
@@ -341,4 +344,4 @@ if not wav.exists() or wav.read_bytes()[:4] != b'RIFF':
     print('STATIC VERIFY: FAILED')
     print(' - data/sounds/click.wav missing or not a WAV file')
     sys.exit(1)
-print('v0.6.0 markers present: wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.6.1 markers present: symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

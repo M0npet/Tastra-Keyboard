@@ -4,6 +4,11 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.6.1
+- Second symbol page "=\<" (< > [ ] { } \ | ~ ^ = % © ® ™ £ € ¥ …), the
+  language's currency on the first page, and long-press extras such as « »,
+  „ “, – —, ½ and other currencies.
+
 ## 0.6.0
 - Wrong layout: "ghbdtn" typed with English active offers "привет"; tapping it
   also switches to Russian.

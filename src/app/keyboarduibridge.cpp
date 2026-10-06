@@ -126,6 +126,16 @@ QStringList KeyboardUiBridge::row3() const { return m_model.row3(); }
 QString KeyboardUiBridge::activePanel() const { return panelIdName(m_panelManager.activePanel()); }
 QStringList KeyboardUiBridge::toolbarActionIds() const { return m_toolbarModel.visibleActionIds(); }
 QStringList KeyboardUiBridge::allLanguageCodes() const { return m_model.languageCodes(); }
+int KeyboardUiBridge::symbolPage() const { return m_model.symbolPage(); }
+QStringList KeyboardUiBridge::symbolRow1() const { return m_model.symbolRows().value(0); }
+QStringList KeyboardUiBridge::symbolRow2() const { return m_model.symbolRows().value(1); }
+QStringList KeyboardUiBridge::symbolRow3() const { return m_model.symbolRows().value(2); }
+
+void KeyboardUiBridge::toggleSymbolPage()
+{
+    m_model.toggleSymbolPage();
+    Q_EMIT keyboardStateChanged();
+}
 QStringList KeyboardUiBridge::allLanguageLabels() const { return m_model.languageLabels(); }
 
 bool KeyboardUiBridge::isLanguageEnabled(const QString &code) const

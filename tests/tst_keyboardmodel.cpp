@@ -34,7 +34,43 @@ private Q_SLOTS:
         QCOMPARE(model.alternatesForKey(QStringLiteral("г")).value(0), QStringLiteral("ґ"));
 
         model.toggleSymbols();
-        QVERIFY(model.alternatesForKey(QStringLiteral("1")).isEmpty());
+        // Symbols layer: Gboard's extras (fractions, superscripts) on digits.
+        QVERIFY(model.alternatesForKey(QStringLiteral("1")).contains(QStringLiteral("½")));
+    }
+
+    void symbolPagesLikeGboard()
+    {
+        V3Keyboard::KeyboardModel model;
+        model.toggleSymbols();
+        QCOMPARE(model.symbolPage(), 0);
+        // Page 1 (?123): the currency of the language.
+        QVERIFY(model.symbolRows().at(1).contains(QStringLiteral("$")));
+        model.setLanguage(QStringLiteral("de"));
+        QVERIFY(model.symbolRows().at(1).contains(QStringLiteral("€")));
+        model.setLanguage(QStringLiteral("ru"));
+        QVERIFY(model.symbolRows().at(1).contains(QStringLiteral("₽")));
+        model.setLanguage(QStringLiteral("uk"));
+        QVERIFY(model.symbolRows().at(1).contains(QStringLiteral("₴")));
+        QVERIFY(model.symbolRows().at(1).contains(QStringLiteral("_")));
+        // Page 2 (=\<): programming and typographic symbols.
+        model.toggleSymbolPage();
+        QCOMPARE(model.symbolPage(), 1);
+        QString page2;
+        for (const QStringList &row : model.symbolRows()) page2 += row.join(QString());
+        for (const QString &sym : {QStringLiteral("<"), QStringLiteral(">"), QStringLiteral("["), QStringLiteral("]"),
+                                   QStringLiteral("{"), QStringLiteral("}"), QStringLiteral("\\"), QStringLiteral("|"),
+                                   QStringLiteral("~"), QStringLiteral("^"), QStringLiteral("="), QStringLiteral("%")}) {
+            QVERIFY2(page2.contains(sym), qPrintable(sym));
+        }
+        for (const QStringList &row : model.symbolRows()) QVERIFY(row.size() >= 8 && row.size() <= 10);
+        // Long-press extras on symbol keys.
+        QVERIFY(model.alternatesForKey(QStringLiteral("\"")).contains(QStringLiteral("«")));
+        QVERIFY(model.alternatesForKey(QStringLiteral("-")).contains(QStringLiteral("—")));
+        QVERIFY(model.alternatesForKey(QStringLiteral("₴")).contains(QStringLiteral("€")));
+        // Leaving the symbols layer resets to page 1.
+        model.toggleSymbols();
+        model.toggleSymbols();
+        QCOMPARE(model.symbolPage(), 0);
     }
 
     void startsLowercase()

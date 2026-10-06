@@ -70,6 +70,7 @@ void KeyboardModel::consumeShiftAfterLetter()
 
 void KeyboardModel::toggleSymbols()
 {
+    m_symbolPage = 0;
     m_layer = (m_layer == Layer::Alphabet)
         ? Layer::Symbols
         : Layer::Alphabet;
@@ -109,8 +110,65 @@ QStringList KeyboardModel::rowsForLanguage(const QString &code)
     return {};
 }
 
+int KeyboardModel::symbolPage() const { return m_symbolPage; }
+
+void KeyboardModel::toggleSymbolPage()
+{
+    if (m_layer == Layer::Alphabet) return;
+    m_symbolPage = m_symbolPage == 0 ? 1 : 0;
+}
+
+namespace
+{
+QString currencyFor(const QString &language)
+{
+    if (language == QStringLiteral("de")) return QStringLiteral("€");
+    if (language == QStringLiteral("ru")) return QStringLiteral("₽");
+    if (language == QStringLiteral("uk")) return QStringLiteral("₴");
+    return QStringLiteral("$");
+}
+
+QStringList chars(const QString &text)
+{
+    QStringList out;
+    for (const QChar ch : text) out.append(QString(ch));
+    return out;
+}
+}
+
+QList<QStringList> KeyboardModel::symbolRows() const
+{
+    if (m_symbolPage == 0) {
+        QStringList row2 = {QStringLiteral("@"), QStringLiteral("#"), currencyFor(languageCode()), QStringLiteral("_"),
+                            QStringLiteral("&"), QStringLiteral("-"), QStringLiteral("+"), QStringLiteral("("), QStringLiteral(")")};
+        return {chars(QStringLiteral("1234567890")), row2, chars(QStringLiteral("*\"':;!?/"))};
+    }
+    return {chars(QStringLiteral("~`|•√π÷×¶§")), chars(QStringLiteral("£€¥^°={}\\")), chars(QStringLiteral("%©®™[]<>"))};
+}
+
 QStringList KeyboardModel::alternatesForKey(const QString &text) const
 {
+    if (m_layer != Layer::Alphabet && text != QStringLiteral(".")) {
+        // Gboard long-press extras on the symbol pages.
+        static const QHash<QString, QString> extras = {
+            {QStringLiteral("\""), QStringLiteral("«»„“”")}, {QStringLiteral("'"), QStringLiteral("‘’‚")},
+            {QStringLiteral("-"), QStringLiteral("–—")}, {QStringLiteral("_"), QStringLiteral("—")},
+            {QStringLiteral("!"), QStringLiteral("¡")}, {QStringLiteral("?"), QStringLiteral("¿")},
+            {QStringLiteral("%"), QStringLiteral("‰")}, {QStringLiteral("*"), QStringLiteral("★•")},
+            {QStringLiteral("="), QStringLiteral("≠≈±")}, {QStringLiteral("<"), QStringLiteral("≤«")},
+            {QStringLiteral(">"), QStringLiteral("≥»")}, {QStringLiteral("("), QStringLiteral("[{<")},
+            {QStringLiteral(")"), QStringLiteral("]}>")}, {QStringLiteral("/"), QStringLiteral("\\")},
+            {QStringLiteral("&"), QStringLiteral("§")}, {QStringLiteral("#"), QStringLiteral("№")},
+            {QStringLiteral("0"), QStringLiteral("°∅")}, {QStringLiteral("1"), QStringLiteral("¹½⅓¼")},
+            {QStringLiteral("2"), QStringLiteral("²⅔")}, {QStringLiteral("3"), QStringLiteral("³¾")}};
+        static const QString currencies = QStringLiteral("$€₴₽£¥¢");
+        if (currencies.contains(text) && text.size() == 1) {
+            QStringList others;
+            for (const QChar ch : currencies) if (QString(ch) != text) others.append(QString(ch));
+            return others;
+        }
+        return chars(extras.value(text));
+    }
     if (m_layer != Layer::Alphabet) return {};
     if (text == QStringLiteral(".")) {
         return {QStringLiteral(","), QStringLiteral("?"), QStringLiteral("!"), QStringLiteral("'"),

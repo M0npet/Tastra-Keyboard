@@ -35,6 +35,11 @@ public:
     // Gboard-style long-press choices; the first one is preselected (a
     // language letter such as ß/ё/ґ, otherwise the key's symbol hint).
     QStringList alternatesForKey(const QString &text) const;
+    // Gboard symbol pages: 0 = "?123" (with the language's currency),
+    // 1 = "=\<" (programming and typographic symbols). Rows of 10/9/8 keys.
+    int symbolPage() const;
+    void toggleSymbolPage();
+    QList<QStringList> symbolRows() const;
     // The three letter rows of a language's layout (for layout conversion).
     static QStringList rowsForLanguage(const QString &code);
 
@@ -55,6 +60,7 @@ private:
     ShiftState m_shiftState = ShiftState::Lowercase;
     Layer m_layer = Layer::Alphabet;
     int m_languageIndex = 0;
+    int m_symbolPage = 0;
 };
 
 }

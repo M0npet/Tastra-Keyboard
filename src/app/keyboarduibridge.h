@@ -41,6 +41,11 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QVariantList toolbarActions READ toolbarActions NOTIFY toolbarStateChanged)
     Q_PROPERTY(QStringList languageCodes READ languageCodes NOTIFY keyboardStateChanged)
     Q_PROPERTY(QStringList languageLabels READ languageLabels NOTIFY keyboardStateChanged)
+    // Gboard symbol pages ("?123" / "=\<").
+    Q_PROPERTY(int symbolPage READ symbolPage NOTIFY keyboardStateChanged)
+    Q_PROPERTY(QStringList symbolRow1 READ symbolRow1 NOTIFY keyboardStateChanged)
+    Q_PROPERTY(QStringList symbolRow2 READ symbolRow2 NOTIFY keyboardStateChanged)
+    Q_PROPERTY(QStringList symbolRow3 READ symbolRow3 NOTIFY keyboardStateChanged)
     // Gboard: the user chooses which languages the globe cycles through.
     Q_PROPERTY(QStringList allLanguageCodes READ allLanguageCodes CONSTANT)
     Q_PROPERTY(QStringList allLanguageLabels READ allLanguageLabels CONSTANT)
@@ -184,6 +189,11 @@ public:
     Q_INVOKABLE void shift();
     Q_INVOKABLE void toggleSymbols();
     Q_INVOKABLE void nextLanguage();
+    Q_INVOKABLE void toggleSymbolPage();
+    int symbolPage() const;
+    QStringList symbolRow1() const;
+    QStringList symbolRow2() const;
+    QStringList symbolRow3() const;
     Q_INVOKABLE bool isLanguageEnabled(const QString &code) const;
     Q_INVOKABLE void setLanguageEnabled(const QString &code, bool enabled);
     QStringList allLanguageCodes() const;

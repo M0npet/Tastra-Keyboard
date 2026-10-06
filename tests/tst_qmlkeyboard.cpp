@@ -864,6 +864,49 @@ private Q_SLOTS:
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("clipboardChip")));
     }
 
+    void secondSymbolPageAndSymbolExtras()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
+        bridge.setLanguage(QStringLiteral("ru"));
+        bridge.toggleSymbols();
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("₽")));          // the language's currency
+        QQuickItem *pageKey = findNamed(view.rootObject(), QStringLiteral("symbolPageKey"));
+        QVERIFY(pageKey);
+        QTest::qWait(50);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre(pageKey));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("<")));
+        QTest::qWait(50);
+        // The third row (page key + symbols + Backspace) is as wide as the others.
+        {
+            auto rowOf = [&](const QString &label) { return findText(view.rootObject(), label)->parentItem()->parentItem(); };
+            const QRectF r1 = rowOf(QStringLiteral("~"))->mapRectToScene(QRectF(0, 0, rowOf(QStringLiteral("~"))->width(), 1));
+            const QRectF r3 = rowOf(QStringLiteral("<"))->mapRectToScene(QRectF(0, 0, rowOf(QStringLiteral("<"))->width(), 1));
+            QVERIFY2(qAbs(r3.width() - r1.width()) < 4.0, qPrintable(QStringLiteral("row1 %1 vs row3 %2").arg(r1.width()).arg(r3.width())));
+        }
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findText(view.rootObject(), QStringLiteral("<"))));
+        QTRY_COMPARE(backend.commits.value(0), QStringLiteral("<"));
+        // Back to page 1, long-press the quote for guillemets.
+        QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findNamed(view.rootObject(), QStringLiteral("symbolPageKey"))));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("\"")));
+        QTest::qWait(50);
+        static QPointingDevice *touch = QTest::createTouchDevice();
+        const QPoint q = centre(findText(view.rootObject(), QStringLiteral("\"")));
+        QTest::touchEvent(&view, touch).press(0, q);
+        QTest::qWait(bridge.longPressDelay() + 150);
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("«")));          // picker open
+        QTest::touchEvent(&view, touch).release(0, q);                          // first choice
+        QTRY_COMPARE(backend.commits.value(1), QStringLiteral("«"));
+    }
+
     void caseChangesDoNotRecreateLetterKeys()
     {
         FakeBackend backend;
