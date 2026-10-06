@@ -890,7 +890,8 @@ void TypingEngine::refreshSuggestions()
         const bool stillAPrefix = std::any_of(m_suggestions.cbegin(), m_suggestions.cend(), [&](const QString &s) {
             return s.size() > wholeWord.size() && s.startsWith(wholeWord, Qt::CaseInsensitive);
         });
-        m_currentWordKnown = stillAPrefix || m_lexicon.hasWordCheaply(m_currentWord) || m_lexicon.hasWord(m_currentWord);
+        m_currentWordKnown = stillAPrefix || m_lexicon.hasWordCheaply(m_currentWord)
+            || m_lexicon.knownInCompanionLanguage(m_currentWord) || m_lexicon.hasWord(m_currentWord);
         m_recorrectionOriginal.clear();
         // Typed with the wrong layout ("ghbdtn" -> "привет")? Offer the word
         // of the language whose keys were meant; checked only for unknown words.

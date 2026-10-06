@@ -286,6 +286,28 @@ private Q_SLOTS:
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
+    void aWordOfAnotherEnabledLanguageIsKnownAndKept()
+    {
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/latinime/hunspell")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/latinime/frequency")});
+        Tastra::LocalLexicon::clearForeignWordCacheForTesting();
+        Tastra::LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("de"));
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        engine.setLanguage(QStringLiteral("en"));
+        QVERIFY(engine.waitForDictionaryForTesting(5000));
+        engine.setCompanionLanguages({QStringLiteral("de")});
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("danke")) engine.typeLetter(QString(ch));
+        QVERIFY(engine.currentWordKnown());               // no "+ Add to dictionary" offer
+        QVERIFY(engine.autocorrectTarget().isEmpty());    // and no "dance"
+        Tastra::LocalLexicon::clearForeignWordCacheForTesting();
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
     void capitalisationFollowsLatinIMEOnTheFieldText()
     {
         auto capsAfter = [](const QString &language, const QString &before) {

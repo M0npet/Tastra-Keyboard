@@ -49,3 +49,8 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 31. English: `dont` Space -> `don't`; `im` -> `I'm`; `i` -> `I`; `ive` -> `I've`; `cant` stays, strip offers `can't`.
 32. Ukrainian: `пять` -> `п'ять`, `звязок` -> `зв'язок`; Russian: `обьект` -> `объект`, `щас` stays `щас`.
 33. German: `uber` -> `über`, `strasse` -> `Straße`, `naturlich` -> `natürlich`; Backspace right after undoes it.
+
+## G. Several languages at once (0.6.3)
+34. Settings → Languages: English + German on. English active: `danke` Space stays `danke`, `teh` still -> `the`; no "+ Add to dictionary" for `danke`.
+35. Ukrainian + Russian on, Ukrainian active: `привет` stays; `пять` -> `п'ять`.
+

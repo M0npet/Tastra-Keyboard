@@ -201,6 +201,7 @@ void KeyboardUiBridge::updateForeignLayouts()
 {
     const QStringList current = KeyboardModel::rowsForLanguage(m_model.languageCode());
     QList<QPair<QString, QHash<QChar, QChar>>> maps;
+    QStringList companions;
     for (const QString &code : languageCodes()) {
         if (code == m_model.languageCode()) continue;
         const QStringList other = KeyboardModel::rowsForLanguage(code);
@@ -214,8 +215,11 @@ void KeyboardUiBridge::updateForeignLayouts()
         // Same-script languages (en/de, ru/uk) share most keys: only a
         // different script makes a meaningful wrong-layout reading.
         if (map.size() >= 15) maps.append({code, map});
+        // The same script: typed words of that language are left alone.
+        else companions.append(code);
     }
     m_typingEngine.setForeignLayouts(maps);
+    m_typingEngine.setCompanionLanguages(companions);
 }
 
 QString KeyboardUiBridge::clipboardSuggestion() const

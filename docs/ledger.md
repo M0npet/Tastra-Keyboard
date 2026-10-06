@@ -1190,3 +1190,25 @@ results; rerun with the lists linked in):
   pushed; README, tastra-update and CHANGELOG point there (GitHub redirects
   the old name). GitHub Actions on 0.6.2 (039033a): green.
 
+## 2026-10-06 — 0.6.3 multilingual typing (Gboard: several languages at once)
+
+Real-data probe with en+de and uk+ru enabled showed same-script words of the
+other language being "corrected": danke->dance, bitte->bite, nicht->night,
+ist->sit, wie->we (en active); what->hat, yes->es, nice->nie (de active);
+привет->привіт, спасибо->спасибі, тоже->отже (uk active). Gboard types
+several enabled languages without switching. Now the other enabled languages
+of the same script are "companions": their bundled word lists (hashes, loaded
+in the background as for wrong-layout detection) make a typed word known, so
+it is neither corrected nor offered for the personal dictionary. Different
+scripts keep wrong-layout detection. RED->GREEN: bridge
+otherEnabledLanguagesOfTheSameScriptAreCompanions, engine
+aWordOfAnotherEnabledLanguageIsKnownAndKept, lexicon tests; then
+aNearlyFreeFixInTheActiveLanguageBeatsAnotherLanguagesWord (RED: "пять" is a
+Russian word, but on the Ukrainian layout the left-out apostrophe is the
+likelier story; apostrophe/accent edits now still win). Probe after: all the
+words above kept; teh->the, dont->don't, nciht->nicht, uber->über,
+пять->п'ять still corrected.
+
+The session hit its usage limit right after this; the work was resumed from
+the session log (uncommitted tree intact, full suite green).
+

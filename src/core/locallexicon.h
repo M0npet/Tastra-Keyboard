@@ -57,6 +57,13 @@ public:
     // is loaded on first use only (wrong-layout detection).
     // Never blocks: the first call starts a background load and returns false.
     static bool knownInLanguage(const QString &language, const QString &word);
+    // Gboard's multilingual typing: the other enabled languages written in
+    // the same script (en/de, uk/ru). A word one of them knows is never
+    // "corrected" into this language. Their word lists load in the
+    // background, as for wrong-layout detection.
+    void setCompanionLanguages(const QStringList &codes);
+    QStringList companionLanguages() const { return m_companions; }
+    bool knownInCompanionLanguage(const QString &word) const;
     static void preloadForeignWordsForTesting(const QString &language);   // blocking
     // Known without Hunspell (frequency list, stems, user and core words).
     bool hasWordCheaply(const QString &word) const;
@@ -136,6 +143,7 @@ private:
     QString bigramKey(const QString &previousWord, const QString &word) const;
 
     QString m_language = QStringLiteral("en");
+    QStringList m_companions;
     bool m_loadStarted = false;
     mutable std::future<std::shared_ptr<DictionaryData>> m_pending;
     mutable std::shared_ptr<DictionaryData> m_data;

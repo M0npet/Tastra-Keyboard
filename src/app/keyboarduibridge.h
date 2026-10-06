@@ -122,6 +122,7 @@ public:
     QStringList toolbarActionIds() const;
     QVariantList toolbarActions() const;
     QStringList languageCodes() const;
+    QStringList companionLanguages() const { return m_typingEngine.companionLanguages(); }
     QStringList languageLabels() const;
     QString currentWord() const;
     QString autocorrectSuggestion() const;

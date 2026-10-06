@@ -77,6 +77,8 @@ public:
     QString autocorrectTarget() const;
     // Wrong-layout detection: per other language, current key -> its key.
     void setForeignLayouts(const QList<QPair<QString, QHash<QChar, QChar>>> &maps);
+    void setCompanionLanguages(const QStringList &codes) { m_lexicon.setCompanionLanguages(codes); }
+    QStringList companionLanguages() const { return m_lexicon.companionLanguages(); }
     QString layoutSuggestionWord() const;
     QString layoutSuggestionLanguage() const;
     // Whether the current word is a known word (computed once per keystroke).

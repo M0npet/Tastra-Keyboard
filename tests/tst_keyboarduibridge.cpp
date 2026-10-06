@@ -523,6 +523,21 @@ private Q_SLOTS:
         QCOMPARE(reloaded.longPressDelay(), 300);
     }
 
+    void otherEnabledLanguagesOfTheSameScriptAreCompanions()
+    {
+        // Gboard's multilingual typing: words of these are never "corrected".
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setLanguage(QStringLiteral("en"));
+        QCOMPARE(bridge.companionLanguages(), QStringList{QStringLiteral("de")});
+        bridge.setLanguage(QStringLiteral("uk"));
+        QCOMPARE(bridge.companionLanguages(), QStringList{QStringLiteral("ru")});
+        bridge.setLanguageEnabled(QStringLiteral("ru"), false);
+        QVERIFY(bridge.companionLanguages().isEmpty());
+    }
+
     void choosingAWrongLayoutFixSwitchesTheLanguage()
     {
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/frequency-foreign")});

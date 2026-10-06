@@ -608,6 +608,25 @@ bool LocalLexicon::knownInLanguage(const QString &language, const QString &word)
     return false;
 }
 
+void LocalLexicon::setCompanionLanguages(const QStringList &codes)
+{
+    m_companions = codes;
+    m_companions.removeAll(m_language);
+    m_companions.removeDuplicates();
+    // Start the background loads now, before the first word needs them.
+    for (const QString &code : std::as_const(m_companions)) knownInLanguage(code, QString());
+}
+
+bool LocalLexicon::knownInCompanionLanguage(const QString &word) const
+{
+    const QString w = normalize(word);
+    if (w.isEmpty()) return false;
+    for (const QString &code : m_companions) {
+        if (code != m_language && knownInLanguage(code, w)) return true;
+    }
+    return false;
+}
+
 QString LocalLexicon::userDictionaryFile()
 {
     if (!userDictionaryFileOverride().isEmpty()) return userDictionaryFileOverride();
@@ -1206,10 +1225,14 @@ QString LocalLexicon::pickCorrection(const QString &word, const QString &previou
     // Words the user has kept (typed and committed, or restored by undoing a
     // correction) are never rewritten, not even from the curated typo list.
     if (isUserWord(typed)) return {};
+    // A word of another enabled language ("danke" on the English layout)
+    // is that language's word, not a typo (Gboard multilingual typing).
+    // Only a nearly free fix in the active language still wins below.
+    const bool otherLanguageWord = knownInCompanionLanguage(typed);
     // "i" -> "I", "monday" -> "Monday": only the capital is a word.
-    if (const QString capital = englishCapitalForm(typed); !capital.isEmpty()) return capital;
+    if (const QString capital = englishCapitalForm(typed); !capital.isEmpty() && !otherLanguageWord) return capital;
     const auto typo = m_typoMap.constFind(typed);
-    if (typed.size() >= 3 && typo != m_typoMap.constEnd()) return typo.value();
+    if (typed.size() >= 3 && typo != m_typoMap.constEnd() && !otherLanguageWord) return typo.value();
 
     // Without a real dictionary there is no way to know that the typed word
     // is wrong; rewriting "knows" or "form" would corrupt valid text.
@@ -1223,6 +1246,9 @@ QString LocalLexicon::pickCorrection(const QString &word, const QString &previou
     if (candidates.isEmpty()) return {};
     const Candidate &best = candidates.first();
     if (typed.size() < 3 && best.edit != Edit::Apostrophe) return {};
+    // "пять" with Russian enabled: still "п'ять" on the Ukrainian layout,
+    // whose apostrophe was left out; "привет" stays Russian.
+    if (otherLanguageWord && best.edit != Edit::Apostrophe && best.edit != Edit::Accent) return {};
     const int rank = frequencyRank(best.word);
     const int personal = m_personalFrequency.value(best.word);
     const int margin = candidates.size() > 1 ? best.score - candidates.at(1).score : 1000;

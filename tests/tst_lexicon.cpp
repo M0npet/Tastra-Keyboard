@@ -490,6 +490,46 @@ private Q_SLOTS:
         QVERIFY(lexicon.bestCorrection(QStringLiteral("еще")).isEmpty());
         QCOMPARE(lexicon.bestCorrection(QStringLiteral("првиет")), QStringLiteral("привет"));   // transposition still
     }
+
+    void wordsOfAnotherEnabledLanguageAreNotCorrected()
+    {
+        // Gboard's multilingual typing: with German enabled next to English,
+        // "danke" typed on the English layout is German, not a typo of "dance".
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("en"));
+        LocalLexicon::clearForeignWordCacheForTesting();
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("danke")), QStringLiteral("dance"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("sind")), QStringLiteral("Sind"));
+        lexicon.setCompanionLanguages({QStringLiteral("de"), QStringLiteral("en")});
+        LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("de"));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("danke")).isEmpty());
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("nicht")).isEmpty());
+        QVERIFY(lexicon.correctionPreview(QStringLiteral("bitte")).isEmpty());
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("sind")).isEmpty());      // no capital "Sind" either
+        QVERIFY(lexicon.knownInCompanionLanguage(QStringLiteral("Danke")));
+        // English typos are still English typos.
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("dont")), QStringLiteral("don't"));
+        lexicon.setCompanionLanguages({});
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("danke")), QStringLiteral("dance"));
+        LocalLexicon::clearForeignWordCacheForTesting();
+    }
+
+    void aNearlyFreeFixInTheActiveLanguageBeatsAnotherLanguagesWord()
+    {
+        // Ukrainian layout, Russian enabled too: "привет" is Russian and stays,
+        // but "пять" is far more likely "п'ять" with the apostrophe left out
+        // (the layout says which language is being typed).
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("uk"));
+        LocalLexicon::clearForeignWordCacheForTesting();
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("привет")), QStringLiteral("привіт"));
+        lexicon.setCompanionLanguages({QStringLiteral("ru")});
+        LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("ru"));
+        QVERIFY(lexicon.knownInCompanionLanguage(QStringLiteral("пять")));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("привет")).isEmpty());
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("пять")), QStringLiteral("п'ять"));
+        LocalLexicon::clearForeignWordCacheForTesting();
+    }
 };
 
 QTEST_GUILESS_MAIN(LexiconTest)
