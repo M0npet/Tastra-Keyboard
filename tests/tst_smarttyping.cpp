@@ -36,6 +36,12 @@ public:
         events.append(QStringLiteral("del:") + text);
         return true;
     }
+    bool deleteAroundCursor(const QString &before, const QString &after) override
+    {
+        if (!textChannel) return false;
+        events.append(QStringLiteral("delAround:") + before + QLatin1Char('|') + after);
+        return true;
+    }
 
     bool setPreedit(const QString &text) override
     {
@@ -283,6 +289,43 @@ private Q_SLOTS:
         engine.space();
         QVERIFY2(!(backend.commits.join(QString()) + backend.preedit).endsWith(QStringLiteral("the ")),
                  qPrintable(backend.commits.join(QString()) + backend.preedit));
+    }
+
+    void tappingIntoAWordOffersSuggestionsForTheWholeWord()
+    {
+        // Gboard: put the cursor inside a word and the strip shows options for
+        // the whole word; choosing one replaces the whole word.
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        qint64 now = 1000;
+        engine.setClockForTesting([&now] { return now; });
+        composing(backend, engine);
+        engine.addUserWord(QStringLiteral("world"));
+        now += 2000;
+        engine.resetComposition();                                   // the user taps into the text
+        const QString text = QStringLiteral("Hi. wrold is");
+        const int cursor = QStringLiteral("Hi. wr").toUtf8().size();
+        engine.syncSurroundingText(text, cursor, cursor);
+        QCOMPARE(engine.currentWord(), QStringLiteral("wr"));
+        QVERIFY2(engine.suggestions().contains(QStringLiteral("world")), qPrintable(engine.suggestions().join(',')));
+        QVERIFY(engine.autocorrectTarget().isEmpty());              // no autocorrect mid-word
+        engine.chooseSuggestion(QStringLiteral("world"));
+        QCOMPARE(backend.events.mid(backend.events.size() - 2),
+                 QStringList({QStringLiteral("delAround:wr|old"), QStringLiteral("commit:world")}));
+        QVERIFY(!backend.commits.contains(QStringLiteral(" ")));     // " is" already follows: no extra space
+
+        // Space inside a word splits it; the left part is not autocorrected.
+        now += 2000;
+        engine.resetComposition();
+        const QString text2 = QStringLiteral("Hi. tehx is");
+        const int cursor2 = QStringLiteral("Hi. teh").toUtf8().size();       // "teh|x": "teh" alone would be corrected
+        engine.syncSurroundingText(text2, cursor2, cursor2);
+        QCOMPARE(engine.currentWord(), QStringLiteral("teh"));
+        const int deletionsBefore = backend.deletions.size();
+        engine.space();
+        QCOMPARE(backend.deletions.size(), deletionsBefore);
+        QCOMPARE(backend.commits.last(), QStringLiteral(" "));
     }
 
     void emptyParagraphCommitsTheFirstLetterBeforeComposing()

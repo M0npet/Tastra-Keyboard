@@ -83,6 +83,19 @@ private Q_SLOTS:
         QVERIFY(context.keySyms.isEmpty());
     }
 
+    void deleteAroundCursorCoversBothSidesInBytes()
+    {
+        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        FakeInputMethodV1Context context;
+        QVERIFY(!backend.deleteAroundCursor(QStringLiteral("wr"), QStringLiteral("old")));   // no context
+        backend.setContext(&context);
+        QVERIFY(backend.deleteAroundCursor(QStringLiteral("wr"), QStringLiteral("old")));
+        QVERIFY(backend.deleteAroundCursor(QStringLiteral("пр"), QStringLiteral("ивет")));    // UTF-8
+        // KWin maps (index, length) to before = -index, after = index + length.
+        QCOMPARE(context.deletes.at(0), qMakePair(qint32(-2), quint32(5)));
+        QCOMPARE(context.deletes.at(1), qMakePair(qint32(-4), quint32(12)));
+    }
+
     void preeditCarriesCommitFallbackAndByteCursor()
     {
         V3Keyboard::KWin::KWinInputMethodV1Backend backend;

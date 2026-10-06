@@ -42,6 +42,7 @@ public:
     void moveEnd() override;
     void enter() override;
     bool deleteBeforeCursor(const QString &text) override;
+    bool deleteAroundCursor(const QString &before, const QString &after) override;
     bool setPreedit(const QString &text) override;
 
 private:

@@ -4,6 +4,10 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.5.3
+- Tap into the middle of a word: the strip offers options for the whole word
+  and a choice replaces all of it (Gboard). A Space inside a word just splits it.
+
 ## 0.5.2
 - Split keyboard for thumb typing on the tablet (Settings → Keyboard layout →
   Split), as in Gboard on tablets; the space bar spans the gap.

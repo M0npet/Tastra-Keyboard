@@ -23,6 +23,7 @@ public:
     void moveEnd();
     void enter();
     bool deleteBeforeCursor(const QString &text);
+    bool deleteAroundCursor(const QString &before, const QString &after);
     bool setPreedit(const QString &text);
 
 private:

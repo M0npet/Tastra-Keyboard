@@ -61,6 +61,17 @@ bool KWinInputMethodV1Backend::deleteBeforeCursor(const QString &text)
     return true;
 }
 
+bool KWinInputMethodV1Backend::deleteAroundCursor(const QString &before, const QString &after)
+{
+    if (!m_context || (before.isEmpty() && after.isEmpty())) return false;
+    const quint32 b = static_cast<quint32>(before.toUtf8().size());
+    const quint32 a = static_cast<quint32>(after.toUtf8().size());
+    // KWin: before = -index, after = index + length.
+    qCDebug(lcKWinBackend) << "delete_surrounding_text bytes around cursor" << b << a;
+    m_context->deleteSurroundingText(-static_cast<qint32>(b), b + a);
+    return true;
+}
+
 bool KWinInputMethodV1Backend::setPreedit(const QString &text)
 {
     if (!m_context) {

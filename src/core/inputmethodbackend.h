@@ -30,6 +30,15 @@ public:
         return false;
     }
 
+    // Deletes `before` (ending at the cursor) and `after` (starting at it) in
+    // one request, e.g. to replace the word the cursor sits in.
+    virtual bool deleteAroundCursor(const QString &before, const QString &after)
+    {
+        Q_UNUSED(before);
+        Q_UNUSED(after);
+        return false;
+    }
+
     // Shows `text` as the client's preedit (composition), replacing any
     // previous one; an empty string clears it. The next commitText() replaces
     // the preedit atomically. Returns false when unsupported.

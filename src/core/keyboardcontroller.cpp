@@ -52,6 +52,11 @@ void KeyboardController::enter()
 }
 
 
+bool KeyboardController::deleteAroundCursor(const QString &before, const QString &after)
+{
+    return m_backend.deleteAroundCursor(before, after);
+}
+
 bool KeyboardController::deleteBeforeCursor(const QString &text)
 {
     return m_backend.deleteBeforeCursor(text);

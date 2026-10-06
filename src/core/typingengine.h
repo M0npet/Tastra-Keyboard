@@ -104,6 +104,7 @@ private:
     bool doubleSpaceAllowedAfter(const QString &textBeforeSpace) const;
     bool atEmptyParagraph() const;
     void rememberCorrection(const QString &typed, const QString &corrected);
+    bool replaceWordAroundCursor(const QString &replacement);
     QString stripHead(const QString &text) const;
     bool compositionAvailable() const;
     bool setPreeditLocal(const QString &text);
@@ -138,6 +139,9 @@ private:
     // returning the cursor to such a word offers what was typed.
     QList<QPair<QString, QString>> m_recentCorrections;
     QString m_recorrectionOriginal;
+    // Gboard: the cursor inside a word -> options for the whole word.
+    QString m_wordAfterCursor;     // letters right after the cursor
+    QChar m_charAfterWord;         // what follows that word ('\0' = end)
     bool m_lastWasDoublePeriod = false; // immediate mode: ". " just inserted
     qint64 m_lastSpaceMs = -1;          // time of the latest Space press
     qint64 m_previousSpaceMs = -1;      // LatinIME double-space countdown start

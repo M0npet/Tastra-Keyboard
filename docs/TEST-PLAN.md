@@ -32,3 +32,4 @@ keyboard. On any problem send `~/.local/state/v3-keyboard/trace.log`.
 19. Voice (if installed): 🎤, speak, 🎤 -> text in the keyboard language.
 20. `v3kbd-dictionaries --status`, `v3kbd-voice-setup --status`.
 21. Settings → Keyboard layout → Split (landscape): halves apart, thumbs reach the space bar; typing works on both halves.
+22. Tap into the middle of a misspelt word (e.g. "wrold"): the strip offers "world"; tapping it replaces the whole word.

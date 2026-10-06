@@ -1017,3 +1017,17 @@ space spans the gap, a tap on a shifted key types it, number pad unsplit).
 The first version kept the centre key of odd rows ("g") in place (it formally
 spans the centre); fixed by exempting only wide keys — found from geometry
 debug output; render checked twice (space bar first sat inside the gap).
+
+## 2026-10-05 — 0.5.3 options for the word under the cursor (Gboard)
+
+Tapping into the middle of a word: the strip offers options for the whole word
+(also the typed original of an autocorrected word); choosing one replaces the
+whole word with one delete_surrounding_text (before = -index, after = index +
+length, UTF-8 bytes) + commit, only on confirmed client text (otherwise
+nothing happens, a stale echo must never cut a word). No auto-space when a
+space or punctuation already follows. Autocorrect is off for such a word, and a
+Space inside it splits it without correcting the left part — the first version
+of that check used "te|h" and could not fail (words < 3 letters are never
+corrected); rewritten as "teh|x", observed RED, then fixed.
+Typing-speed signal deliberately not added: without data it would be a guess
+that could suppress good corrections after a thinking pause.

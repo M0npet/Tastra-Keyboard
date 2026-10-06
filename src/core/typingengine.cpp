@@ -258,6 +258,7 @@ void TypingEngine::typeLetter(const QString &text, QPointF touch)
 
 void TypingEngine::typeText(const QString &text)
 {
+    m_wordAfterCursor.clear();
     m_lastWasDoublePeriod = false;
     if (text.isEmpty()) return;
     m_spaceFromSuggestion = false;
@@ -394,6 +395,16 @@ bool TypingEngine::doubleSpaceAllowedAfter(const QString &textBeforeSpace) const
         || last.category() == QChar::Symbol_Other;
 }
 
+bool TypingEngine::replaceWordAroundCursor(const QString &replacement)
+{
+    // Only on confirmed client text: a stale echo must never cut a word.
+    if (!m_surroundingSupported || !inSyncWithClient() || !m_model.endsWith(m_currentWord)) return false;
+    if (!m_controller.deleteAroundCursor(m_currentWord, m_wordAfterCursor)) return false;
+    m_model.chop(m_currentWord.size());
+    commitLocal(replacement);
+    return true;
+}
+
 void TypingEngine::rememberCorrection(const QString &typed, const QString &corrected)
 {
     if (typed.isEmpty() || corrected.isEmpty() || typed == corrected) return;
@@ -469,6 +480,9 @@ void TypingEngine::finalizeCurrentWord(bool updatePrevious)
 
 void TypingEngine::space()
 {
+    // A Space inside a word splits it: never autocorrect the left part.
+    const bool splittingWord = !m_wordAfterCursor.isEmpty() && !m_composing;
+    m_wordAfterCursor.clear();
     m_lastWasDoublePeriod = false;
     // Every Space press restarts the LatinIME double-space countdown.
     m_previousSpaceMs = m_lastSpaceMs;
@@ -583,7 +597,7 @@ void TypingEngine::space()
         return;
     }
 
-    if (m_autocorrectEnabled) {
+    if (m_autocorrectEnabled && !splittingWord) {
         const QString correction = m_lexicon.bestCorrection(m_currentWord, m_previousWord);
         if (!correction.isEmpty()) {
             QString formatted = correction;
@@ -755,6 +769,7 @@ void TypingEngine::backspaceRepeated(int count)
 
 void TypingEngine::enter()
 {
+    m_wordAfterCursor.clear();
     m_lastWasDoublePeriod = false;
     m_autoSpacePending = false;
     m_spaceFromSuggestion = false;
@@ -793,6 +808,23 @@ void TypingEngine::chooseSuggestion(const QString &word)
         m_composing = false;
         commitLocal(stripHead(selected));    // replaces the preedit atomically
         m_committedHead.clear();
+    } else if (!m_currentWord.isEmpty() && !m_wordAfterCursor.isEmpty()) {
+        // The cursor is inside a word: replace all of it, or nothing.
+        if (!replaceWordAroundCursor(selected)) {
+            refreshSuggestions();
+            return;
+        }
+        const bool followed = !m_charAfterWord.isNull() && (m_charAfterWord.isSpace() || m_charAfterWord.isPunct());
+        if (!m_recorrectionOriginal.isEmpty() && selected == m_recorrectionOriginal) m_lexicon.promoteWord(selected);
+        m_wordAfterCursor.clear();
+        m_currentWord = selected;
+        finalizeCurrentWord();
+        if (!followed) commitLocal(QStringLiteral(" "));
+        m_spaceFromSuggestion = !followed;
+        m_lastActionWasSpace = false;
+        m_sentenceStart = false;
+        refreshSuggestions();
+        return;
     } else if (!m_currentWord.isEmpty()) {
         // A deliberate tap: fall back to key events if the client has not
         // confirmed the word yet rather than ignoring the user's choice.
@@ -832,7 +864,7 @@ void TypingEngine::refreshSuggestions()
     // What Space would insert instead of the typed word (shown highlighted
     // in the middle of the strip, as Gboard does).
     m_autocorrectTarget.clear();
-    if (!m_sensitiveContext && m_autocorrectEnabled && !m_currentWord.isEmpty()
+    if (!m_sensitiveContext && m_autocorrectEnabled && !m_currentWord.isEmpty() && m_wordAfterCursor.isEmpty()
         && (m_noCorrectionFor.isEmpty() || m_currentWord.compare(m_noCorrectionFor, Qt::CaseInsensitive) != 0)) {
         // Cheap preview per keystroke; Space runs the full Hunspell check.
         QString target = m_lexicon.correctionPreview(m_currentWord, m_previousWord);
@@ -845,11 +877,13 @@ void TypingEngine::refreshSuggestions()
         return;
     }
     if (!m_currentWord.isEmpty()) {
-        m_suggestions = m_lexicon.suggestions(m_currentWord, m_previousWord, 3);
+        const bool midWord = !m_composing && !m_wordAfterCursor.isEmpty();
+        const QString wholeWord = midWord ? m_currentWord + m_wordAfterCursor : m_currentWord;
+        m_suggestions = m_lexicon.suggestions(wholeWord, m_previousWord, 3);
         m_recorrectionOriginal.clear();
         if (!m_composing) {
             for (const auto &entry : std::as_const(m_recentCorrections)) {
-                if (entry.first.compare(m_currentWord, Qt::CaseInsensitive) == 0) {
+                if (entry.first.compare(wholeWord, Qt::CaseInsensitive) == 0) {
                     m_recorrectionOriginal = entry.second;
                     m_suggestions.removeAll(entry.second);
                     m_suggestions.prepend(entry.second);
@@ -881,6 +915,7 @@ void TypingEngine::refreshSuggestions()
 
 void TypingEngine::resetComposition()
 {
+    m_wordAfterCursor.clear();
     m_spaceFromSuggestion = false;
     m_pendingWord.clear();
     m_pendingOriginal.clear();
@@ -987,7 +1022,20 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
         }
     }
 
-    if (m_currentWord == trailing && m_previousWord == incomingPrevious && m_sentenceStart == incomingSentenceStart) {
+    QString afterWord;
+    QChar charAfter;
+    if (cursorByte == anchorByte) {
+        const QString after = QString::fromUtf8(utf8.mid(bounded)).left(64);
+        qsizetype n = 0;
+        while (n < after.size() && after.at(n).isLetter()) ++n;
+        afterWord = after.left(n);
+        charAfter = n < after.size() ? after.at(n) : QChar();
+    }
+    const bool afterChanged = afterWord != m_wordAfterCursor;
+    m_wordAfterCursor = afterWord;
+    m_charAfterWord = charAfter;
+    if (!afterChanged && m_currentWord == trailing && m_previousWord == incomingPrevious
+        && m_sentenceStart == incomingSentenceStart) {
         return false;
     }
     m_currentWord = trailing;
