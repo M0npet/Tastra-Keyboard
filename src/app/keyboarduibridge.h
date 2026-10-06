@@ -73,6 +73,9 @@ class KeyboardUiBridge final : public QObject
     // Gboard "Emoji fast-access row": recent emoji above the keys.
     Q_PROPERTY(bool emojiRow READ emojiRow WRITE setEmojiRow NOTIFY uiPreferencesChanged)
     Q_PROPERTY(QStringList recentEmojis READ recentEmojis NOTIFY emojiChanged)
+    Q_PROPERTY(bool emojiSearchActive READ emojiSearchActive NOTIFY emojiSearchChanged)
+    Q_PROPERTY(QString emojiSearchText READ emojiSearchText NOTIFY emojiSearchChanged)
+    Q_PROPERTY(QStringList emojiSearchResults READ emojiSearchResults NOTIFY emojiSearchChanged)
     // Gboard "Sound on keypress" (off by default) and "Show gesture trail".
     Q_PROPERTY(bool keySound READ keySound WRITE setKeySound NOTIFY uiPreferencesChanged)
     // Gboard "Key long press delay" (default 300 ms).
@@ -184,6 +187,15 @@ public:
     Q_INVOKABLE QString alternateForKey(const QString &text) const;
     // Gboard's ":-)" tab: a text face goes in as typed, not into "Recent".
     Q_INVOKABLE void insertEmoticon(const QString &face);
+    // Gboard emoji search: the keyboard's own letters type the query (an
+    // input panel never gets keyboard focus, so a text field in it could not
+    // be typed into). Keys go to the query until an emoji is chosen, Enter
+    // or the close button.
+    bool emojiSearchActive() const { return m_emojiSearchActive; }
+    QString emojiSearchText() const { return m_emojiSearchText; }
+    QStringList emojiSearchResults() const;
+    Q_INVOKABLE void startEmojiSearch();
+    Q_INVOKABLE void stopEmojiSearch();
     Q_INVOKABLE QStringList emojiSearch(const QString &query, const QString &category = QStringLiteral("All")) const;
 
     Q_INVOKABLE void tapLetter(const QString &letter);
@@ -286,6 +298,7 @@ public:
     void setPreferredLanguage(const QString &language);
 
 Q_SIGNALS:
+    void emojiSearchChanged();
     void keyboardStateChanged();
     void toolbarStateChanged();
     void uiPreferencesChanged();
@@ -316,6 +329,10 @@ private:
     QString m_theme = QStringLiteral("system");
     bool m_emojiSuggestions = true;
     bool m_nextWordSuggestions = true;
+    bool m_emojiSearchActive = false;
+    QString m_emojiSearchText;
+    // Keys typed while the emoji search is open go to its query.
+    bool typeIntoEmojiSearch(const QString &text);
     bool m_keySound = false;
     int m_longPressDelay = 300;
     bool m_glideTrail = true;

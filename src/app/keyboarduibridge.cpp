@@ -117,7 +117,11 @@ KeyboardUiBridge::KeyboardUiBridge(
     }
 }
 
-bool KeyboardUiBridge::uppercase() const { return m_model.uppercase() || m_typingEngine.wantsAutoUppercase(); }
+bool KeyboardUiBridge::uppercase() const
+{
+    if (m_emojiSearchActive) return false;            // the query is lowercase
+    return m_model.uppercase() || m_typingEngine.wantsAutoUppercase();
+}
 bool KeyboardUiBridge::capsLock() const { return m_model.capsLock(); }
 bool KeyboardUiBridge::symbolsActive() const { return m_model.symbolsActive(); }
 QString KeyboardUiBridge::languageCode() const { return m_model.languageCode(); }
@@ -192,6 +196,7 @@ bool KeyboardUiBridge::canHideKeyboard() const { return m_hider != nullptr; }
 
 void KeyboardUiBridge::hideKeyboard()
 {
+    stopEmojiSearch();
     if (!m_hider) return;
     m_typingEngine.commitComposition();      // like a focus change: keep the word
     Q_EMIT suggestionsChanged();
@@ -233,6 +238,7 @@ QString KeyboardUiBridge::clipboardSuggestion() const
 
 void KeyboardUiBridge::pasteClipboardSuggestion()
 {
+    stopEmojiSearch();
     const QString text = clipboardSuggestion();
     m_freshClipboard.clear();
     if (!text.isEmpty()) tapText(text);
@@ -265,13 +271,60 @@ QStringList KeyboardUiBridge::emojiSkinTones(const QString &glyph) const { retur
 
 void KeyboardUiBridge::insertEmoji(const QString &glyph)
 {
+    stopEmojiSearch();               // choosing a result ends the search
     tapText(glyph);
     m_emojiCatalog.noteUsed(glyph);
     Q_EMIT emojiChanged();
 }
 
+void KeyboardUiBridge::startEmojiSearch()
+{
+    m_typingEngine.commitComposition();
+    m_emojiSearchActive = true;
+    m_emojiSearchText.clear();
+    // The letters come back; the strip becomes the search bar.
+    if (m_panelManager.closePanel()) Q_EMIT toolbarStateChanged();
+    Q_EMIT emojiSearchChanged();
+    Q_EMIT keyboardStateChanged();
+}
+
+void KeyboardUiBridge::stopEmojiSearch()
+{
+    if (!m_emojiSearchActive) return;
+    m_emojiSearchActive = false;
+    m_emojiSearchText.clear();
+    Q_EMIT emojiSearchChanged();
+    Q_EMIT keyboardStateChanged();
+}
+
+QStringList KeyboardUiBridge::emojiSearchResults() const
+{
+    if (!m_emojiSearchActive) return {};
+    const QString query = m_emojiSearchText.trimmed();
+    if (query.isEmpty()) {
+        const QStringList recent = m_emojiCatalog.glyphs(QStringLiteral("Recent"), {}, 30);
+        return recent.isEmpty() ? m_emojiCatalog.glyphs(QStringLiteral("Smileys"), {}, 30) : recent;
+    }
+    return m_emojiCatalog.glyphs(QStringLiteral("All"), query, 40);
+}
+
+bool KeyboardUiBridge::typeIntoEmojiSearch(const QString &text)
+{
+    if (!m_emojiSearchActive) return false;
+    if (text == QStringLiteral("\b")) m_emojiSearchText.chop(1);
+    else if (text == QStringLiteral(" ")) {
+        if (!m_emojiSearchText.isEmpty() && !m_emojiSearchText.endsWith(QLatin1Char(' '))) m_emojiSearchText += text;
+    } else {
+        m_emojiSearchText += text.toLower();
+    }
+    m_model.consumeShiftAfterLetter();
+    Q_EMIT emojiSearchChanged();
+    return true;
+}
+
 void KeyboardUiBridge::insertEmoticon(const QString &face)
 {
+    stopEmojiSearch();
     tapText(face);
 }
 
@@ -455,6 +508,7 @@ void KeyboardUiBridge::tapAlternateText(const QString &text)
 {
     m_saveCandidate.clear();
     if (text.isEmpty()) return;
+    if (typeIntoEmojiSearch(text)) return;
     const bool uppercaseBefore = uppercase();
     if (text.front().isLetter()) m_typingEngine.typeLetter(text);
     else m_typingEngine.typeText(text);
@@ -633,6 +687,7 @@ void KeyboardUiBridge::tapLetter(const QString &letter) { tapLetterAt(letter, 0,
 
 void KeyboardUiBridge::tapLetterAt(const QString &letter, qreal dx, qreal dy)
 {
+    if (typeIntoEmojiSearch(letter)) return;
     m_saveCandidate.clear();
     m_freshClipboard.clear();                       // typing dismisses the paste offer
     const bool oneShotWasActive = m_model.uppercase() && !m_model.capsLock();
@@ -652,6 +707,7 @@ void KeyboardUiBridge::tapAlternate(const QString &base)
 {
     QString alternate = m_model.alternateForKey(base);
     if (alternate.isEmpty()) return;
+    if (typeIntoEmojiSearch(alternate)) return;
     const bool autoUpperWasActive = m_typingEngine.wantsAutoUppercase();
     if (uppercase()) alternate = alternate.toUpper();
     const bool oneShotWasActive = m_model.uppercase() && !m_model.capsLock();
@@ -663,6 +719,7 @@ void KeyboardUiBridge::tapAlternate(const QString &base)
 
 void KeyboardUiBridge::tapText(const QString &text)
 {
+    if (typeIntoEmojiSearch(text)) return;
     m_saveCandidate.clear();
     const bool uppercaseBefore = uppercase();
     m_typingEngine.typeText(text);
@@ -740,6 +797,7 @@ void KeyboardUiBridge::setLanguage(const QString &code)
 
 void KeyboardUiBridge::activateToolbarAction(const QString &id)
 {
+    stopEmojiSearch();
     if (m_toolbarModel.activate(id, m_panelManager)) {
         if (id == QStringLiteral("clipboard")) Q_EMIT clipboardChanged();
         Q_EMIT toolbarStateChanged();
@@ -748,6 +806,7 @@ void KeyboardUiBridge::activateToolbarAction(const QString &id)
 
 void KeyboardUiBridge::openLanguagePanel()
 {
+    stopEmojiSearch();
     if (m_panelManager.openPanel(PanelId::Language)) Q_EMIT toolbarStateChanged();
 }
 
@@ -758,6 +817,7 @@ void KeyboardUiBridge::closePanel()
 
 void KeyboardUiBridge::space()
 {
+    if (typeIntoEmojiSearch(QStringLiteral(" "))) return;
     m_saveCandidate.clear();
     const bool uppercaseBefore = uppercase();
     m_typingEngine.space();
@@ -767,6 +827,7 @@ void KeyboardUiBridge::space()
 
 void KeyboardUiBridge::backspace()
 {
+    if (typeIntoEmojiSearch(QStringLiteral("\b"))) return;
     m_saveCandidate.clear();
     const bool uppercaseBefore = uppercase();
     m_typingEngine.backspace();
@@ -776,6 +837,10 @@ void KeyboardUiBridge::backspace()
 
 void KeyboardUiBridge::backspaceRepeated(int count)
 {
+    if (m_emojiSearchActive) {
+        for (int i = 0; i < count; ++i) typeIntoEmojiSearch(QStringLiteral("\b"));
+        return;
+    }
     const bool uppercaseBefore = uppercase();
     m_typingEngine.backspaceRepeated(count);
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
@@ -784,6 +849,7 @@ void KeyboardUiBridge::backspaceRepeated(int count)
 
 void KeyboardUiBridge::deleteForward()
 {
+    if (m_emojiSearchActive) return;
     m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.deleteForward();
@@ -835,6 +901,7 @@ void KeyboardUiBridge::moveRight()
 
 void KeyboardUiBridge::moveCursor(int delta)
 {
+    if (m_emojiSearchActive) return;
     m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     const int bounded = qBound(-48, delta, 48);
@@ -861,6 +928,10 @@ void KeyboardUiBridge::moveEnd()
 
 void KeyboardUiBridge::enter()
 {
+    if (m_emojiSearchActive) {
+        stopEmojiSearch();
+        return;
+    }
     m_saveCandidate.clear();
     const bool uppercaseBefore = uppercase();
     m_typingEngine.enter();
@@ -870,16 +941,19 @@ void KeyboardUiBridge::enter()
 
 void KeyboardUiBridge::beginGlide(const QString &key)
 {
+    if (m_emojiSearchActive) return;
     if (m_glideEnabled && !m_model.symbolsActive()) m_typingEngine.beginGlide(key);
 }
 
 void KeyboardUiBridge::glideThrough(const QString &key)
 {
+    if (m_emojiSearchActive) return;
     if (m_glideEnabled && !m_model.symbolsActive()) m_typingEngine.glideThrough(key);
 }
 
 QString KeyboardUiBridge::endGlide()
 {
+    if (m_emojiSearchActive) return {};
     if (!m_glideEnabled || m_model.symbolsActive()) return {};
     const bool uppercaseBefore = uppercase();
     const QString word = m_typingEngine.endGlide();
@@ -892,6 +966,7 @@ QString KeyboardUiBridge::endGlide()
 
 QString KeyboardUiBridge::endGlidePath(const QVariantList &points, const QVariantMap &keyCentres, double keyWidth)
 {
+    if (m_emojiSearchActive) return {};
     if (!m_glideEnabled || m_model.symbolsActive()) return {};
     QVector<QPointF> path;
     path.reserve(points.size());
@@ -922,6 +997,7 @@ void KeyboardUiBridge::captureClipboard()
 
 void KeyboardUiBridge::pasteClipboard()
 {
+    stopEmojiSearch();
     const QString text = clipboardText();
     if (!text.isEmpty()) {
         m_typingEngine.commitComposition();
@@ -933,6 +1009,7 @@ void KeyboardUiBridge::pasteClipboard()
 
 void KeyboardUiBridge::pasteClipboardHistory(int index)
 {
+    stopEmojiSearch();
     const auto items = m_clipboardHistory.items();
     if (index < 0 || index >= items.size()) return;
     m_typingEngine.commitComposition();
@@ -1082,6 +1159,7 @@ void KeyboardUiBridge::clearLearnedWords()
 
 void KeyboardUiBridge::resetInputContext()
 {
+    stopEmojiSearch();
     if (m_voice) m_voice->cancel();                 // never type into a new field
     loadShortcuts();                                 // pick up edits without a restart
     m_typingEngine.reloadUserDictionaryFile();
@@ -1147,6 +1225,7 @@ void KeyboardUiBridge::setContentType(quint32 hint, quint32 purpose)
 
 void KeyboardUiBridge::resetCompositionFromClient()
 {
+    stopEmojiSearch();
     m_typingEngine.resetComposition();
     typingStateDidChange();
 }

@@ -4,6 +4,13 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.6.6
+- Emoji search like Gboard: tap "Search emoji" and the keyboard's own letters
+  type the search (lowercase), with the matching emoji in a row above the
+  keys; tap one to insert it, Enter or ✕ to leave. Before, the search field
+  needed a hardware keyboard, which an on-screen keyboard's own panel can
+  never get.
+
 ## 0.6.5
 - One Backspace right after a glide erases the whole glided word (Gboard).
 - Shift before a glide capitalizes the word, Caps Lock writes it in capitals.

@@ -1311,3 +1311,26 @@ of Main.qml too; on the tablet's CPU that is roughly 60 ms once per session,
 so it was left for later. Resident memory at the first frame ~75 MB with the
 English dictionary loading in the background.
 
+## 2026-10-07 — 0.6.6 emoji search on the keyboard's own letters
+
+The emoji panel's search was a QML TextInput ("physical keyboard or category
+chips"). KWin never gives an input panel keyboard focus (verified earlier in
+KWin's inputmethod.cpp), so on the tablet it could not be typed into at all.
+Gboard: tapping search brings the letters back and types the query. Now the
+bridge has an emoji search mode: letters, alternates, symbols, Space and
+Backspace edit the query instead of reaching the app; glides, cursor drags
+and Delete are ignored; Enter, ✕, choosing an emoji, opening a panel, paste,
+hiding the keyboard or a new input context end it; the keys show lowercase.
+The toolbar shows ✕, the query and the matching emoji (recent or smileys
+while the query is empty). RED->GREEN: bridge
+emojiSearchIsTypedOnTheKeyboardItself, UI
+emojiSearchTypesOnTheLettersAndShowsResults (tap the field, type p-i-z-z-a on
+the keys, tap 🍕 in the bar). Rendered: bar, query and results above
+lowercase keys. Static check now forbids a text field in the panel.
+
+Also: a UI test for glides across the split keyboard's gap (real QML key
+centres). It first failed only because the QML tests run without word lists
+and "heart" is not a built-in core word; replaying the captured path through
+the decoder gave heart, heat, hat, beat, ... — the test now loads the bundled
+list.
+

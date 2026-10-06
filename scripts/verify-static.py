@@ -354,6 +354,10 @@ for path, token, why in (
     ('src/app/keyboarduibridge.cpp', 'TypingEngine::GlideCase::Capitalized', 'Shift / Caps Lock apply to glides'),
     ('src/ui/Main.qml', 'objectName: "nextWordSuggestionsButton"', 'Gboard next-word suggestions setting'),
     ('tests/tst_smarttyping.cpp', 'oneBackspaceErasesTheWholeGlidedWord', 'glide backspace test'),
+    ('src/app/keyboarduibridge.cpp', 'bool KeyboardUiBridge::typeIntoEmojiSearch', 'Gboard emoji search typed on the keyboard (0.6.6)'),
+    ('src/ui/Main.qml', 'objectName: "emojiSearchBar"', 'emoji search bar in place of the strip'),
+    ('tests/tst_qmlkeyboard.cpp', 'emojiSearchTypesOnTheLettersAndShowsResults', 'emoji search UI test'),
+    ('tests/tst_qmlkeyboard.cpp', 'glideAcrossTheSplitGapFindsTheWord', 'split glide UI test'),
     ('tools/merge-apostrophe-words.py', 'wordfreq', 'apostrophe words back in the frequency lists'),
     ('data/frequency/ATTRIBUTION.md', 'SUBTLEX', 'wordfreq / SUBTLEX credit'),
 ):
@@ -380,6 +384,7 @@ for pattern in ('src/**/*', 'tests/**/*', 'tools/**/*', 'scripts/*', 'data/*.des
         if OLD_NAME.search(text) and rel not in ('README.md',):
             errors.append(f"{rel}: old name 'V3 Keyboard' outside the migration code")
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
+forbid('src/ui/Main.qml', 'id: emojiSearchInput', 'a text field in the panel (input panels never get keyboard focus)')
 
 if errors:
     print('STATIC VERIFY: FAILED')
@@ -393,4 +398,4 @@ if not wav.exists() or wav.read_bytes()[:4] != b'RIFF':
     print('STATIC VERIFY: FAILED')
     print(' - data/sounds/click.wav missing or not a WAV file')
     sys.exit(1)
-print('v0.6.5 markers present: glide backspace/shift, next-word setting, path-based glide typing + alternatives, emoticon tab, multilingual typing, Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.6.6 markers present: emoji search on the keyboard, split glide test, glide backspace/shift, next-word setting, path-based glide typing + alternatives, emoticon tab, multilingual typing, Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

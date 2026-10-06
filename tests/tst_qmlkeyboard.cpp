@@ -880,6 +880,40 @@ private Q_SLOTS:
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiTonePicker")));
     }
 
+    void emojiSearchTypesOnTheLettersAndShowsResults()
+    {
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto click = [&](QQuickItem *item) {
+            QTest::mouseClick(&view, Qt::LeftButton, {}, item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
+            QTest::qWait(30);
+        };
+        bridge.activateToolbarAction(QStringLiteral("emoji"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("emojiSearchField")));
+        QTest::qWait(100);
+        click(findNamed(view.rootObject(), QStringLiteral("emojiSearchField")));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("emojiSearchBar")));
+        for (const QString &letter : {QStringLiteral("p"), QStringLiteral("i"), QStringLiteral("z"), QStringLiteral("z"), QStringLiteral("a")}) {
+            QQuickItem *label = findText(view.rootObject(), letter);
+            QVERIFY2(label, qPrintable(letter));
+            click(label->parentItem());
+        }
+        QTRY_COMPARE(findNamed(view.rootObject(), QStringLiteral("emojiSearchText"))->property("text").toString(), QStringLiteral("pizza"));
+        QVERIFY(backend.commits.isEmpty());
+        QTRY_VERIFY(findText(findNamed(view.rootObject(), QStringLiteral("emojiSearchBar")), QStringLiteral("🍕")));
+        click(findText(findNamed(view.rootObject(), QStringLiteral("emojiSearchBar")), QStringLiteral("🍕")));
+        QTRY_COMPARE(backend.commits, QStringList{QStringLiteral("🍕")});
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiSearchBar")));
+    }
+
     void emoticonTabShowsWideTilesAndInsertsTheFace()
     {
         FakeBackend backend;

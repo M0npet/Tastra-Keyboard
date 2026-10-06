@@ -844,6 +844,82 @@ Rectangle {
                 onClicked: keyboardBridge.hideKeyboard()
             }
         }
+
+        // Gboard emoji search: the query typed on the keyboard's own letters
+        // and the matching emoji, in place of the suggestion strip.
+        Rectangle {
+            objectName: "emojiSearchBar"
+            visible: keyboardBridge.emojiSearchActive
+            anchors.fill: parent
+            z: 50
+            color: root.backgroundColor
+            MouseArea { anchors.fill: parent }          // nothing underneath reacts
+
+            Rectangle {
+                id: emojiSearchClose
+                objectName: "emojiSearchClose"
+                anchors.left: parent.left
+                anchors.leftMargin: root.keyGap
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.height - 10
+                height: width
+                radius: width / 2
+                color: emojiSearchCloseMouse.pressed ? root.pressedColor : root.keyColor
+                Text { anchors.centerIn: parent; text: "\u2715"; color: root.textColor; font.pixelSize: root.portrait ? 18 : 16 }
+                MouseArea { id: emojiSearchCloseMouse; anchors.fill: parent; onClicked: keyboardBridge.stopEmojiSearch() }
+            }
+
+            Rectangle {
+                id: emojiSearchPill
+                anchors.left: emojiSearchClose.right
+                anchors.leftMargin: root.keyGap
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(parent.width * 0.32, 320)
+                height: parent.height - 10
+                radius: height / 2
+                color: root.keyColor
+                Text {
+                    objectName: "emojiSearchText"
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: 14
+                    width: parent.width - 28
+                    elide: Text.ElideLeft
+                    text: keyboardBridge.emojiSearchText
+                    color: root.textColor
+                    font.pixelSize: root.portrait ? 17 : 15
+                }
+                Text {
+                    visible: keyboardBridge.emojiSearchText.length === 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: 14
+                    text: "Search emoji"
+                    color: root.secondaryTextColor
+                    font.pixelSize: root.portrait ? 16 : 14
+                }
+            }
+
+            ListView {
+                anchors.left: emojiSearchPill.right
+                anchors.leftMargin: root.keyGap
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                orientation: ListView.Horizontal
+                clip: true
+                model: keyboardBridge.emojiSearchResults
+                delegate: Rectangle {
+                    required property string modelData
+                    width: height
+                    height: ListView.view.height
+                    color: resultMouse.pressed ? root.pressedColor : "transparent"
+                    radius: 10
+                    Text { anchors.centerIn: parent; text: modelData; font.pixelSize: root.portrait ? 28 : 24 }
+                    MouseArea { id: resultMouse; anchors.fill: parent; onClicked: keyboardBridge.insertEmoji(modelData) }
+                }
+            }
+        }
     }
 
     Rectangle {
@@ -1576,25 +1652,20 @@ Rectangle {
                     border.width: keyboardBridge.keyBorders ? 1 : 0
                     border.color: root.borderColor
 
-                    TextInput {
-                        id: emojiSearchInput
-                        anchors.fill: parent
+                    // Gboard: tapping the search field brings the letters back
+                    // and types into the search (see emojiSearchBar).
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
                         anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        verticalAlignment: TextInput.AlignVCenter
-                        color: root.textColor
-                        selectionColor: root.accentColor
-                        selectedTextColor: root.backgroundColor
-                        font.pixelSize: root.portrait ? 16 : 14
-                        clip: true
-                        inputMethodHints: Qt.ImhNoPredictiveText
-                        Text {
-                            visible: emojiSearchInput.text.length === 0
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Search emoji (physical keyboard or category chips)"
-                            color: root.secondaryTextColor
-                            font.pixelSize: root.portrait ? 15 : 13
-                        }
+                        text: "\uD83D\uDD0D  Search emoji"
+                        color: root.secondaryTextColor
+                        font.pixelSize: root.portrait ? 15 : 13
+                    }
+                    MouseArea {
+                        objectName: "emojiSearchField"
+                        anchors.fill: parent
+                        onClicked: keyboardBridge.startEmojiSearch()
                     }
                 }
 
@@ -1640,7 +1711,7 @@ Rectangle {
                     clip: true
                     cellWidth: faces ? Math.floor(width / (root.portrait ? 3 : 5)) : (root.portrait ? 58 : 50)
                     cellHeight: root.portrait ? 58 : 50
-                    model: (keyboardBridge.emojiCategories, keyboardBridge.emojiSearch(emojiSearchInput.text, root.emojiCategory))
+                    model: (keyboardBridge.emojiCategories, keyboardBridge.emojiSearch("", root.emojiCategory))
 
                     delegate: Rectangle {
                         width: GridView.view.cellWidth - root.keyGap

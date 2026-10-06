@@ -570,6 +570,44 @@ private Q_SLOTS:
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
+    void emojiSearchIsTypedOnTheKeyboardItself()
+    {
+        // Gboard: tapping "Search emoji" brings the letters back and types
+        // into the search, not into the app (an input panel never gets
+        // keyboard focus, so a text field in it could not be typed into).
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.activateToolbarAction(QStringLiteral("emoji"));
+        QCOMPARE(bridge.activePanel(), QStringLiteral("emoji"));
+        bridge.startEmojiSearch();
+        QVERIFY(bridge.emojiSearchActive());
+        QCOMPARE(bridge.activePanel(), QStringLiteral("typing"));     // the letters come back
+        QVERIFY(!bridge.uppercase());                                  // lowercase keys, as in Gboard
+        for (const QChar ch : QStringLiteral("pizzx")) bridge.tapLetter(QString(ch));
+        bridge.backspace();
+        bridge.tapLetter(QStringLiteral("a"));
+        QCOMPARE(bridge.emojiSearchText(), QStringLiteral("pizza"));
+        QVERIFY(backend.commits.isEmpty());                           // nothing reached the app
+        QVERIFY(bridge.emojiSearchResults().contains(QStringLiteral("🍕")));
+        bridge.insertEmoji(QStringLiteral("🍕"));
+        QCOMPARE(backend.commits, QStringList{QStringLiteral("🍕")});
+        QVERIFY(!bridge.emojiSearchActive());
+        QVERIFY(bridge.emojiSearchText().isEmpty());
+        // Enter or ✕ leave the search without typing anything.
+        bridge.startEmojiSearch();
+        bridge.tapLetter(QStringLiteral("c"));
+        bridge.space();
+        bridge.enter();
+        QVERIFY(!bridge.emojiSearchActive());
+        QCOMPARE(backend.enterCount, 0);
+        QCOMPARE(backend.commits, QStringList{QStringLiteral("🍕")});
+        bridge.startEmojiSearch();
+        bridge.stopEmojiSearch();
+        QVERIFY(!bridge.emojiSearchActive());
+    }
+
     void emoticonsAreATabOfTextFacesLikeGboard()
     {
         // Gboard's emoji keyboard has a ":-)" tab of text emoticons.
