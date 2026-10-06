@@ -16,7 +16,7 @@ jobs:
           pacman -Syu --noconfirm --needed git base-devel cmake ninja pkgconf python \
             qt6-base qt6-declarative qt6-wayland qt6-svg \
             wayland wayland-protocols libxkbcommon hunspell ttf-dejavu
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Static checks
         run: python3 scripts/verify-static.py
       - name: Configure
