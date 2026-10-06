@@ -153,6 +153,26 @@ set_source_files_properties(
 )
 
 set_source_files_properties(
+    src/ui/PanelButton.qml
+    PROPERTIES QT_RESOURCE_ALIAS PanelButton.qml
+)
+set_source_files_properties(
+    src/ui/ClipboardPanel.qml
+    PROPERTIES QT_RESOURCE_ALIAS ClipboardPanel.qml
+)
+set_source_files_properties(
+    src/ui/EmojiPanel.qml
+    PROPERTIES QT_RESOURCE_ALIAS EmojiPanel.qml
+)
+set_source_files_properties(
+    src/ui/TextEditingPanel.qml
+    PROPERTIES QT_RESOURCE_ALIAS TextEditingPanel.qml
+)
+set_source_files_properties(
+    src/ui/SettingsPanel.qml
+    PROPERTIES QT_RESOURCE_ALIAS SettingsPanel.qml
+)
+set_source_files_properties(
     src/ui/icons/shift.svg
     PROPERTIES QT_RESOURCE_ALIAS icons/shift.svg
 )
@@ -175,6 +195,11 @@ qt_add_resources(
     PREFIX "/tastra"
     FILES
         src/ui/Main.qml
+        src/ui/PanelButton.qml
+        src/ui/ClipboardPanel.qml
+        src/ui/EmojiPanel.qml
+        src/ui/TextEditingPanel.qml
+        src/ui/SettingsPanel.qml
         src/ui/icons/shift.svg
         src/ui/icons/shift-lock.svg
         src/ui/icons/backspace.svg

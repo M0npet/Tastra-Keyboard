@@ -1350,3 +1350,17 @@ removal, cancel, empty word cannot be confirmed); UI
 addWordFromSettingsTypedOnTheKeys. Rendered the bar ("New word | Oldenburg
 | ✓").
 
+## 2026-10-07 — panels in their own QML files: start 365 -> 172 ms
+
+Follow-up to the startup measurement: the panels (settings, emoji,
+clipboard, text editing) and PanelButton moved from Main.qml into their own
+files, loaded by Loader { source } only while open. Sandbox, offscreen, 4
+runs each: first frame 344-439 -> 160-172 ms; resident memory 3 s after
+start 78-82 -> 72.4 MB. Cost: the first opening of a panel compiles it
+(settings 52 ms, emoji 26 ms, clipboard 8 ms; later openings 1-8 ms).
+Checked: the panels load from the application's qrc resources (all four
+Loaders Ready, sized), renders of the emoji, settings, text-editing and
+clipboard panels before and after are pixel-identical, full suite green.
+The static check now reads all QML files in src/ui and balances braces per
+file.
+

@@ -6,13 +6,20 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 errors = []
 
+def ui_text():
+    # The UI is Main.qml plus the panels and components beside it.
+    return '\n'.join(p.read_text(encoding='utf-8') for p in sorted((ROOT / 'src/ui').glob('*.qml')))
+
+def read(path):
+    return ui_text() if path == 'src/ui/Main.qml' else (ROOT / path).read_text(encoding='utf-8')
+
 def require(path, token, description=None):
-    text = (ROOT / path).read_text(encoding='utf-8')
+    text = read(path)
     if token not in text:
         errors.append(f"{path}: missing {description or token!r}")
 
 def forbid(path, token, description=None):
-    text = (ROOT / path).read_text(encoding='utf-8')
+    text = read(path)
     if token in text:
         errors.append(f"{path}: forbidden {description or token!r}")
 
@@ -80,7 +87,7 @@ require('tests/tst_clipboardemoji.cpp', 'clipboardHistoryDeduplicatesAndKeepsNew
 
 # UI checks.
 qml_path = ROOT / 'src/ui/Main.qml'
-qml = qml_path.read_text(encoding='utf-8')
+qml = ui_text()
 for token in (
     'id: topToolbar',
     'model: keyboardBridge.toolbarActions',
@@ -157,7 +164,11 @@ def balance_braces(text: str):
         i += 1
     return depth == 0 and not in_str and not block_comment, depth
 
-ok, depth = balance_braces(qml)
+for _qml_file in sorted((ROOT / 'src/ui').glob('*.qml')):
+    _ok, _depth = balance_braces(_qml_file.read_text(encoding='utf-8'))
+    if not _ok:
+        errors.append(f'{_qml_file.relative_to(ROOT)}: brace/string sanity failed (depth={_depth})')
+ok, depth = balance_braces((ROOT / 'src/ui/Main.qml').read_text(encoding='utf-8'))
 if not ok:
     errors.append(f'src/ui/Main.qml: brace/string sanity failed (depth={depth})')
 
@@ -176,7 +187,7 @@ for _file, _marker in [
     ("src/platform/kwin/kwininputmethodv1connection.h", "contentTypeChanged"),
     ("src/app/main.cpp", "preferredLanguageChanged"),
 ]:
-    if _marker not in (ROOT / _file).read_text(encoding="utf-8"):
+    if _marker not in read(_file):
         errors.append(f"secure/input-context marker missing: {_file}: {_marker}")
 
 

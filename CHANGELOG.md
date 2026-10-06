@@ -4,6 +4,11 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.6.8 (in progress)
+- The keyboard starts about twice as fast and uses ~6 MB less memory: its
+  panels (settings, emoji, clipboard, text editing) are built when first
+  opened instead of at every start.
+
 ## 0.6.7
 - Settings → Dictionary → "+ Add word", as in Gboard: type the word on the
   keyboard (Shift for capitals), then an optional shortcut; typing the
