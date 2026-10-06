@@ -761,6 +761,49 @@ private Q_SLOTS:
         QVERIFY(under(QStringLiteral("Underline word while typing"), QStringLiteral("Advanced")));
     }
 
+    void glideAcrossTheSplitGapFindsTheWord()
+    {
+        // The decoder works on the real key centres, so a glide over both
+        // halves of the split keyboard ("heart": h right, e/a/r/t left)
+        // decodes like on the full layout. The bundled word list is needed:
+        // "heart" is not one of the built-in core words.
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        QVERIFY(bridge.waitForDictionaryForTesting(10000));
+        QQuickView view;
+        view.setResizeMode(QQuickView::SizeRootObjectToView);
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.resize(1600, 560);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        bridge.setLayoutMode(QStringLiteral("split"));
+        QTest::qWait(150);
+        auto centreOf = [&](const QString &label) {
+            QQuickItem *key = findText(view.rootObject(), label)->parentItem();
+            return key->mapToScene(QPointF(key->width() / 2, key->height() / 2));
+        };
+        static QPointingDevice *touch = QTest::createTouchDevice();
+        const QList<QPointF> corners = {centreOf(QStringLiteral("h")), centreOf(QStringLiteral("e")),
+                                        centreOf(QStringLiteral("a")), centreOf(QStringLiteral("r")),
+                                        centreOf(QStringLiteral("t"))};
+        QTest::touchEvent(&view, touch).press(0, corners.first().toPoint());
+        for (int i = 1; i < corners.size(); ++i) {
+            for (int step = 1; step <= 8; ++step) {
+                const QPointF at = corners.at(i - 1) + (corners.at(i) - corners.at(i - 1)) * (step / 8.0);
+                QTest::touchEvent(&view, touch).move(0, at.toPoint());
+                QTest::qWait(8);                                   // a finger moves at ~120 Hz, not all at once
+            }
+        }
+        QTest::touchEvent(&view, touch).release(0, corners.last().toPoint());
+        QTRY_COMPARE(backend.commits.value(0), QStringLiteral("heart"));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
     void splitLayoutForThumbTypingLikeGboardOnTablets()
     {
         FakeBackend backend;
