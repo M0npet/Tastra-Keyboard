@@ -3,7 +3,7 @@
 // Copyright (C) The Android Open Source Project, Apache License 2.0.
 #include "capsmode.h"
 
-namespace V3Keyboard::CapsMode
+namespace Tastra::CapsMode
 {
 namespace
 {

@@ -205,7 +205,7 @@ for path, token, why in (
     ('tests/tst_lexicon.cpp', 'inflectedFormsAreValidAndNeverRewritten', 'no rewriting of valid inflections'),
     ('tests/tst_qmlkeyboard.cpp', 'tappingSuggestionReplacesTheTypedWord', 'UI-level suggestion tap'),
     ('tests/tst_keyboarduibridge.cpp', 'dateFieldIsNotTreatedAsSecret', 'purpose mapping'),
-    ('scripts/v3kbd-dictionaries.sh', 'sha256sum', 'pinned dictionary provisioning'),
+    ('scripts/tastra-dictionaries.sh', 'sha256sum', 'pinned dictionary provisioning'),
 ):
     require(path, token, why)
 forbid('src/app/keyboarduibridge.cpp', 'pinPurpose = 9', 'wrong PIN purpose value')
@@ -242,7 +242,7 @@ for path, token, why in (
     ('src/app/voicecontroller.cpp', 'MinimumSamples', 'voice controller (0.4.0)'),
     ('src/voice/whisperrecognizer.cpp', 'm_idleTimer.setInterval(60000)', 'model released when idle'),
     ('src/voice/qtaudiorecorder.cpp', 'MaxSeconds = 30', 'bounded in-memory recording'),
-    ('scripts/v3kbd-voice-setup.sh', '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898', 'pinned model checksum'),
+    ('scripts/tastra-voice-setup.sh', '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898', 'pinned model checksum'),
     ('src/app/keyboarduibridge.cpp', 'if (m_voice) m_voice->cancel();', 'dictation never lands in a new field'),
     ('tests/tst_voice.cpp', 'emptyResultsAndCancelledRecognitionInsertNothing', 'voice state machine'),
     ('data/blocklist/ATTRIBUTION.md', 'CC BY 4.0', 'offensive-word list attribution (0.5.0)'),
@@ -328,8 +328,42 @@ for path, token, why in (
     ('src/core/keyboardmodel.cpp', 'QList<QStringList> KeyboardModel::symbolRows', 'two symbol pages + locale currency (0.6.1)'),
     ('src/ui/Main.qml', 'objectName: "symbolPageKey"', 'symbol page key'),
     ('tests/tst_qmlkeyboard.cpp', 'secondSymbolPageAndSymbolExtras', 'symbol pages UI test'),
+    ('src/core/legacymigration.cpp', 'QStringList migrateLegacyPaths', 'V3 Keyboard -> Tastra file migration (0.6.2)'),
+    ('src/app/main.cpp', 'Tastra::migrateLegacyPaths(Tastra::defaultMigrationRoots())', 'migration before settings load'),
+    ('tests/tst_legacymigration.cpp', 'neverOverwritesWhatTastraAlreadyHas', 'migration tests'),
+    ('src/core/locallexicon.cpp', 'malloc_trim(0)', 'freed load memory handed back'),
+    ('src/core/locallexicon.cpp', 'class WordHashes', 'foreign word lists kept as hashes'),
+    ('tools/bench_memory.cpp', 'VmRSS', 'memory benchmark'),
+    ('data/io.github.m0npet.Tastra.desktop', 'X-KDE-Wayland-VirtualKeyboard=true', 'KWin virtual keyboard entry'),
+    ('src/core/locallexicon.cpp', 'QStringList LocalLexicon::apostropheVariants', 'LatinIME intentional omission (apostrophe)'),
+    ('src/core/locallexicon.cpp', 'QStringList LocalLexicon::accentVariants', 'LatinIME accents + German digraphs'),
+    ('src/core/locallexicon.cpp', 'const bool shortDistantSubstitution', 'length-aware confidence'),
+    ('tests/tst_lexicon.cpp', 'germanUmlautsDigraphsAndSharpS', 'error-model tests'),
+    ('tools/merge-apostrophe-words.py', 'wordfreq', 'apostrophe words back in the frequency lists'),
+    ('data/frequency/ATTRIBUTION.md', 'SUBTLEX', 'wordfreq / SUBTLEX credit'),
 ):
     require(path, token, why)
+
+# The old name may only appear where the old installation is migrated or
+# cleaned up (and in the history: CHANGELOG, ledger, old release notes).
+OLD_NAME = re.compile(r'(?i)v3[ _.-]?(keyboard|kbd)')
+LEGACY_OK = {
+    'src/core/legacymigration.h', 'src/core/legacymigration.cpp', 'tests/tst_legacymigration.cpp',
+    'scripts/tastra-uninstall.sh', 'scripts/tastra-rollback.sh', 'scripts/tastra-install.sh',
+    'scripts/verify-static.py', 'docs/TEST-PLAN.md',   # checks the move from the old folders
+}
+for pattern in ('src/**/*', 'tests/**/*', 'tools/**/*', 'scripts/*', 'data/*.desktop', 'CMakeLists.txt',
+                '.github/**/*', 'README.md', 'docs/TEST-PLAN.md', 'docs/architecture.md'):
+    for file in ROOT.glob(pattern):
+        rel = file.relative_to(ROOT).as_posix()
+        if not file.is_file() or rel in LEGACY_OK or file.suffix in ('.wav', '.png', '.svg', '.dic', '.aff'):
+            continue
+        try:
+            text = file.read_text(encoding='utf-8')
+        except UnicodeDecodeError:
+            continue
+        if OLD_NAME.search(text) and rel not in ('README.md',):
+            errors.append(f"{rel}: old name 'V3 Keyboard' outside the migration code")
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
 
 if errors:
@@ -344,4 +378,4 @@ if not wav.exists() or wav.read_bytes()[:4] != b'RIFF':
     print('STATIC VERIFY: FAILED')
     print(' - data/sounds/click.wav missing or not a WAV file')
     sys.exit(1)
-print('v0.6.1 markers present: symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.6.2 markers present: Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

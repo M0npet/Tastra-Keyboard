@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 // Gboard's "hide keyboard" (⌄). The input-method protocol has no such request,

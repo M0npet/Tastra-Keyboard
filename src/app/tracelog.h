@@ -4,16 +4,16 @@
 
 #include <QString>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 // Privacy-safe diagnostics: if <stateDir>/trace.enable exists, all
-// v3keyboard.* logging categories are enabled and written (with timestamps)
+// tastra.* logging categories are enabled and written (with timestamps)
 // to <stateDir>/trace.log. The categories log sizes and decisions only, never
 // typed text. Returns true when tracing was enabled.
 bool enableTraceIfRequested(const QString &stateDir);
 
-// $XDG_STATE_HOME/v3-keyboard, defaulting to ~/.local/state/v3-keyboard.
+// $XDG_STATE_HOME/tastra, defaulting to ~/.local/state/tastra.
 QString defaultStateDir();
 
 }

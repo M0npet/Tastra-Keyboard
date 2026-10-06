@@ -4,7 +4,7 @@
 
 #include <QString>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 class InputMethodBackend;

@@ -14,7 +14,7 @@ class KeyboardModelTest : public QObject
 private Q_SLOTS:
     void longPressAlternatesFollowGboardPositions()
     {
-        V3Keyboard::KeyboardModel model;                       // EN QWERTY
+        Tastra::KeyboardModel model;                       // EN QWERTY
         QCOMPARE(model.alternatesForKey(QStringLiteral("q")), QStringList({QStringLiteral("1")}));
         QCOMPARE(model.alternatesForKey(QStringLiteral("p")), QStringList({QStringLiteral("0")}));
         QCOMPARE(model.alternatesForKey(QStringLiteral("a")).value(0), QStringLiteral("@"));
@@ -40,7 +40,7 @@ private Q_SLOTS:
 
     void symbolPagesLikeGboard()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
         model.toggleSymbols();
         QCOMPARE(model.symbolPage(), 0);
         // Page 1 (?123): the currency of the language.
@@ -75,7 +75,7 @@ private Q_SLOTS:
 
     void startsLowercase()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         QVERIFY(!model.uppercase());
         QVERIFY(!model.capsLock());
@@ -84,7 +84,7 @@ private Q_SLOTS:
 
     void oneShiftUppercasesOneLetter()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         model.pressShift();
 
@@ -99,7 +99,7 @@ private Q_SLOTS:
 
     void secondShiftEnablesCapsLock()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         model.pressShift();
         model.pressShift();
@@ -116,7 +116,7 @@ private Q_SLOTS:
 
     void shiftCyclesBackToLowercaseFromCapsLock()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         model.pressShift();
         model.pressShift();
@@ -128,7 +128,7 @@ private Q_SLOTS:
 
     void symbolLayerTogglesAndClearsShift()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         model.pressShift();
         QVERIFY(model.uppercase());
@@ -147,7 +147,7 @@ private Q_SLOTS:
 
     void cyclesSupportedLanguages()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         QCOMPARE(model.languageCode(), QStringLiteral("en"));
         QCOMPARE(model.languageLabel(), QStringLiteral("English"));
@@ -170,7 +170,7 @@ private Q_SLOTS:
 
     void exposesExpectedRowsForEachLanguage()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         QCOMPARE(model.row1().join(QString()), QStringLiteral("qwertyuiop"));
         QCOMPARE(model.row2().join(QString()), QStringLiteral("asdfghjkl"));
@@ -194,7 +194,7 @@ private Q_SLOTS:
 
     void changingLanguageClearsShiftState()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         model.pressShift();
         QVERIFY(model.uppercase());
@@ -207,7 +207,7 @@ private Q_SLOTS:
 
     void exposesLanguageSpecificLongPressAlternates()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         QCOMPARE(model.alternateForKey(QStringLiteral("s")), QString());
 
@@ -228,13 +228,13 @@ private Q_SLOTS:
 
     void toolbarRegistryRejectsDuplicateIds()
     {
-        V3Keyboard::ToolbarRegistry registry;
+        Tastra::ToolbarRegistry registry;
 
-        V3Keyboard::ToolbarAction first;
+        Tastra::ToolbarAction first;
         first.id = QStringLiteral("language");
         first.label = QStringLiteral("Language");
-        first.kind = V3Keyboard::ToolbarActionKind::OpenPanel;
-        first.panel = V3Keyboard::PanelId::Language;
+        first.kind = Tastra::ToolbarActionKind::OpenPanel;
+        first.panel = Tastra::PanelId::Language;
 
         QVERIFY(registry.registerAction(first));
         QVERIFY(!registry.registerAction(first));
@@ -243,8 +243,8 @@ private Q_SLOTS:
 
     void defaultToolbarOrderIsStableAndHiddenActionsAreFiltered()
     {
-        const auto registry = V3Keyboard::ToolbarRegistry::createDefault();
-        const V3Keyboard::ToolbarModel model(registry);
+        const auto registry = Tastra::ToolbarRegistry::createDefault();
+        const Tastra::ToolbarModel model(registry);
 
         QCOMPARE(
             model.visibleActionIds(),
@@ -267,52 +267,52 @@ private Q_SLOTS:
 
     void disabledToolbarActionCannotActivate()
     {
-        V3Keyboard::ToolbarRegistry registry;
+        Tastra::ToolbarRegistry registry;
 
-        V3Keyboard::ToolbarAction action;
+        Tastra::ToolbarAction action;
         action.id = QStringLiteral("disabled");
         action.label = QStringLiteral("Disabled");
-        action.kind = V3Keyboard::ToolbarActionKind::OpenPanel;
-        action.panel = V3Keyboard::PanelId::Settings;
+        action.kind = Tastra::ToolbarActionKind::OpenPanel;
+        action.panel = Tastra::PanelId::Settings;
         action.enabled = false;
 
         QVERIFY(registry.registerAction(action));
 
-        const V3Keyboard::ToolbarModel model(registry);
-        V3Keyboard::PanelManager panels;
+        const Tastra::ToolbarModel model(registry);
+        Tastra::PanelManager panels;
 
         QVERIFY(!model.activate(QStringLiteral("disabled"), panels));
-        QCOMPARE(panels.activePanel(), V3Keyboard::PanelId::Typing);
+        QCOMPARE(panels.activePanel(), Tastra::PanelId::Typing);
     }
 
     void hiddenLanguageToolbarActionDoesNotActivate()
     {
-        const auto registry = V3Keyboard::ToolbarRegistry::createDefault();
-        const V3Keyboard::ToolbarModel model(registry);
-        V3Keyboard::PanelManager panels;
+        const auto registry = Tastra::ToolbarRegistry::createDefault();
+        const Tastra::ToolbarModel model(registry);
+        Tastra::PanelManager panels;
 
-        QCOMPARE(panels.activePanel(), V3Keyboard::PanelId::Typing);
+        QCOMPARE(panels.activePanel(), Tastra::PanelId::Typing);
         QVERIFY(!model.activate(QStringLiteral("language"), panels));
-        QCOMPARE(panels.activePanel(), V3Keyboard::PanelId::Typing);
+        QCOMPARE(panels.activePanel(), Tastra::PanelId::Typing);
     }
 
     void panelManagerReturnsToTyping()
     {
-        V3Keyboard::PanelManager panels;
+        Tastra::PanelManager panels;
 
-        QCOMPARE(panels.activePanel(), V3Keyboard::PanelId::Typing);
-        QVERIFY(panels.openPanel(V3Keyboard::PanelId::Emoji));
-        QCOMPARE(panels.activePanel(), V3Keyboard::PanelId::Emoji);
+        QCOMPARE(panels.activePanel(), Tastra::PanelId::Typing);
+        QVERIFY(panels.openPanel(Tastra::PanelId::Emoji));
+        QCOMPARE(panels.activePanel(), Tastra::PanelId::Emoji);
 
         QVERIFY(panels.returnToTyping());
-        QCOMPARE(panels.activePanel(), V3Keyboard::PanelId::Typing);
+        QCOMPARE(panels.activePanel(), Tastra::PanelId::Typing);
         QVERIFY(!panels.returnToTyping());
     }
 
     void exposesToolbarDescriptorsForUi()
     {
-        const auto registry = V3Keyboard::ToolbarRegistry::createDefault();
-        const V3Keyboard::ToolbarModel model(registry);
+        const auto registry = Tastra::ToolbarRegistry::createDefault();
+        const Tastra::ToolbarModel model(registry);
 
         const auto actions = model.visibleActions();
         QCOMPARE(actions.size(), 4);
@@ -324,7 +324,7 @@ private Q_SLOTS:
 
     void exposesSupportedLanguageList()
     {
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardModel model;
 
         QCOMPARE(
             model.languageCodes(),
@@ -349,12 +349,12 @@ private Q_SLOTS:
 
     void languageActionStaysOutOfVisibleToolbar()
     {
-        const auto registry = V3Keyboard::ToolbarRegistry::createDefault();
+        const auto registry = Tastra::ToolbarRegistry::createDefault();
         const auto *language = registry.actionById(QStringLiteral("language"));
 
         QVERIFY(language != nullptr);
         QVERIFY(!language->visible);
-        QCOMPARE(language->panel, V3Keyboard::PanelId::Language);
+        QCOMPARE(language->panel, Tastra::PanelId::Language);
     }
 };
 

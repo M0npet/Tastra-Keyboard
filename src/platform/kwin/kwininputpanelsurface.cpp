@@ -6,7 +6,7 @@
 #include <QtWaylandClient/private/qwaylandscreen_p.h>
 #include <QtWaylandClient/private/qwaylandwindow_p.h>
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 
 KWinInputPanelSurface::KWinInputPanelSurface(

@@ -7,7 +7,7 @@
 
 #include <qwayland-input-method-unstable-v1.h>
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 
 class KWinInputPanelSurface final

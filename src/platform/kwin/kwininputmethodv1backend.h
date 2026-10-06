@@ -6,7 +6,7 @@
 
 #include <QtGlobal>
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 
 class InputMethodV1Context
@@ -27,7 +27,7 @@ public:
         quint32 modifiers) = 0;
 };
 
-class KWinInputMethodV1Backend final : public V3Keyboard::InputMethodBackend
+class KWinInputMethodV1Backend final : public Tastra::InputMethodBackend
 {
 public:
     void setContext(InputMethodV1Context *context);

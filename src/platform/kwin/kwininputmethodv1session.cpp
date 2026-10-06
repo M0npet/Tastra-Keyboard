@@ -2,7 +2,7 @@
 
 #include "kwininputmethodv1session.h"
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 
 KWinInputMethodV1Session::KWinInputMethodV1Session(KWinInputMethodV1Backend &backend)

@@ -12,9 +12,9 @@
 #include <QLoggingCategory>
 
 // Decisions and sizes only; typed text never reaches the log.
-Q_LOGGING_CATEGORY(lcEngine, "v3keyboard.engine", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcEngine, "tastra.engine", QtWarningMsg)
 
-namespace V3Keyboard
+namespace Tastra
 {
 namespace
 {
@@ -604,7 +604,8 @@ void TypingEngine::space()
             if (!m_currentWord.isEmpty() && m_currentWord.front().isUpper()) {
                 formatted[0] = formatted.at(0).toUpper();
             }
-            if (replaceBeforeCursor(m_currentWord, formatted, false)) {
+            // "I" typed, "I" suggested: nothing to replace.
+            if (formatted != m_currentWord && replaceBeforeCursor(m_currentWord, formatted, false)) {
                 rememberCorrection(m_currentWord, formatted);
                 m_currentWord = formatted;
             }

@@ -5,7 +5,7 @@
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 
-class FakeBackend final : public V3Keyboard::InputMethodBackend
+class FakeBackend final : public Tastra::InputMethodBackend
 {
 public:
     void commitText(const QString &text) override
@@ -66,7 +66,7 @@ private Q_SLOTS:
     void controllerForwardsBackspace()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
+        Tastra::KeyboardController controller(backend);
 
         controller.backspace();
 
@@ -77,7 +77,7 @@ private Q_SLOTS:
     void controllerForwardsEditingKeys()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
+        Tastra::KeyboardController controller(backend);
 
         controller.moveLeft();
         controller.moveRight();
@@ -97,7 +97,7 @@ private Q_SLOTS:
     void controllerForwardsEnter()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
+        Tastra::KeyboardController controller(backend);
 
         controller.enter();
 

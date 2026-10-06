@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Opt-in offline voice input for V3 Keyboard.
-#   v3kbd-voice-setup            install packages + model
-#   v3kbd-voice-setup --status   report what is present
-#   v3kbd-voice-setup --remove   delete the model (packages are left alone)
+# Opt-in offline voice input for Tastra.
+#   tastra-voice-setup            install packages + model
+#   tastra-voice-setup --status   report what is present
+#   tastra-voice-setup --remove   delete the model (packages are left alone)
 #
 # Recognition runs locally with whisper.cpp; nothing is sent anywhere. The
 # keyboard must be rebuilt (deploy script) after the packages are installed
 # for the mic key to appear.
 set -euo pipefail
 
-MODEL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/v3-keyboard/voice"
+MODEL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/tastra/voice"
 MODEL="ggml-base-q5_1.bin"
 # Official whisper.cpp model repository (MIT); multilingual base, 5-bit.
 MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$MODEL"
 MODEL_SHA="422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
 MODEL_SIZE=59707625
-PACKAGE="${V3KBD_VOICE_PACKAGE:-whisper-cpp}"   # or whisper-cpp-vulkan for the iGPU
+PACKAGE="${TASTRA_VOICE_PACKAGE:-whisper-cpp}"   # or whisper-cpp-vulkan for the iGPU
 
 have_pkg() { pacman -Qq "$1" >/dev/null 2>&1; }
 
@@ -35,7 +35,7 @@ status() {
 
 case "${1:-install}" in
     --status)
-        echo "V3 Keyboard voice input:"
+        echo "Tastra voice input:"
         status
         exit $?
         ;;
@@ -45,7 +45,7 @@ case "${1:-install}" in
         exit 0
         ;;
     install) ;;
-    *) echo "usage: v3kbd-voice-setup [--status|--remove]"; exit 2 ;;
+    *) echo "usage: tastra-voice-setup [--status|--remove]"; exit 2 ;;
 esac
 
 command -v pacman >/dev/null 2>&1 || { echo "pacman not found: install whisper.cpp and Qt 6 Multimedia manually"; exit 1; }
@@ -71,5 +71,5 @@ if [[ ! -f "$MODEL_DIR/$MODEL" ]]; then
     install -m644 "$tmp/$MODEL" "$MODEL_DIR/$MODEL"
 fi
 
-echo "V3 Keyboard voice input:"
+echo "Tastra voice input:"
 status || true

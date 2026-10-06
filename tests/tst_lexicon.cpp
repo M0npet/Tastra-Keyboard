@@ -8,10 +8,13 @@
 #include <QCoreApplication>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 
 #include "core/locallexicon.h"
 
-using V3Keyboard::LocalLexicon;
+using Tastra::LocalLexicon;
 
 class LexiconTest : public QObject
 {
@@ -20,20 +23,50 @@ class LexiconTest : public QObject
 private:
     static void useFixtureDictionaries()
     {
-        LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/hunspell")});
-        LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/blocklist")});
-        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/hunspell")});
+        LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/blocklist")});
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
     }
     static void useNoDictionaries()
     {
-        LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
     static void useFrequencies()
     {
-        LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/frequency")});
+        LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/frequency")});
+    }
+    // Small en/de/uk/ru dictionaries and frequency lists for the LatinIME
+    // error model (apostrophes, diacritics, length-aware confidence).
+    static void useLatinImeFixtures(LocalLexicon &lexicon, const QString &language)
+    {
+        LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/latinime/hunspell")});
+        // "~N" in a fixture list stands for N lines that are not words, so a
+        // word after it gets a realistic rank (ranks count lines).
+        static QTemporaryDir frequency;
+        for (const QString &name : QDir(QStringLiteral(TASTRA_TEST_DATA "/latinime/frequency")).entryList({QStringLiteral("*.txt")})) {
+            QFile in(QStringLiteral(TASTRA_TEST_DATA "/latinime/frequency/") + name);
+            QFile out(frequency.filePath(name));
+            QVERIFY(in.open(QIODevice::ReadOnly) && out.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            for (const QByteArray &line : in.readAll().split('\n')) {
+                if (line.startsWith('~')) out.write(QByteArray("~\n").repeated(line.mid(1).toInt()));
+                else if (!line.isEmpty()) out.write(line + '\n');
+            }
+        }
+        LocalLexicon::setFrequencySearchPaths({frequency.path()});
+        LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
+        lexicon.setLanguage(language);
+        QVERIFY(lexicon.waitForDictionary(5000));
+        static const QHash<QString, QStringList> rows = {
+            {QStringLiteral("en"), {QStringLiteral("qwertyuiop"), QStringLiteral("asdfghjkl"), QStringLiteral("zxcvbnm")}},
+            {QStringLiteral("de"), {QStringLiteral("qwertzuiopü"), QStringLiteral("asdfghjklöä"), QStringLiteral("yxcvbnm")}},
+            {QStringLiteral("uk"), {QStringLiteral("йцукенгшщзхї"), QStringLiteral("фівапролджє"), QStringLiteral("ячсмитьбю")}},
+            {QStringLiteral("ru"), {QStringLiteral("йцукенгшщзхъ"), QStringLiteral("фывапролджэ"), QStringLiteral("ячсмитьбю")}},
+        };
+        lexicon.setKeyboardRows(rows.value(language));
     }
     static void loaded(LocalLexicon &lexicon, const QString &language)
     {
@@ -45,7 +78,7 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setOrganizationName(QStringLiteral("TastraTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_lexicon"));
         QSettings().clear();
     }
@@ -154,7 +187,7 @@ private Q_SLOTS:
     void personalDictionaryKeepsCaseAndPersists()
     {
         useFixtureDictionaries();
-        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
         {
             LocalLexicon lexicon;
             loaded(lexicon, QStringLiteral("en"));
@@ -174,19 +207,19 @@ private Q_SLOTS:
     void dictionaryFileAddsWordsForAllLanguages()
     {
         useFixtureDictionaries();
-        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/userdict/dictionary.txt"));
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/userdict/dictionary.txt"));
         LocalLexicon lexicon;
         loaded(lexicon, QStringLiteral("en"));
         QCOMPARE(lexicon.suggestions(QStringLiteral("minis"), {}).value(0), QStringLiteral("Minisforum"));
         loaded(lexicon, QStringLiteral("ru"));
         QVERIFY(lexicon.hasWord(QStringLiteral("kyiv")));
-        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
     }
 
     void forgettingAlsoRemovesFromThePersonalDictionary()
     {
         useFixtureDictionaries();
-        LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
         LocalLexicon lexicon;
         loaded(lexicon, QStringLiteral("en"));
         lexicon.addUserWord(QStringLiteral("Quokka"));
@@ -378,6 +411,84 @@ private Q_SLOTS:
         QVERIFY(!lexicon.hasSystemDictionary());
         QCOMPARE(lexicon.language(), QStringLiteral("ru"));
         QCOMPARE(lexicon.bestCorrection(QStringLiteral("првиет")), QStringLiteral("привет"));
+    }
+
+    void omittedApostropheIsAnAlmostFreeEdit()
+    {
+        // LatinIME treats a left-out apostrophe as an intentional omission
+        // (nearly free), so "dont" is "don't", not a distant real word.
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("en"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("dont")), QStringLiteral("don't"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("isnt")), QStringLiteral("isn't"));     // not "inst"
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("thats")), QStringLiteral("that's"));   // not "that"
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("youre")), QStringLiteral("you're"));   // not "your"
+        // The dictionary's own spelling, capital included.
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("ive")), QStringLiteral("I've"));       // not "vie"
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("im")), QStringLiteral("I'm"));         // two letters
+        QCOMPARE(lexicon.correctionPreview(QStringLiteral("dont")), QStringLiteral("don't"));  // cheap path too
+        // A real word stays, but the strip offers the contraction.
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("cant")).isEmpty());
+        const QStringList strip = lexicon.suggestions(QStringLiteral("cant"), {}, 3);
+        QVERIFY2(strip.contains(QStringLiteral("can't")), qPrintable(strip.join(',')));
+    }
+
+    void englishCapitalOnlyWordsAreCapitalised()
+    {
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("en"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("i")), QStringLiteral("I"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("monday")), QStringLiteral("Monday"));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("me")).isEmpty());
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("it")).isEmpty());
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("the")).isEmpty());
+    }
+
+    void ukrainianApostropheIsRestored()
+    {
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("uk"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("пять")), QStringLiteral("п'ять"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("мясо")), QStringLiteral("м'ясо"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("звязок")), QStringLiteral("зв'язок"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("обєкт")), QStringLiteral("об'єкт"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("память")), QStringLiteral("пам'ять"));
+        QCOMPARE(lexicon.correctionPreview(QStringLiteral("пять")), QStringLiteral("п'ять"));
+        // г typed for ґ (ґ sits behind г on the keyboard).
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("ганок")), QStringLiteral("ґанок"));
+        // A typographic apostrophe is the same word.
+        QVERIFY(lexicon.hasWord(QStringLiteral("пʼять")));
+    }
+
+    void germanUmlautsDigraphsAndSharpS()
+    {
+        // LatinIME: a base letter matches its accented forms almost for free
+        // (u ~ ü), and German digraphs ue/oe/ae stand for ü/ö/ä.
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("de"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("uber")), QStringLiteral("über"));      // not "aber"
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("ueber")), QStringLiteral("über"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("fur")), QStringLiteral("für"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("naturlich")), QStringLiteral("natürlich"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("grosse")), QStringLiteral("große"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("strasse")), QStringLiteral("Straße"));  // a noun
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("grusse")), QStringLiteral("Grüße"));    // ü and ß at once
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("hasu")), QStringLiteral("Haus"));       // nouns keep their capital
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("schon")).isEmpty());                    // a word in its own right
+    }
+
+    void confidenceGrowsWithWordLength()
+    {
+        // LatinIME normalises the score by length: one wrong letter in a long
+        // word is a confident correction, a different letter in a three-letter
+        // word is not ("щас" is slang, not a typo of "вас").
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("ru"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("пожалуйсто")), QStringLiteral("пожалуйста"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("обьект")), QStringLiteral("объект"));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("щас")).isEmpty());
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("еще")).isEmpty());
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("првиет")), QStringLiteral("привет"));   // transposition still
     }
 };
 

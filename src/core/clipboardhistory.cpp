@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <QSettings>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 ClipboardHistory::ClipboardHistory()

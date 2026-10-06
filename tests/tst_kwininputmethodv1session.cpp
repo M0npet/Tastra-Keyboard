@@ -4,7 +4,7 @@
 
 #include "platform/kwin/kwininputmethodv1session.h"
 
-class FakeContext final : public V3Keyboard::KWin::InputMethodV1Context
+class FakeContext final : public Tastra::KWin::InputMethodV1Context
 {
 public:
     void deleteSurroundingText(qint32 index, quint32 length) override
@@ -62,8 +62,8 @@ class KWinInputMethodV1SessionTest : public QObject
 private Q_SLOTS:
     void activationAndCommitStateDriveBackend()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
-        V3Keyboard::KWin::KWinInputMethodV1Session session(backend);
+        Tastra::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Session session(backend);
         FakeContext context;
 
         session.activate(context);
@@ -77,8 +77,8 @@ private Q_SLOTS:
 
     void deactivateStopsCommits()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
-        V3Keyboard::KWin::KWinInputMethodV1Session session(backend);
+        Tastra::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Session session(backend);
         FakeContext context;
 
         session.activate(context);
@@ -91,8 +91,8 @@ private Q_SLOTS:
 
     void staleDeactivateDoesNotClearNewContext()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
-        V3Keyboard::KWin::KWinInputMethodV1Session session(backend);
+        Tastra::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Session session(backend);
         FakeContext oldContext;
         FakeContext newContext;
 

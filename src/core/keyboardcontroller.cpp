@@ -3,7 +3,7 @@
 #include "keyboardcontroller.h"
 #include "inputmethodbackend.h"
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 KeyboardController::KeyboardController(InputMethodBackend &backend)

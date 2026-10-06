@@ -1,0 +1,6 @@
+SET UTF-8
+TRY оаниітврсулдкмпяьзчбегхшжєйїцюфщґ'
+WORDCHARS '
+ICONV 2
+ICONV ʼ '
+ICONV ’ '

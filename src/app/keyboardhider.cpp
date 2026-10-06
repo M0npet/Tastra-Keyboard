@@ -6,9 +6,9 @@
 #include <QDBusVariant>
 #include <QLoggingCategory>
 
-Q_LOGGING_CATEGORY(lcHider, "v3keyboard.panel.hide", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcHider, "tastra.panel.hide", QtWarningMsg)
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 void KWinKeyboardHider::hideKeyboard()

@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 // Mono float samples at 16 kHz.

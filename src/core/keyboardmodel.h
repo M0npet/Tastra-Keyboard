@@ -5,7 +5,7 @@
 #include <QString>
 #include <QStringList>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 class KeyboardModel

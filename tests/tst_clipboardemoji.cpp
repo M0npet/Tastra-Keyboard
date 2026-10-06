@@ -17,13 +17,13 @@ private Q_SLOTS:
     {
         // Never read or write the real user configuration from tests.
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setOrganizationName(QStringLiteral("TastraTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_clipboardemoji"));
     }
 
     void emojiSearchUnderstandsTheKeyboardLanguage()
     {
-        V3Keyboard::EmojiCatalog catalog;
+        Tastra::EmojiCatalog catalog;
         // English names always work.
         QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("grinning")).contains(QStringLiteral("😀")));
         QVERIFY(catalog.glyphs(QStringLiteral("All"), QStringLiteral("улыб")).isEmpty());
@@ -42,7 +42,7 @@ private Q_SLOTS:
 
     void exactKeywordMapsAWordToItsEmoji()
     {
-        V3Keyboard::EmojiCatalog catalog;
+        Tastra::EmojiCatalog catalog;
         QCOMPARE(catalog.emojiForWord(QStringLiteral("Pizza")), QStringLiteral("🍕"));
         QVERIFY(catalog.emojiForWord(QStringLiteral("piz")).isEmpty());      // exact only
         catalog.setKeywordLanguage(QStringLiteral("ru"));
@@ -52,7 +52,7 @@ private Q_SLOTS:
     void recentEmojisComeFirstAndPersist()
     {
         {
-            V3Keyboard::EmojiCatalog catalog;
+            Tastra::EmojiCatalog catalog;
             catalog.clearRecent();
             QVERIFY(!catalog.categories().contains(QStringLiteral("Recent")));
             catalog.noteUsed(QStringLiteral("😀"));
@@ -61,13 +61,13 @@ private Q_SLOTS:
             QCOMPARE(catalog.categories().value(0), QStringLiteral("Recent"));
             QCOMPARE(catalog.glyphs(QStringLiteral("Recent")), QStringList({QStringLiteral("😀"), QStringLiteral("🍕")}));
         }
-        V3Keyboard::EmojiCatalog reloaded;
+        Tastra::EmojiCatalog reloaded;
         QCOMPARE(reloaded.glyphs(QStringLiteral("Recent")), QStringList({QStringLiteral("😀"), QStringLiteral("🍕")}));
     }
 
     void clipboardHistoryDeduplicatesAndKeepsNewestFirst()
     {
-        V3Keyboard::ClipboardHistory history;
+        Tastra::ClipboardHistory history;
         history.clear();
         history.setEnabled(true);
         history.capture(QStringLiteral("one"));
@@ -85,7 +85,7 @@ private Q_SLOTS:
         // pinned items survive a restart (nothing else touches the disk).
         qint64 now = 1'000'000;
         {
-            V3Keyboard::ClipboardHistory history;
+            Tastra::ClipboardHistory history;
             history.setClockForTesting([&now] { return now; });
             history.clear();
             history.setEnabled(true);
@@ -100,12 +100,12 @@ private Q_SLOTS:
             QCOMPARE(history.items(), QStringList({QStringLiteral("address")}));
             history.capture(QStringLiteral("fresh"));
         }
-        V3Keyboard::ClipboardHistory reloaded;
+        Tastra::ClipboardHistory reloaded;
         reloaded.setClockForTesting([&now] { return now; });
         QCOMPARE(reloaded.items(), QStringList({QStringLiteral("address")}));     // unpinned not on disk
         QVERIFY(reloaded.isPinned(QStringLiteral("address")));
         reloaded.setPinned(QStringLiteral("address"), false);
-        V3Keyboard::ClipboardHistory again;
+        Tastra::ClipboardHistory again;
         QVERIFY(again.items().isEmpty());
     }
 
@@ -113,8 +113,8 @@ private Q_SLOTS:
     {
         // Real lines from Unicode's emoji-test.txt (19.0): tone variants are not
         // separate grid entries but long-press choices of their base (Gboard).
-        V3Keyboard::EmojiCatalog::setSystemDataPathForTesting(QStringLiteral(V3KBD_TEST_DATA "/emoji-system/emoji-test.txt"));
-        V3Keyboard::EmojiCatalog catalog;
+        Tastra::EmojiCatalog::setSystemDataPathForTesting(QStringLiteral(TASTRA_TEST_DATA "/emoji-system/emoji-test.txt"));
+        Tastra::EmojiCatalog catalog;
         const QStringList all = catalog.glyphs(QStringLiteral("All"), {}, 500);
         QVERIFY(all.contains(QStringLiteral("👍")));
         QVERIFY(!all.contains(QStringLiteral("👍🏻")));
@@ -124,12 +124,12 @@ private Q_SLOTS:
         QCOMPARE(catalog.skinTones(QStringLiteral("☝️")).size(), 5);       // base carries FE0F
         QVERIFY(catalog.skinTones(QStringLiteral("😀")).isEmpty());
         QVERIFY(catalog.skinTones(QStringLiteral("🧑‍🤝‍🧑")).size() <= 5);  // mixed-tone pairs are skipped
-        V3Keyboard::EmojiCatalog::setSystemDataPathForTesting(QString());
+        Tastra::EmojiCatalog::setSystemDataPathForTesting(QString());
     }
 
     void emojiCatalogHasCategoriesAndSearch()
     {
-        V3Keyboard::EmojiCatalog catalog;
+        Tastra::EmojiCatalog catalog;
         QVERIFY(catalog.size() >= 40);
         QVERIFY(catalog.categories().contains(QStringLiteral("Smileys")));
         QVERIFY(catalog.glyphs(QStringLiteral("Smileys"), QStringLiteral("grinning"), 10).contains(QStringLiteral("😀")));

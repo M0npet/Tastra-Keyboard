@@ -4,6 +4,36 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.6.2
+- New name: **Tastra** (from German *Tastatur*), and a home on GitHub:
+  https://github.com/M0npet/Tastra. Settings, learned and added words,
+  shortcuts, dictionaries, the voice model and backups move over from the
+  "V3 Keyboard" folders automatically on the first start; the old folders
+  become links, so rolling back to 0.6.1 still works.
+- Install and update with one command: `scripts/tastra-install.sh` builds,
+  tests and installs a checkout; `tastra-update` pulls the latest version from
+  GitHub and does the same. KWin's keyboard choice is moved to the new name.
+- Autocorrect as in Android's keyboard (AOSP LatinIME error model):
+  - a left-out apostrophe is almost free: "dont" -> "don't", "im" -> "I'm",
+    "isnt" -> "isn't" (was "inst"), "ive" -> "I've" (was "vie"),
+    "пять" -> "п'ять", "мясо" -> "м'ясо", "звязок" -> "зв'язок";
+  - a letter without its accent too, and German ue/oe/ae and ss: "uber" ->
+    "über" (was "aber"), "ueber" -> "über", "strasse" -> "Straße",
+    "grusse" -> "Grüße", "ганок" -> "ґанок";
+  - the dictionary's spelling: "i" -> "I", "monday" -> "Monday", German
+    nouns keep their capital ("hasu" -> "Haus");
+  - confidence grows with word length: one wrong letter in a long word is
+    corrected ("пожалуйсто", "обьект"), a different letter in a three-letter
+    word is not ("щас" no longer becomes "вас");
+  - real words stay as typed, but the strip offers the contraction ("cant" ->
+    "can't", "ill" -> "I'll").
+- English and Ukrainian word lists now contain words with an apostrophe
+  (taken from wordfreq), so "don't" and "п'ять" are suggested by frequency.
+- Less memory: about a quarter less with a dictionary loaded (Ukrainian 81 ->
+  62 MB, Russian 48 -> 36 MB, English 32 -> 25 MB), by handing memory freed
+  after loading back to the system and keeping the wrong-layout word list as
+  hashes.
+
 ## 0.6.1
 - Second symbol page "=\<" (< > [ ] { } \ | ~ ^ = % © ® ™ £ € ¥ …), the
   language's currency on the first page, and long-press extras such as « »,

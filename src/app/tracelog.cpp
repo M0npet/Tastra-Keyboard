@@ -8,7 +8,7 @@
 #include <QLoggingCategory>
 #include <QMutex>
 
-namespace V3Keyboard
+namespace Tastra
 {
 namespace
 {
@@ -19,7 +19,7 @@ QtMessageHandler g_previousHandler = nullptr;
 
 void traceHandler(QtMsgType type, const QMessageLogContext &context, const QString &message)
 {
-    if (context.category && QByteArray(context.category).startsWith("v3keyboard")) {
+    if (context.category && QByteArray(context.category).startsWith("tastra")) {
         QMutexLocker locker(&g_traceMutex);
         if (g_trace) {
             g_trace->write(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz")).toUtf8()
@@ -36,7 +36,7 @@ QString defaultStateDir()
 {
     QString base = qEnvironmentVariable("XDG_STATE_HOME");
     if (base.isEmpty()) base = QDir::homePath() + QStringLiteral("/.local/state");
-    return base + QStringLiteral("/v3-keyboard");
+    return base + QStringLiteral("/tastra");
 }
 
 bool enableTraceIfRequested(const QString &stateDir)
@@ -51,7 +51,7 @@ bool enableTraceIfRequested(const QString &stateDir)
         QMutexLocker locker(&g_traceMutex);
         g_trace = file;
     }
-    QLoggingCategory::setFilterRules(QStringLiteral("v3keyboard.*=true"));
+    QLoggingCategory::setFilterRules(QStringLiteral("tastra.*=true"));
     g_previousHandler = qInstallMessageHandler(traceHandler);
     return true;
 }

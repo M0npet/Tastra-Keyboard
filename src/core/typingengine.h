@@ -11,7 +11,7 @@
 #include <QString>
 #include <QStringList>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 class KeyboardController;
@@ -32,6 +32,7 @@ public:
     void setAutoCapitalizationAllowed(bool allowed);
     void setCompositionEnabled(bool enabled);
     void setClockForTesting(std::function<qint64()> clock);
+    bool waitForDictionaryForTesting(int timeoutMs) { return m_lexicon.waitForDictionary(timeoutMs); }
     void setBlockOffensive(bool enabled);
     void setKeyboardRows(const QStringList &rows);
     // Gboard "Auto-space after punctuation" (off by default).

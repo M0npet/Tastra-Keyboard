@@ -5,7 +5,7 @@
 
 #include "core/capsmode.h"
 
-using V3Keyboard::CapsMode::sentenceCaps;
+using Tastra::CapsMode::sentenceCaps;
 
 class CapsModeTest : public QObject
 {

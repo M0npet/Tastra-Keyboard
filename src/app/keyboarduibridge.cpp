@@ -4,7 +4,7 @@
 
 #include <QDateTime>
 
-#ifdef V3KBD_HAVE_KEY_SOUND
+#ifdef TASTRA_HAVE_KEY_SOUND
 #include <QSoundEffect>
 #endif
 #include "keyboardhider.h"
@@ -24,7 +24,7 @@
 #include <QSettings>
 #include <QtGlobal>
 
-namespace V3Keyboard
+namespace Tastra
 {
 namespace
 {
@@ -265,14 +265,14 @@ void KeyboardUiBridge::insertEmoji(const QString &glyph)
 }
 
 // Gboard "personal dictionary" shortcuts: one "shortcut<TAB>expansion" or
-// "shortcut = expansion" per line in ~/.config/v3-keyboard/shortcuts.txt.
+// "shortcut = expansion" per line in ~/.config/tastra/shortcuts.txt.
 void KeyboardUiBridge::loadShortcuts()
 {
     m_shortcuts.clear();
-    QString path = qEnvironmentVariable("V3KBD_SHORTCUTS_FILE");
+    QString path = qEnvironmentVariable("TASTRA_SHORTCUTS_FILE");
     if (path.isEmpty()) {
         path = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
-            + QStringLiteral("/v3-keyboard/shortcuts.txt");
+            + QStringLiteral("/tastra/shortcuts.txt");
     }
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
@@ -333,7 +333,7 @@ bool KeyboardUiBridge::glideTrail() const { return m_glideTrail; }
 
 bool KeyboardUiBridge::canPlayKeySound() const
 {
-#ifdef V3KBD_HAVE_KEY_SOUND
+#ifdef TASTRA_HAVE_KEY_SOUND
     return true;
 #else
     return false;
@@ -359,11 +359,11 @@ void KeyboardUiBridge::setGlideTrail(bool enabled)
 
 void KeyboardUiBridge::keyFeedback()
 {
-#ifdef V3KBD_HAVE_KEY_SOUND
+#ifdef TASTRA_HAVE_KEY_SOUND
     if (!m_keySound) return;
     if (!m_click) {
         m_click = new QSoundEffect(this);
-        m_click->setSource(QUrl(QStringLiteral("qrc:/v3keyboard/sounds/click.wav")));
+        m_click->setSource(QUrl(QStringLiteral("qrc:/tastra/sounds/click.wav")));
         m_click->setVolume(0.35f);
     }
     m_click->play();
@@ -484,7 +484,7 @@ QVariantList KeyboardUiBridge::toolbarActions() const
 
 bool KeyboardUiBridge::amoled() const { return effectiveTheme() == QStringLiteral("amoled"); }
 QString KeyboardUiBridge::theme() const { return m_theme; }
-QString KeyboardUiBridge::version() const { return QStringLiteral(V3KBD_VERSION); }
+QString KeyboardUiBridge::version() const { return QStringLiteral(TASTRA_VERSION); }
 
 QString KeyboardUiBridge::effectiveTheme() const
 {

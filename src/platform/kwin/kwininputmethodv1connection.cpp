@@ -4,11 +4,11 @@
 
 #include <QLoggingCategory>
 
-// Enable with ~/.config/QtProject/qtlogging.ini:  [Rules] v3keyboard.*.debug=true
+// Enable with ~/.config/QtProject/qtlogging.ini:  [Rules] tastra.*.debug=true
 // Output goes to stderr, which KWin forwards to the user journal.
-Q_LOGGING_CATEGORY(lcKWinInput, "v3keyboard.input.protocol", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcKWinInput, "tastra.input.protocol", QtWarningMsg)
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 
 class ProtocolInputMethodV1Context final

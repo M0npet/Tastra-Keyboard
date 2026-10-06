@@ -4,7 +4,7 @@
 
 #include "app/voicecontroller.h"
 
-using namespace V3Keyboard;
+using namespace Tastra;
 
 namespace
 {

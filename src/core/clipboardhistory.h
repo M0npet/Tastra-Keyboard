@@ -6,7 +6,7 @@
 
 #include <functional>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 // Clipboard history as on Gboard: items are kept for one hour unless pinned.

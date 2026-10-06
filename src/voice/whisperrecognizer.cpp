@@ -10,9 +10,9 @@
 
 #include <algorithm>
 
-Q_LOGGING_CATEGORY(lcWhisper, "v3keyboard.voice.whisper", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcWhisper, "tastra.voice.whisper", QtWarningMsg)
 
-namespace V3Keyboard
+namespace Tastra
 {
 namespace
 {
@@ -38,16 +38,16 @@ WhisperRecognizer::~WhisperRecognizer()
 
 QString WhisperRecognizer::defaultModelPath()
 {
-    const QString overridePath = qEnvironmentVariable("V3KBD_VOICE_MODEL");
+    const QString overridePath = qEnvironmentVariable("TASTRA_VOICE_MODEL");
     if (!overridePath.isEmpty()) return overridePath;
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
-        + QStringLiteral("/v3-keyboard/voice/ggml-base-q5_1.bin");
+        + QStringLiteral("/tastra/voice/ggml-base-q5_1.bin");
 }
 
 QString WhisperRecognizer::unavailableReason() const
 {
     if (!QFileInfo::exists(m_modelPath)) {
-        return QStringLiteral("Voice model not installed: run v3kbd-voice-setup");
+        return QStringLiteral("Voice model not installed: run tastra-voice-setup");
     }
     return {};
 }

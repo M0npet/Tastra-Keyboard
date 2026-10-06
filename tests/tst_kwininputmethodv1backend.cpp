@@ -8,7 +8,7 @@
 
 #include "platform/kwin/kwininputmethodv1backend.h"
 
-class FakeInputMethodV1Context final : public V3Keyboard::KWin::InputMethodV1Context
+class FakeInputMethodV1Context final : public Tastra::KWin::InputMethodV1Context
 {
 public:
     void commitString(quint32 serial, const QString &text) override
@@ -70,7 +70,7 @@ class KWinInputMethodV1BackendTest : public QObject
 private Q_SLOTS:
     void deleteBeforeCursorUsesUtf8ByteLengths()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
         FakeInputMethodV1Context context;
 
         QVERIFY(!backend.deleteBeforeCursor(QStringLiteral("teh")));   // no context yet
@@ -87,7 +87,7 @@ private Q_SLOTS:
 
     void upAndDownAreSentAsKeysyms()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
         FakeInputMethodV1Context context;
         backend.setContext(&context);
         backend.moveUp();
@@ -98,7 +98,7 @@ private Q_SLOTS:
 
     void deleteAroundCursorCoversBothSidesInBytes()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
         FakeInputMethodV1Context context;
         QVERIFY(!backend.deleteAroundCursor(QStringLiteral("wr"), QStringLiteral("old")));   // no context
         backend.setContext(&context);
@@ -111,7 +111,7 @@ private Q_SLOTS:
 
     void preeditCarriesCommitFallbackAndByteCursor()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
         FakeInputMethodV1Context context;
         QVERIFY(!backend.setPreedit(QStringLiteral("x")));   // no context
         backend.setContext(&context);
@@ -131,7 +131,7 @@ private Q_SLOTS:
 
     void commitUsesLatestSerial()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
         FakeInputMethodV1Context context;
 
         backend.setContext(&context);
@@ -145,7 +145,7 @@ private Q_SLOTS:
 
     void commitWithoutContextIsIgnored()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
 
         backend.setLatestSerial(99);
         backend.commitText(QStringLiteral("a"));
@@ -155,7 +155,7 @@ private Q_SLOTS:
 
     void deactivationStopsCommits()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
         FakeInputMethodV1Context context;
 
         backend.setContext(&context);
@@ -168,7 +168,7 @@ private Q_SLOTS:
 
     void backspaceGeneratesBackspaceKeysym()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
         FakeInputMethodV1Context context;
 
         backend.setContext(&context);
@@ -182,7 +182,7 @@ private Q_SLOTS:
 
     void enterGeneratesReturnKeysym()
     {
-        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        Tastra::KWin::KWinInputMethodV1Backend backend;
         FakeInputMethodV1Context context;
 
         backend.setContext(&context);

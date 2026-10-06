@@ -4,7 +4,7 @@
 
 #include "kwininputmethodv1backend.h"
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 
 class KWinInputMethodV1Session

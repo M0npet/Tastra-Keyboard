@@ -7,9 +7,9 @@
 #include <chrono>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-Q_LOGGING_CATEGORY(lcKWinBackend, "v3keyboard.input.backend", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcKWinBackend, "tastra.input.backend", QtWarningMsg)
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 namespace
 {

@@ -6,95 +6,106 @@
 #include "tracelog.h"
 #include "voicecontroller.h"
 
-#ifdef V3KBD_HAVE_VOICE
+#ifdef TASTRA_HAVE_VOICE
 #include "voice/qtaudiorecorder.h"
 #include "voice/whisperrecognizer.h"
 #endif
 
 #include "core/keyboardcontroller.h"
+#include "core/legacymigration.h"
 #include "core/keyboardmodel.h"
 #include "platform/kwin/kwininputmethodv1backend.h"
 #include "platform/kwin/kwininputmethodv1connection.h"
 #include "platform/kwin/kwininputpanelintegration.h"
 
 #include <QGuiApplication>
+#include <QLoggingCategory>
 #include <QQmlContext>
 #include <QQuickView>
 #include <QUrl>
 
+Q_LOGGING_CATEGORY(lcMigration, "tastra.migration", QtInfoMsg)
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
-    app.setOrganizationName(QStringLiteral("V3Keyboard"));
-    app.setApplicationName(QStringLiteral("V3 Keyboard"));
-    // touch ~/.local/state/v3-keyboard/trace.enable to capture a privacy-safe
-    // protocol/engine trace in ~/.local/state/v3-keyboard/trace.log
-    V3Keyboard::enableTraceIfRequested(V3Keyboard::defaultStateDir());
+    // Settings live in ~/.config/tastra/tastra.conf, next to dictionary.txt
+    // and shortcuts.txt.
+    app.setOrganizationName(QStringLiteral("tastra"));
+    app.setApplicationName(QStringLiteral("tastra"));
+    // Up to 0.6.1 the keyboard had another name (see legacymigration.h):
+    // bring its files along before anything reads settings, words or the
+    // trace switch.
+    const QStringList migrated = Tastra::migrateLegacyPaths(Tastra::defaultMigrationRoots());
+    // touch ~/.local/state/tastra/trace.enable to capture a privacy-safe
+    // protocol/engine trace in ~/.local/state/tastra/trace.log
+    Tastra::enableTraceIfRequested(Tastra::defaultStateDir());
+    for (const QString &line : migrated) qCInfo(lcMigration).noquote() << line;
 
-    V3Keyboard::KWin::KWinInputMethodV1Backend backend;
-    V3Keyboard::KeyboardController controller(backend);
-    V3Keyboard::KeyboardModel model;
-    V3Keyboard::KeyboardUiBridge bridge(controller, model);
-#ifdef V3KBD_HAVE_VOICE
+    Tastra::KWin::KWinInputMethodV1Backend backend;
+    Tastra::KeyboardController controller(backend);
+    Tastra::KeyboardModel model;
+    Tastra::KeyboardUiBridge bridge(controller, model);
+#ifdef TASTRA_HAVE_VOICE
     // Offline dictation; the model is only loaded when the mic key is used.
-    V3Keyboard::QtAudioRecorder voiceRecorder;
-    V3Keyboard::WhisperRecognizer voiceRecognizer(V3Keyboard::WhisperRecognizer::defaultModelPath());
-    V3Keyboard::VoiceController voice(&voiceRecorder, &voiceRecognizer);
+    Tastra::QtAudioRecorder voiceRecorder;
+    Tastra::WhisperRecognizer voiceRecognizer(Tastra::WhisperRecognizer::defaultModelPath());
+    Tastra::VoiceController voice(&voiceRecorder, &voiceRecognizer);
     bridge.setVoiceController(&voice);
 #endif
-    V3Keyboard::KWin::KWinInputMethodV1Connection inputMethod(backend);
+    Tastra::KWin::KWinInputMethodV1Connection inputMethod(backend);
 
     QQuickView view;
     view.setColor(Qt::transparent);
     view.setResizeMode(QQuickView::SizeViewToRootObject);
     view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-    view.setSource(QUrl(QStringLiteral("qrc:/v3keyboard/Main.qml")));
+    view.setSource(QUrl(QStringLiteral("qrc:/tastra/Main.qml")));
 
     if (view.status() == QQuickView::Error) {
         return 2;
     }
 
-    if (!V3Keyboard::KWin::initializeInputPanel(&view)) {
+    if (!Tastra::KWin::initializeInputPanel(&view)) {
         return 3;
     }
 
     QObject::connect(
         &inputMethod,
-        &V3Keyboard::KWin::KWinInputMethodV1Connection::surroundingTextChanged,
+        &Tastra::KWin::KWinInputMethodV1Connection::surroundingTextChanged,
         &bridge,
-        &V3Keyboard::KeyboardUiBridge::setSurroundingText);
+        &Tastra::KeyboardUiBridge::setSurroundingText);
 
     QObject::connect(
         &inputMethod,
-        &V3Keyboard::KWin::KWinInputMethodV1Connection::contentTypeChanged,
+        &Tastra::KWin::KWinInputMethodV1Connection::contentTypeChanged,
         &bridge,
-        &V3Keyboard::KeyboardUiBridge::setContentType);
+        &Tastra::KeyboardUiBridge::setContentType);
 
     QObject::connect(
         &inputMethod,
-        &V3Keyboard::KWin::KWinInputMethodV1Connection::contextReset,
+        &Tastra::KWin::KWinInputMethodV1Connection::contextReset,
         &bridge,
-        &V3Keyboard::KeyboardUiBridge::resetCompositionFromClient);
+        &Tastra::KeyboardUiBridge::resetCompositionFromClient);
 
     QObject::connect(
         &inputMethod,
-        &V3Keyboard::KWin::KWinInputMethodV1Connection::preferredLanguageChanged,
+        &Tastra::KWin::KWinInputMethodV1Connection::preferredLanguageChanged,
         &bridge,
-        &V3Keyboard::KeyboardUiBridge::setPreferredLanguage);
+        &Tastra::KeyboardUiBridge::setPreferredLanguage);
 
     // Hide with a short grace time (see PanelVisibility). requestActivate()
     // was dropped: for an input-panel surface it is a no-op in QtWayland, and
     // KWin never gives input panels the focus anyway.
-    V3Keyboard::KWinKeyboardHider hider;
+    Tastra::KWinKeyboardHider hider;
     bridge.setKeyboardHider(&hider);
 
-    V3Keyboard::PanelVisibility panel;
-    QObject::connect(&panel, &V3Keyboard::PanelVisibility::visibleChanged, &view,
+    Tastra::PanelVisibility panel;
+    QObject::connect(&panel, &Tastra::PanelVisibility::visibleChanged, &view,
                      [&view](bool visible) { view.setVisible(visible); });
 
     QObject::connect(
         &inputMethod,
-        &V3Keyboard::KWin::KWinInputMethodV1Connection::contextActiveChanged,
+        &Tastra::KWin::KWinInputMethodV1Connection::contextActiveChanged,
         &view,
         [&panel, &bridge](bool active) {
             // Every activation is a new client context (text-input version,

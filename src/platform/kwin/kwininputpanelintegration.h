@@ -4,7 +4,7 @@
 
 class QWindow;
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 
 bool initializeInputPanel(QWindow *window);

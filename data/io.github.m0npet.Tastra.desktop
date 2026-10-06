@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=V3 Keyboard
+Name=Tastra
 Comment=Privacy-first virtual keyboard for Wayland
-Exec=v3-keyboard
+Exec=tastra
 Type=Application
 X-KDE-Wayland-VirtualKeyboard=true
 Icon=input-keyboard-virtual

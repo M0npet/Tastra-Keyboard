@@ -4,7 +4,7 @@
 #include "voice/qtaudiorecorder.h"
 #include "voice/whisperrecognizer.h"
 
-using namespace V3Keyboard;
+using namespace Tastra;
 
 class VoiceAdaptersTest : public QObject
 {
@@ -31,13 +31,13 @@ private Q_SLOTS:
     void missingModelIsReported()
     {
         WhisperRecognizer recognizer(QStringLiteral("/nonexistent/model.bin"));
-        QVERIFY(recognizer.unavailableReason().contains(QStringLiteral("v3kbd-voice-setup")));
+        QVERIFY(recognizer.unavailableReason().contains(QStringLiteral("tastra-voice-setup")));
     }
 
     void realWhisperRunCompletesOffThread()
     {
-        const QString model = qEnvironmentVariable("V3KBD_TEST_WHISPER_MODEL");
-        if (model.isEmpty()) QSKIP("set V3KBD_TEST_WHISPER_MODEL to run whisper end-to-end");
+        const QString model = qEnvironmentVariable("TASTRA_TEST_WHISPER_MODEL");
+        if (model.isEmpty()) QSKIP("set TASTRA_TEST_WHISPER_MODEL to run whisper end-to-end");
         WhisperRecognizer recognizer(model);
         QVERIFY(recognizer.unavailableReason().isEmpty());
         bool finished = false;

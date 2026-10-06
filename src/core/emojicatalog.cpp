@@ -10,7 +10,7 @@
 #include <QRegularExpression>
 #include <QSet>
 
-namespace V3Keyboard
+namespace Tastra
 {
 namespace
 {
@@ -224,7 +224,7 @@ QString withoutVariationSelector(const QString &glyph)
 QHash<QString, QString> loadKeywords(const QString &code)
 {
     QHash<QString, QString> map;
-    QFile file(QStringLiteral(":/v3keyboard/emoji/%1.tsv").arg(code));
+    QFile file(QStringLiteral(":/tastra/emoji/%1.tsv").arg(code));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return map;
     const QString text = QString::fromUtf8(file.readAll());
     for (QStringView line : QStringView(text).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {

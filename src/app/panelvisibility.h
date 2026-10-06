@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QTimer>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 // Shows the panel as soon as a text field activates the input method, but

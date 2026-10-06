@@ -1117,8 +1117,8 @@ Rectangle {
                 special: true
                 popupEnabled: false
                 iconSource: keyboardBridge.capsLock
-                    ? "qrc:/v3keyboard/icons/shift-lock.svg"
-                    : "qrc:/v3keyboard/icons/shift.svg"
+                    ? "qrc:/tastra/icons/shift-lock.svg"
+                    : "qrc:/tastra/icons/shift.svg"
                 // Gboard: touch Shift and slide onto a letter for one capital.
                 property bool sliding: false
                 onPressStarted: (x, y) => { sliding = false }
@@ -1198,7 +1198,7 @@ Rectangle {
                 special: true
                 popupEnabled: false
                 longPressEnabled: true
-                iconSource: "qrc:/v3keyboard/icons/backspace.svg"
+                iconSource: "qrc:/tastra/icons/backspace.svg"
                 objectName: "backspaceKey"
                 onTriggered: keyboardBridge.backspace()
                 // Gboard: holding Backspace keeps deleting and speeds up.
@@ -1334,7 +1334,7 @@ Rectangle {
                 preferredWidth: root.baseKeyWidth * 1.35
                 accent: true
                 popupEnabled: false
-                iconSource: "qrc:/v3keyboard/icons/enter.svg"
+                iconSource: "qrc:/tastra/icons/enter.svg"
                 onTriggered: keyboardBridge.enter()
             }
         }
@@ -2010,7 +2010,7 @@ Rectangle {
                         color: root.secondaryTextColor
                         font.pixelSize: root.portrait ? 14 : 12
                         text: "Add words: tap a typed word in the suggestion strip, then \uFF0B. "
-                            + "Many at once: ~/.config/v3-keyboard/dictionary.txt (one per line, all languages)."
+                            + "Many at once: ~/.config/tastra/dictionary.txt (one per line, all languages)."
                     }
 
                     Text {
@@ -2038,11 +2038,11 @@ Rectangle {
                         wrapMode: Text.WordWrap
                         color: root.secondaryTextColor
                         font.pixelSize: root.portrait ? 14 : 12
-                        text: "V3 Keyboard " + keyboardBridge.version + " · GPL-3.0-or-later · works offline\n"
+                        text: "Tastra " + keyboardBridge.version + " · GPL-3.0-or-later · works offline\n"
                             + "Data: FrequencyWords (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), "
                             + "LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), "
                             + "LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).\n"
-                            + "Full texts: ~/.local/share/doc/v3-keyboard"
+                            + "Full texts: ~/.local/share/doc/tastra"
                     }
                 }
             }

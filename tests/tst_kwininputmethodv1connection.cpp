@@ -13,8 +13,8 @@ class KWinInputMethodV1ConnectionTest : public QObject
 private Q_SLOTS:
     void hasExpectedConstructionContract()
     {
-        using Connection = V3Keyboard::KWin::KWinInputMethodV1Connection;
-        using Backend = V3Keyboard::KWin::KWinInputMethodV1Backend;
+        using Connection = Tastra::KWin::KWinInputMethodV1Connection;
+        using Backend = Tastra::KWin::KWinInputMethodV1Backend;
 
         QVERIFY((std::is_constructible_v<Connection, Backend &>));
         QVERIFY((std::is_base_of_v<QtWayland::zwp_input_method_v1, Connection>));

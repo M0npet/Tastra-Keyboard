@@ -4,9 +4,9 @@
 
 #include <QLoggingCategory>
 
-Q_LOGGING_CATEGORY(lcVoice, "v3keyboard.voice", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcVoice, "tastra.voice", QtWarningMsg)
 
-namespace V3Keyboard
+namespace Tastra
 {
 namespace
 {

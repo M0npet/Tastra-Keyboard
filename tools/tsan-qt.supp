@@ -1,0 +1,12 @@
+# ThreadSanitizer suppressions for a Qt that was not built with -sanitize
+# thread: races reported inside these libraries cannot be seen correctly.
+# Any report with a Tastra frame in it is still shown.
+#   TSAN_OPTIONS=suppressions=tools/tsan-qt.supp ctest ...
+race:libQt6Core.so.6
+called_from_lib:libQt6Core.so.6
+race:libQt6Test.so.6
+called_from_lib:libQt6Test.so.6
+race:libQt6Multimedia.so.6
+called_from_lib:libQt6Multimedia.so.6
+race:libglib-2.0.so.0
+called_from_lib:libglib-2.0.so.0

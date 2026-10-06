@@ -23,7 +23,7 @@ namespace
 
 // A field model that behaves like a text-input client driven through KWin:
 // commits replace the preedit; Backspace deletes before the committed cursor.
-class FieldBackend final : public V3Keyboard::InputMethodBackend
+class FieldBackend final : public Tastra::InputMethodBackend
 {
 public:
     void commitText(const QString &text) override { preedit.clear(); field += text; }
@@ -68,12 +68,12 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setOrganizationName(QStringLiteral("TastraTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_typingstress"));
         QSettings().clear();
-        V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
     void typedTextSurvivesRandomSequences_data()
@@ -96,8 +96,8 @@ private Q_SLOTS:
             FieldBackend backend;
             backend.textChannel = composition;
             backend.preeditSupport = composition;
-            V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::TypingEngine engine(controller);
+            Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller);
             engine.setAutocorrectEnabled(false);
             engine.setAutoCapitalizationEnabled(false);
             engine.setDoubleSpacePeriodEnabled(false);

@@ -15,7 +15,7 @@
 #include <QLoggingCategory>
 #include <QTemporaryDir>
 
-Q_LOGGING_CATEGORY(lcTraceProbe, "v3keyboard.test", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcTraceProbe, "tastra.test", QtWarningMsg)
 Q_LOGGING_CATEGORY(lcOtherProbe, "other.test", QtWarningMsg)
 
 #include "app/keyboarduibridge.h"
@@ -23,7 +23,7 @@ Q_LOGGING_CATEGORY(lcOtherProbe, "other.test", QtWarningMsg)
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 
-class FakeBackend final : public V3Keyboard::InputMethodBackend
+class FakeBackend final : public Tastra::InputMethodBackend
 {
 public:
     void commitText(const QString &text) override
@@ -99,12 +99,12 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setOrganizationName(QStringLiteral("TastraTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_keyboarduibridge"));
-        V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
     }
 
     void init() { QSettings().clear(); }
@@ -113,9 +113,9 @@ private Q_SLOTS:
     void dateFieldIsNotTreatedAsSecret()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         bridge.setContentType(0, 9);
         QVERIFY(!bridge.secureInput());
@@ -128,9 +128,9 @@ private Q_SLOTS:
     void urlAndEmailFieldsDisableSmartTypingWithoutBeingSecret()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         for (quint32 purpose : {5u, 6u}) {
             bridge.setContentType(0, purpose);
@@ -147,9 +147,9 @@ private Q_SLOTS:
     void lowercaseHintDisablesAutoCapitalization()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         QVERIFY(bridge.uppercase());                   // sentence start by default
         bridge.setContentType(0x8, 0);
@@ -161,9 +161,9 @@ private Q_SLOTS:
     void cursorMovesAndLanguageSwitchCommitTheComposedWordFirst()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);   // mid-text        // text-input client
 
         bridge.tapLetter(QStringLiteral("o"));
@@ -182,9 +182,9 @@ private Q_SLOTS:
     void compositionCanBeSwitchedOff()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setSurroundingText(QString(), 0, 0);
 
         QVERIFY(bridge.compositionEnabled());
@@ -197,28 +197,28 @@ private Q_SLOTS:
     void traceIsOptInAndOnlyCapturesKeyboardCategories()
     {
         QTemporaryDir dir;
-        QVERIFY(!V3Keyboard::enableTraceIfRequested(dir.path()));   // no flag file
+        QVERIFY(!Tastra::enableTraceIfRequested(dir.path()));   // no flag file
         QFile flag(dir.path() + QStringLiteral("/trace.enable"));
         QVERIFY(flag.open(QIODevice::WriteOnly));
         flag.close();
-        QVERIFY(V3Keyboard::enableTraceIfRequested(dir.path()));
+        QVERIFY(Tastra::enableTraceIfRequested(dir.path()));
 
         qCDebug(lcTraceProbe) << "probe bytes" << 3;
         qCWarning(lcOtherProbe) << "not ours";
         QFile log(dir.path() + QStringLiteral("/trace.log"));
         QVERIFY(log.open(QIODevice::ReadOnly));
         const QByteArray content = log.readAll();
-        QVERIFY(content.contains("v3keyboard.test: probe bytes 3"));
+        QVERIFY(content.contains("tastra.test: probe bytes 3"));
         QVERIFY(!content.contains("not ours"));
     }
 
     void dictationFlowsFromVoiceIntoTheField()
     {
-        struct Recorder final : V3Keyboard::AudioRecorder {
+        struct Recorder final : Tastra::AudioRecorder {
             bool start(QString *) override { return true; }
             std::vector<float> stop() override { return std::vector<float>(16000, 0.1f); }
         } recorder;
-        struct Recognizer final : V3Keyboard::SpeechRecognizer {
+        struct Recognizer final : Tastra::SpeechRecognizer {
             QString unavailableReason() const override { return {}; }
             void recognize(std::vector<float>, const QString &lang, std::function<void(QString, QString)> done) override
             {
@@ -229,11 +229,11 @@ private Q_SLOTS:
         } recognizer;
 
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QVERIFY(!bridge.voiceBuilt());
-        V3Keyboard::VoiceController voice(&recorder, &recognizer);
+        Tastra::VoiceController voice(&recorder, &recognizer);
         bridge.setVoiceController(&voice);
         QVERIFY(bridge.voiceBuilt());
         bridge.setLanguage(QStringLiteral("de"));
@@ -250,9 +250,9 @@ private Q_SLOTS:
     void emojiSuggestionFollowsAnExactWordAndInsertsAfterIt()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         for (const QChar ch : QStringLiteral("pizza")) bridge.tapLetter(QString(ch));
         QVERIFY(bridge.suggestions().contains(QStringLiteral("🍕")));
@@ -268,9 +268,9 @@ private Q_SLOTS:
     void stripShowsTypedWordAndWhatSpaceWillInsert()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);   // mid-text
         for (const QChar ch : QStringLiteral("teh")) bridge.tapLetter(QString(ch));
@@ -286,9 +286,9 @@ private Q_SLOTS:
     void fieldTypeDrivesLayoutLikeGboard()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QCOMPARE(bridge.inputPurpose(), QStringLiteral("text"));
         bridge.setContentType(0, 3);   QCOMPARE(bridge.inputPurpose(), QStringLiteral("number"));
         bridge.setContentType(0, 2);   QCOMPARE(bridge.inputPurpose(), QStringLiteral("number"));
@@ -308,12 +308,12 @@ private Q_SLOTS:
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("# comment\nadp\tAndroid Police\nomw = on my way\n");
         file.close();
-        qputenv("V3KBD_SHORTCUTS_FILE", file.fileName().toUtf8());
+        qputenv("TASTRA_SHORTCUTS_FILE", file.fileName().toUtf8());
 
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         for (const QChar ch : QStringLiteral("omw")) bridge.tapLetter(QString(ch));
         QCOMPARE(bridge.suggestions().value(0), QStringLiteral("on my way"));
@@ -321,15 +321,15 @@ private Q_SLOTS:
         // No text-input client here: the typed "omw" is replaced via keys.
         QCOMPARE(backend.backspaceCount, 3);
         QCOMPARE(backend.commits.mid(3), QStringList({QStringLiteral("on my way"), QStringLiteral(" ")}));
-        qunsetenv("V3KBD_SHORTCUTS_FILE");
+        qunsetenv("TASTRA_SHORTCUTS_FILE");
     }
 
     void apostropheOnSymbolsReturnsToLetters()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.toggleSymbols();
         QVERIFY(bridge.symbolsActive());
         bridge.tapText(QStringLiteral("'"));
@@ -346,15 +346,15 @@ private Q_SLOTS:
     void themesFollowGboardIncludingSystem()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
         {
             QSettings().setValue(QStringLiteral("amoled"), true);       // pre-1.0 setting
-            V3Keyboard::KeyboardUiBridge migrated(controller, model);
+            Tastra::KeyboardUiBridge migrated(controller, model);
             QCOMPARE(migrated.theme(), QStringLiteral("amoled"));
             QSettings().clear();
         }
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QCOMPARE(bridge.theme(), QStringLiteral("system"));
         QVERIFY(bridge.effectiveTheme() == QStringLiteral("dark") || bridge.effectiveTheme() == QStringLiteral("light"));
         const QStringList order = {QStringLiteral("light"), QStringLiteral("dark"), QStringLiteral("amoled"), QStringLiteral("system")};
@@ -373,9 +373,9 @@ private Q_SLOTS:
     void tappingAnUnknownTypedWordOffersToSaveIt()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
 
         for (const QChar ch : QStringLiteral("zorgle")) bridge.tapLetter(QString(ch));
@@ -408,9 +408,9 @@ private Q_SLOTS:
     void savingAnUnknownWordAlsoWorksWithComposition()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);   // mid-text                  // Firefox: preedit mode
         for (const QChar ch : QStringLiteral("zorgle")) bridge.tapLetter(QString(ch));
         QCOMPARE(backend.preedit, QStringLiteral("Zorgle"));         // sentence start
@@ -425,9 +425,9 @@ private Q_SLOTS:
     void suggestionsFollowTheCaseOfTheTypedWord()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setSurroundingText(QString(), 0, 0);
         for (const QChar ch : QStringLiteral("hel")) bridge.tapLetter(QString(ch));   // "Hel" (auto-cap)
         QVERIFY(bridge.suggestions().contains(QStringLiteral("Hello")));
@@ -436,14 +436,14 @@ private Q_SLOTS:
 
     void hideButtonCommitsTheWordAndAsksKWinToHide()
     {
-        struct FakeHider final : V3Keyboard::KeyboardHider {
+        struct FakeHider final : Tastra::KeyboardHider {
             int calls = 0;
             void hideKeyboard() override { ++calls; }
         } hider;
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setKeyboardHider(&hider);
         bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);
         for (const QChar ch : QStringLiteral("wor")) bridge.tapLetter(QString(ch));
@@ -457,10 +457,10 @@ private Q_SLOTS:
     void gboardSoundAndTrailPreferencesPersist()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
         {
-            V3Keyboard::KeyboardUiBridge bridge(controller, model);
+            Tastra::KeyboardUiBridge bridge(controller, model);
             QVERIFY(!bridge.keySound());           // Gboard: off by default
             QVERIFY(bridge.glideTrail());          // Gboard: on by default
             bridge.keyFeedback();                  // silent and harmless while off
@@ -468,7 +468,7 @@ private Q_SLOTS:
             bridge.setGlideTrail(false);
             bridge.keyFeedback();                  // must not crash without an audio device
         }
-        V3Keyboard::KeyboardUiBridge reloaded(controller, model);
+        Tastra::KeyboardUiBridge reloaded(controller, model);
         QCOMPARE(reloaded.keySound(), reloaded.canPlayKeySound());   // only kept if playable
         QVERIFY(!reloaded.glideTrail());
     }
@@ -476,10 +476,10 @@ private Q_SLOTS:
     void onlyEnabledLanguagesAreInTheRotation()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
         {
-            V3Keyboard::KeyboardUiBridge bridge(controller, model);
+            Tastra::KeyboardUiBridge bridge(controller, model);
             QCOMPARE(bridge.languageCodes(), bridge.allLanguageCodes());          // all on by default
             bridge.setLanguage(QStringLiteral("ru"));
             bridge.setLanguageEnabled(QStringLiteral("en"), false);
@@ -498,7 +498,7 @@ private Q_SLOTS:
             QVERIFY(bridge.isLanguageEnabled(QStringLiteral("uk")));
             QCOMPARE(bridge.languageCodes(), QStringList({QStringLiteral("uk")}));
         }
-        V3Keyboard::KeyboardUiBridge reloaded(controller, model);
+        Tastra::KeyboardUiBridge reloaded(controller, model);
         QCOMPARE(reloaded.languageCodes(), QStringList({QStringLiteral("uk")}));
         QCOMPARE(reloaded.languageLabels().size(), 1);
     }
@@ -506,10 +506,10 @@ private Q_SLOTS:
     void upDownAndLongPressDelayLikeGboard()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
         {
-            V3Keyboard::KeyboardUiBridge bridge(controller, model);
+            Tastra::KeyboardUiBridge bridge(controller, model);
             bridge.moveUp();
             bridge.moveDown();
             QCOMPARE(backend.events.mid(backend.events.size() - 2), QStringList({QStringLiteral("up"), QStringLiteral("down")}));
@@ -517,7 +517,7 @@ private Q_SLOTS:
             bridge.cycleLongPressDelay();
             QCOMPARE(bridge.longPressDelay(), 400);
         }
-        V3Keyboard::KeyboardUiBridge reloaded(controller, model);
+        Tastra::KeyboardUiBridge reloaded(controller, model);
         QCOMPARE(reloaded.longPressDelay(), 400);
         for (int i = 0; i < 4; ++i) reloaded.cycleLongPressDelay();   // 500, 700, 200, 300
         QCOMPARE(reloaded.longPressDelay(), 300);
@@ -525,13 +525,13 @@ private Q_SLOTS:
 
     void choosingAWrongLayoutFixSwitchesTheLanguage()
     {
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/frequency-foreign")});
-        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
-        V3Keyboard::LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("ru"));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/frequency-foreign")});
+        Tastra::LocalLexicon::clearForeignWordCacheForTesting();
+        Tastra::LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("ru"));
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setLanguage(QStringLiteral("en"));
         bridge.setAutoCapitalizationEnabled(false);
         bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);
@@ -540,16 +540,16 @@ private Q_SLOTS:
         bridge.selectSuggestion(QStringLiteral("привет"));
         QVERIFY(backend.commits.contains(QStringLiteral("привет")));
         QCOMPARE(bridge.languageCode(), QStringLiteral("ru"));          // keep typing in Russian
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::clearForeignWordCacheForTesting();
     }
 
     void tapTextReachesController()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         bridge.tapText(QStringLiteral("a"));
 
@@ -559,9 +559,9 @@ private Q_SLOTS:
     void editingCommandsReachController()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         bridge.moveLeft();
         bridge.moveRight();
@@ -580,15 +580,15 @@ private Q_SLOTS:
     void ordinaryTypingDoesNotInvalidateWholeKeyboard()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         // Consume the initial sentence-start capitalization with the first key.
         bridge.tapLetter(QStringLiteral("h"));
 
-        QSignalSpy keyboardSpy(&bridge, &V3Keyboard::KeyboardUiBridge::keyboardStateChanged);
-        QSignalSpy suggestionSpy(&bridge, &V3Keyboard::KeyboardUiBridge::suggestionsChanged);
+        QSignalSpy keyboardSpy(&bridge, &Tastra::KeyboardUiBridge::keyboardStateChanged);
+        QSignalSpy suggestionSpy(&bridge, &Tastra::KeyboardUiBridge::suggestionsChanged);
 
         bridge.tapLetter(QStringLiteral("e"));
 

@@ -7,7 +7,7 @@
 #include <QWindow>
 #include <QtWaylandClient/private/qwaylandwindow_p.h>
 
-namespace V3Keyboard::KWin
+namespace Tastra::KWin
 {
 
 bool initializeInputPanel(QWindow *window)

@@ -33,7 +33,7 @@
 namespace
 {
 
-class FakeBackend final : public V3Keyboard::InputMethodBackend
+class FakeBackend final : public Tastra::InputMethodBackend
 {
 public:
     void commitText(const QString &text) override { commits.append(text); }
@@ -95,12 +95,12 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setOrganizationName(QStringLiteral("TastraTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_qmlkeyboard"));
-        V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
     }
 
     void init()
@@ -113,13 +113,13 @@ private Q_SLOTS:
     void tappingSuggestionReplacesTheTypedWord()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         QCOMPARE(view.status(), QQuickView::Ready);
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
@@ -142,13 +142,13 @@ private Q_SLOTS:
     void tappingARealKeyCommitsTheLetter()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
 
@@ -165,14 +165,14 @@ private Q_SLOTS:
     void overlappingTwoThumbTapsAreBothCommitted()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
 
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
 
@@ -197,14 +197,14 @@ private Q_SLOTS:
     void singleFingerGlideAndLongPressStillWork()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
 
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         auto centreOf = [&](const QString &label) {
@@ -265,15 +265,15 @@ private Q_SLOTS:
     void compactModeDocksTheKeysLeftOrRight()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);          // lowercase labels
 
         QQuickView view;
         view.setResizeMode(QQuickView::SizeRootObjectToView);
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.resize(1600, 520);
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
@@ -295,34 +295,34 @@ private Q_SLOTS:
         QCOMPARE(bridge.layoutMode(), QStringLiteral("right"));
 
         // Persisted like the other preferences.
-        V3Keyboard::KeyboardUiBridge reloaded(controller, model);
+        Tastra::KeyboardUiBridge reloaded(controller, model);
         QCOMPARE(reloaded.layoutMode(), QStringLiteral("right"));
     }
 
     void micButtonAppearsOnlyWithVoiceAndStartsRecording()
     {
-        struct Recorder final : V3Keyboard::AudioRecorder {
+        struct Recorder final : Tastra::AudioRecorder {
             bool start(QString *) override { started = true; return true; }
             std::vector<float> stop() override { return {}; }
             bool started = false;
         } recorder;
-        struct Recognizer final : V3Keyboard::SpeechRecognizer {
+        struct Recognizer final : Tastra::SpeechRecognizer {
             QString unavailableReason() const override { return {}; }
             void recognize(std::vector<float>, const QString &, std::function<void(QString, QString)>) override {}
         } recognizer;
 
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         QVERIFY(!findText(view.rootObject(), QStringLiteral("🎤")));      // not built in
 
-        V3Keyboard::VoiceController voice(&recorder, &recognizer);
+        Tastra::VoiceController voice(&recorder, &recognizer);
         bridge.setVoiceController(&voice);
         QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("🎤")));
         QTest::qWait(100);   // let the toolbar Row re-position its children (polish)
@@ -336,13 +336,13 @@ private Q_SLOTS:
     void gboardLongPressPickerNumberRowHintsAndForget()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
@@ -392,13 +392,13 @@ private Q_SLOTS:
     void stripQuotesTypedWordAndBoldsTheCorrection()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         for (const QChar ch : QStringLiteral("teh")) bridge.tapLetter(QString(ch));
@@ -411,12 +411,12 @@ private Q_SLOTS:
     void numberFieldsShowANumpadEmailFieldsAnAt()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
@@ -438,13 +438,13 @@ private Q_SLOTS:
     void gboardSlideGesturesAndEmojiRow()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
@@ -483,12 +483,12 @@ private Q_SLOTS:
     void lightDarkAndAmoledPalettes()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         QCOMPARE(view.status(), QQuickView::Ready);
         auto colour = [&](const char *name) { return view.rootObject()->property(name).value<QColor>(); };
         bridge.setTheme(QStringLiteral("light"));
@@ -512,13 +512,13 @@ private Q_SLOTS:
     void savingAndRemovingPersonalWordsThroughTheUi()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
@@ -556,14 +556,14 @@ private Q_SLOTS:
         // top) must stay inside, for any panel size.
         for (const QSize size : {QSize(1600, 560), QSize(1700, 420), QSize(1280, 360)}) {
             FakeBackend backend;
-            V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::KeyboardModel model;
-            V3Keyboard::KeyboardUiBridge bridge(controller, model);
+            Tastra::KeyboardController controller(backend);
+            Tastra::KeyboardModel model;
+            Tastra::KeyboardUiBridge bridge(controller, model);
             bridge.setAutoCapitalizationEnabled(false);
             QQuickView view;
             view.setResizeMode(QQuickView::SizeRootObjectToView);
             view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-            view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+            view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
             view.resize(size);
             view.show();
             QVERIFY(QTest::qWaitForWindowExposed(&view));
@@ -586,12 +586,12 @@ private Q_SLOTS:
     void holdingBackspaceKeepsDeletingUntilRelease()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         QQuickItem *key = findNamed(view.rootObject(), QStringLiteral("backspaceKey"));
@@ -611,15 +611,15 @@ private Q_SLOTS:
     void touchPointInsideTheKeyReachesCorrection()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         bridge.addWordToDictionary(QStringLiteral("bat"));
         bridge.addWordToDictionary(QStringLiteral("bet"));
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         QTest::qWait(100);
@@ -647,18 +647,18 @@ private Q_SLOTS:
 
     void hideButtonHidesTheKeyboardLikeGboard()
     {
-        struct FakeHider final : V3Keyboard::KeyboardHider {
+        struct FakeHider final : Tastra::KeyboardHider {
             int calls = 0;
             void hideKeyboard() override { ++calls; }
         } hider;
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setKeyboardHider(&hider);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         QQuickItem *button = findNamed(view.rootObject(), QStringLiteral("hideKeyboardButton"));
@@ -668,24 +668,24 @@ private Q_SLOTS:
         QTRY_COMPARE(hider.calls, 1);
 
         // Without a hider (not on Plasma) there is no button.
-        V3Keyboard::KeyboardUiBridge plain(controller, model);
+        Tastra::KeyboardUiBridge plain(controller, model);
         QQuickView other;
         other.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &plain);
-        other.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        other.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         QVERIFY(!findNamed(other.rootObject(), QStringLiteral("hideKeyboardButton")));
     }
 
     void clipboardItemsArePinnedWithALongPress()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.clearClipboardHistory();
         QGuiApplication::clipboard()->setText(QStringLiteral("keep me"));   // bridge listens to dataChanged
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         bridge.activateToolbarAction(QStringLiteral("clipboard"));
@@ -693,7 +693,7 @@ private Q_SLOTS:
         QTest::qWait(100);
         QQuickItem *item = findNamed(view.rootObject(), QStringLiteral("clipboardItem"));   // the list entry
         const QPoint at = item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint();
-        QSignalSpy changed(&bridge, &V3Keyboard::KeyboardUiBridge::clipboardChanged);
+        QSignalSpy changed(&bridge, &Tastra::KeyboardUiBridge::clipboardChanged);
         QTest::mousePress(&view, Qt::LeftButton, {}, at);
         QTest::qWait(qApp->styleHints()->mousePressAndHoldInterval() + 200);
         QTest::mouseRelease(&view, Qt::LeftButton, {}, at);
@@ -714,12 +714,12 @@ private Q_SLOTS:
     void settingsAreGroupedLikeGboard()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         bridge.activateToolbarAction(QStringLiteral("settings"));
@@ -764,14 +764,14 @@ private Q_SLOTS:
     void splitLayoutForThumbTypingLikeGboardOnTablets()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setAutoCapitalizationEnabled(false);
         QQuickView view;
         view.setResizeMode(QQuickView::SizeRootObjectToView);
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.resize(1600, 560);                                   // landscape tablet
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
@@ -807,16 +807,16 @@ private Q_SLOTS:
 
     void longPressOnAnEmojiOffersSkinTones()
     {
-        V3Keyboard::EmojiCatalog::setSystemDataPathForTesting(QStringLiteral(V3KBD_TEST_DATA "/emoji-system/emoji-test.txt"));
+        Tastra::EmojiCatalog::setSystemDataPathForTesting(QStringLiteral(TASTRA_TEST_DATA "/emoji-system/emoji-test.txt"));
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
-        V3Keyboard::EmojiCatalog::setSystemDataPathForTesting(QString());
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        Tastra::EmojiCatalog::setSystemDataPathForTesting(QString());
         QCOMPARE(bridge.emojiSkinTones(QStringLiteral("👍")).size(), 5);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         bridge.activateToolbarAction(QStringLiteral("emoji"));
@@ -840,12 +840,12 @@ private Q_SLOTS:
     void justCopiedTextIsOfferedForPasting()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         QGuiApplication::clipboard()->setText(QStringLiteral("https://example.org/a"));
@@ -867,12 +867,12 @@ private Q_SLOTS:
     void secondSymbolPageAndSymbolExtras()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         auto centre = [&](QQuickItem *item) { return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint(); };
@@ -910,13 +910,13 @@ private Q_SLOTS:
     void caseChangesDoNotRecreateLetterKeys()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
 
         QQuickView view;
         view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
-        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
         QCOMPARE(view.status(), QQuickView::Ready);
 
         const auto before = letterKeys(view.rootObject());

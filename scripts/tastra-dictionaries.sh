@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Installs the Hunspell dictionaries for the V3 Keyboard languages.
+# Installs the Hunspell dictionaries for the Tastra languages.
 # Runs at install time only; the keyboard process itself never uses the network.
 #
-#   v3kbd-dictionaries            install whatever is missing
-#   v3kbd-dictionaries --status   only report what is found
+#   tastra-dictionaries            install whatever is missing
+#   tastra-dictionaries --status   only report what is found
 #
-# Override the language list with V3KBD_LANGUAGES="en de uk ru".
+# Override the language list with TASTRA_LANGUAGES="en de uk ru".
 set -euo pipefail
 
-LANGS="${V3KBD_LANGUAGES:-en de uk ru}"
-USER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/v3-keyboard/dictionaries"
-IFS=: read -r -a SYSTEM_DIRS <<< "${V3KBD_SYSTEM_DICT_DIRS:-/usr/share/hunspell:/usr/share/myspell/dicts}"
+LANGS="${TASTRA_LANGUAGES:-en de uk ru}"
+USER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/tastra/dictionaries"
+IFS=: read -r -a SYSTEM_DIRS <<< "${TASTRA_SYSTEM_DICT_DIRS:-/usr/share/hunspell:/usr/share/myspell/dicts}"
 
 # Ukrainian is not packaged in the official Arch repositories. Use the
 # LibreOffice upstream dictionary (MPL-1.1, based on brown-uk/dict_uk),
@@ -82,7 +82,7 @@ install_uk() {
 }
 
 if [[ "${1:-}" == "--status" ]]; then
-    echo "V3 Keyboard dictionaries:"
+    echo "Tastra dictionaries:"
     status
     exit $?
 fi
@@ -113,5 +113,5 @@ if ((need_uk)); then
     install_uk
 fi
 
-echo "V3 Keyboard dictionaries:"
+echo "Tastra dictionaries:"
 status || true

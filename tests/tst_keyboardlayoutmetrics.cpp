@@ -11,8 +11,8 @@ class KeyboardLayoutMetricsTest : public QObject
 private Q_SLOTS:
     void portraitIsFullerAndTaller()
     {
-        const auto portrait = V3Keyboard::KeyboardLayoutMetrics::portrait();
-        const auto landscape = V3Keyboard::KeyboardLayoutMetrics::landscape();
+        const auto portrait = Tastra::KeyboardLayoutMetrics::portrait();
+        const auto landscape = Tastra::KeyboardLayoutMetrics::landscape();
 
         QVERIFY(portrait.contentWidthRatio > landscape.contentWidthRatio);
         QVERIFY(portrait.keyHeight > landscape.keyHeight);
@@ -21,7 +21,7 @@ private Q_SLOTS:
 
     void landscapeStaysCompact()
     {
-        const auto metrics = V3Keyboard::KeyboardLayoutMetrics::landscape();
+        const auto metrics = Tastra::KeyboardLayoutMetrics::landscape();
 
         QVERIFY(metrics.panelHeight() < 300.0);
         QVERIFY(metrics.maxContentWidth >= 1300.0);
@@ -30,7 +30,7 @@ private Q_SLOTS:
 
     void portraitFitsTabletDockedUse()
     {
-        const auto metrics = V3Keyboard::KeyboardLayoutMetrics::portrait();
+        const auto metrics = Tastra::KeyboardLayoutMetrics::portrait();
 
         QVERIFY(metrics.panelHeight() < 350.0);
         QVERIFY(metrics.contentWidthRatio >= 0.95);

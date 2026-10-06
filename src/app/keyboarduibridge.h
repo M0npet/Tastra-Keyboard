@@ -19,7 +19,7 @@
 
 class QSoundEffect;
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 class KeyboardController;

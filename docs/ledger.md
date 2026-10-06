@@ -1089,3 +1089,100 @@ typographic symbols; long-press extras on symbol keys (" -> « » „ “ ”,
 < > ( ) = …). The page key replaces Shift on the symbols layer. Render check
 showed the third row wider than the others (its width formula assumed no key
 on the left); fixed and covered by a row-width assertion in the UI test.
+
+## 2026-10-06 — 0.6.2 Tastra: name, GitHub, one-command install, memory
+
+The cloud workspace was reset before this release; the project was restored
+from the published git bundle (main + all tags at 0.6.1, verified) and the
+lost, uncommitted memory work was redone and re-measured.
+
+- Name: Tastra. Checked for clashes by web search; "Klavo" was dropped as too
+  close to Klavaro (an existing Linux typing tutor). Mechanical rename of
+  namespaces, targets, resource prefix, log categories, scripts and paths;
+  history documents keep the old name. A static check now fails on the old
+  name outside the migration and cleanup code.
+- Migration (src/core/legacymigration.cpp, 5 tests, written RED first): moves
+  ~/.config, ~/.local/share and ~/.local/state "v3-keyboard" folders, merges
+  into folders that already exist without overwriting, copies the QSettings
+  file (old organisation/application name) to ~/.config/tastra/tastra.conf,
+  and leaves links behind for a rolled-back binary. Runs in main() before
+  anything reads settings.
+- KWin stores the chosen keyboard as the path of its .desktop file
+  (kwinrc [Wayland] InputMethod; confirmed in a KDE Discuss thread quoting
+  kwinrc). The installer rewrites that key when it names the old file and
+  keeps `v3-keyboard` as a link to the new binary until the next login.
+- scripts/tastra-install.sh (installs only after static check, fresh Release
+  build and full ctest) and tastra-update (fast-forward from GitHub, then the
+  new installer). End-to-end run in the sandbox on a fake home holding a
+  0.6.1 installation: folders moved and linked, settings copied, old helpers
+  and .desktop removed, kwinrc rewritten, previous binary backed up,
+  tastra-rollback restores it.
+- Memory (tools/bench_memory, each language in a fresh process, system
+  Hunspell dictionaries): resident after loading en 31.1 -> 23.9 MB,
+  de 30.8 -> 23.7, ru 46.8 -> 35.2, uk 80.4 -> 60.8 with malloc_trim(0) after
+  a load. The trim runs in the loader thread (measured 13 ms for uk; would
+  have been on the typing thread). With the trim, the foreign word list for
+  wrong-layout detection showed its real cost (+4.4 MB as QSet<QString>);
+  now sorted 64-bit FNV-1a hashes: +1.1 MB. Totals with that list:
+  en 31.9 -> 25.0, ru 47.9 -> 36.3, uk 81.2 -> 62.1 MB.
+- GitHub: main pushed to M0npet/Tastra; GitHub Actions (Arch, Qt 6.11) green
+  on 0.6.1. At the user's request every commit is authored by him (GitHub
+  noreply address, so no private e-mail in the public history; Claude as
+  Co-Authored-By); history rewritten with filter-branch, all 32 trees checked
+  identical, then force-pushed (the repository was hours old). Pushing tags is refused by this workspace's git proxy (HTTP 403),
+  so versions are marked in commit subjects and CHANGELOG.
+
+### 0.6.2 — LatinIME error model (apostrophes, accents, length-aware confidence)
+
+Found by probing autocorrect on the real system dictionaries and bundled
+lists (a probe binary linked without the qrc lists first gave misleading
+results; rerun with the lists linked in):
+- "dont", "isnt", "thats", "youre", "ive" were left alone or turned into the
+  wrong word ("inst", "that", "your", "vie"); "пять", "мясо", "звязок" stayed;
+  "uber" became "aber"; "щас" became "вас"; "naturlich", "пожалуйсто",
+  "обьект" were only suggested.
+- Root causes: (1) FrequencyWords splits tokens at apostrophes, so the lists
+  had no "don't"/"п'ять" and ranked fragments ("don" 28th, "isn", "ясо");
+  (2) the error model had no notion of an omitted apostrophe or a missing
+  accent; (3) confidence needed rank <= 3000 regardless of word length, and
+  a core word made any short substitution confident.
+- Data: tools/merge-apostrophe-words.py takes the apostrophe words from
+  wordfreq (CC BY-SA 4.0, SUBTLEX credited in ATTRIBUTION.md) and places them
+  by wordfreq rank, mapped to list positions by counting (a running-maximum
+  mapping was tried first and rejected: one outlier drags everything to the
+  front). Fragments are moved only when their apostrophe forms are used more
+  than the word itself (a "twice as high" rule was tried first and moved
+  ordinary words such as "oh" and "father"). en +4100 words, 35 fragments
+  moved; uk +1118, 92 moved; pure fragments ("isn", "ясо") dropped.
+- Model (LatinIME): apostrophe insertion = intentional omission (+260,
+  confident when the word is known); base letter for accented letter, German
+  digraphs ue/oe/ae and ss -> ß, up to two steps (+220, confident up to rank
+  20000); a same-length substitution in words of <= 4 letters is never
+  confident unless the user typed the word; one edit in words of >= 6 letters
+  is confident up to rank 20000 with a clear margin; corrections return the
+  dictionary's spelling (capital for "I'm", German nouns); English "i" -> "I"
+  (AOSP: "i" is not_a_word with the shortcut "I").
+- Tests written first (RED): 5 lexicon tests on new en/de/uk/ru fixtures. The
+  first Ukrainian run passed vacuously (tiny fixture lists made every word
+  top-5); fixtures now expand "~N" into N non-word lines so words get their
+  real ranks, and the test went RED as on real data. The "i" test also passed
+  vacuously until the fixture got a lowercase "i" like the real en_US.
+  Engine: a correction equal to what was typed ("I" -> "I") no longer
+  deletes and re-types the word on clients without composition (RED: events
+  showed del:I commit:I).
+- Real-data probe after the change: dont->don't, im->I'm, youre->you're,
+  isnt->isn't, thats->that's, didnt->didn't, ive->I've, i->I; uber->über,
+  grosse->große, naturlich->natürlich, strasse->Straße; обьект->объект,
+  пожалуйсто->пожалуйста, щас unchanged; пять->п'ять, мясо->м'ясо,
+  звязок->зв'язок, обєкт->об'єкт. cant/wont/its/ill stay, with the
+  contraction in the strip.
+- Cost (callgrind, typing thread only, dictionary loaded explicitly; a first
+  attempt counted the background loader thread and was discarded): lexicon
+  work per keystroke de 2.36 -> 2.60 M instructions, ru 2.37 -> 2.46 M,
+  uk 2.12 -> 2.38 M; full bridge path en 108 -> 110 k.
+- Sanitizers on the final tree: ASan+UBSan full suite 18/18 clean. TSan
+  (lexicon, smarttyping, typingstress, keyboarduibridge, legacymigration)
+  first failed on reports that were all inside uninstrumented libraries
+  (QWaitCondition in QThread, the QTest watchdog, QSoundEffect -> glib
+  eventfd), none with a project frame; with tools/tsan-qt.supp (those
+  libraries only) 5/5 clean.

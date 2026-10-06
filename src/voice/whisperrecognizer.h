@@ -12,7 +12,7 @@
 
 struct whisper_context;
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 // Offline speech recognition with whisper.cpp. The model is loaded on first

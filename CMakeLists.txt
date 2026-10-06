@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(
-    V3Keyboard
-    VERSION 0.6.1
+    Tastra
+    VERSION 0.6.2
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -34,7 +34,7 @@ set(
     "${WAYLAND_PROTOCOLS_DATADIR}/unstable/input-method/input-method-unstable-v1.xml"
 )
 
-add_library(v3keyboard-core STATIC
+add_library(tastra-core STATIC
     src/core/keyboardcontroller.cpp
     src/core/keyboardmodel.cpp
     src/core/locallexicon.cpp
@@ -42,25 +42,26 @@ add_library(v3keyboard-core STATIC
     src/core/typingengine.cpp
     src/core/clipboardhistory.cpp
     src/core/emojicatalog.cpp
+    src/core/legacymigration.cpp
 )
 
-target_include_directories(v3keyboard-core
+target_include_directories(tastra-core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-file(GLOB V3KBD_DATA_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+file(GLOB TASTRA_DATA_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/frequency/*.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/emoji/*.tsv"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/blocklist/*.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/sounds/*.wav")
-qt_add_resources(v3keyboard-core "v3keyboard-data"
-    PREFIX "/v3keyboard"
+qt_add_resources(tastra-core "tastra-data"
+    PREFIX "/tastra"
     BASE data
-    FILES ${V3KBD_DATA_FILES}
+    FILES ${TASTRA_DATA_FILES}
 )
 
-target_link_libraries(v3keyboard-core
+target_link_libraries(tastra-core
     PUBLIC
         Qt6::Core
     PRIVATE
@@ -68,7 +69,7 @@ target_link_libraries(v3keyboard-core
         Threads::Threads
 )
 
-add_library(v3keyboard-platform-kwin STATIC
+add_library(tastra-platform-kwin STATIC
     src/platform/kwin/kwininputmethodv1backend.cpp
     src/platform/kwin/kwininputmethodv1session.cpp
     src/platform/kwin/kwininputmethodv1connection.cpp
@@ -78,28 +79,28 @@ add_library(v3keyboard-platform-kwin STATIC
 )
 
 # PRIVATE_CODE exists since Qt 6.8; older Qt only knows the (default) public code.
-set(V3KBD_WAYLAND_CODE_VISIBILITY)
+set(TASTRA_WAYLAND_CODE_VISIBILITY)
 if(Qt6WaylandClient_VERSION VERSION_GREATER_EQUAL 6.8)
-    set(V3KBD_WAYLAND_CODE_VISIBILITY PRIVATE_CODE)
+    set(TASTRA_WAYLAND_CODE_VISIBILITY PRIVATE_CODE)
 endif()
 
 qt_generate_wayland_protocol_client_sources(
-    v3keyboard-platform-kwin
-    ${V3KBD_WAYLAND_CODE_VISIBILITY}
+    tastra-platform-kwin
+    ${TASTRA_WAYLAND_CODE_VISIBILITY}
     NO_INCLUDE_CORE_ONLY
     FILES
         "${INPUT_METHOD_V1_PROTOCOL}"
 )
 
-target_include_directories(v3keyboard-platform-kwin
+target_include_directories(tastra-platform-kwin
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
 
-target_link_libraries(v3keyboard-platform-kwin
+target_link_libraries(tastra-platform-kwin
     PUBLIC
-        v3keyboard-core
+        tastra-core
         Qt6::Core
         Qt6::WaylandClient
     PRIVATE
@@ -108,7 +109,7 @@ target_link_libraries(v3keyboard-platform-kwin
 )
 
 
-add_library(v3keyboard-app STATIC
+add_library(tastra-app STATIC
     src/app/keyboarduibridge.cpp
     src/app/keyboardlayoutmetrics.cpp
     src/app/tracelog.cpp
@@ -117,28 +118,28 @@ add_library(v3keyboard-app STATIC
     src/app/voicecontroller.cpp
 )
 
-target_include_directories(v3keyboard-app
+target_include_directories(tastra-app
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_definitions(v3keyboard-app PRIVATE V3KBD_VERSION="${PROJECT_VERSION}")
-target_link_libraries(v3keyboard-app
+target_compile_definitions(tastra-app PRIVATE TASTRA_VERSION="${PROJECT_VERSION}")
+target_link_libraries(tastra-app
     PUBLIC
-        v3keyboard-core
+        tastra-core
         Qt6::Core
         Qt6::DBus
         Qt6::Gui
 )
 
-qt_add_executable(v3-keyboard
+qt_add_executable(tastra
     src/app/main.cpp
 )
 
-target_link_libraries(v3-keyboard
+target_link_libraries(tastra
     PRIVATE
-        v3keyboard-app
-        v3keyboard-platform-kwin
+        tastra-app
+        tastra-platform-kwin
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick
@@ -168,9 +169,9 @@ set_source_files_properties(
 )
 
 qt_add_resources(
-    v3-keyboard
-    "v3keyboard-ui"
-    PREFIX "/v3keyboard"
+    tastra
+    "tastra-ui"
+    PREFIX "/tastra"
     FILES
         src/ui/Main.qml
         src/ui/icons/shift.svg
@@ -181,19 +182,19 @@ qt_add_resources(
 
 
 if(BUILD_TESTING)
-    add_executable(v3keyboard-smoke
+    add_executable(tastra-smoke
         tests/smoke.cpp
     )
 
-    target_link_libraries(v3keyboard-smoke
+    target_link_libraries(tastra-smoke
         PRIVATE
             Qt6::Core
             Qt6::Test
     )
 
     add_test(
-        NAME v3keyboard-smoke
-        COMMAND v3keyboard-smoke
+        NAME tastra-smoke
+        COMMAND tastra-smoke
     )
 
     add_executable(tst_keyboardcontroller
@@ -202,7 +203,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(tst_keyboardcontroller
         PRIVATE
-            v3keyboard-core
+            tastra-core
             Qt6::Test
     )
 
@@ -219,7 +220,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(tst_kwininputmethodv1backend
         PRIVATE
-            v3keyboard-platform-kwin
+            tastra-platform-kwin
             Qt6::Test
     )
 
@@ -236,7 +237,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(tst_kwininputmethodv1session
         PRIVATE
-            v3keyboard-platform-kwin
+            tastra-platform-kwin
             Qt6::Test
     )
 
@@ -253,7 +254,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(tst_kwininputmethodv1connection
         PRIVATE
-            v3keyboard-platform-kwin
+            tastra-platform-kwin
             Qt6::Test
     )
 
@@ -268,10 +269,10 @@ if(BUILD_TESTING)
         tests/tst_keyboarduibridge.cpp
     )
 
-    target_compile_definitions(tst_keyboarduibridge PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_compile_definitions(tst_keyboarduibridge PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     target_link_libraries(tst_keyboarduibridge
         PRIVATE
-            v3keyboard-app
+            tastra-app
             Qt6::Test
     )
 
@@ -288,7 +289,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(tst_keyboardmodel
         PRIVATE
-            v3keyboard-core
+            tastra-core
             Qt6::Test
     )
 
@@ -305,7 +306,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(tst_specialkeys
         PRIVATE
-            v3keyboard-core
+            tastra-core
             Qt6::Test
     )
 
@@ -322,7 +323,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(tst_keyboardlayoutmetrics
         PRIVATE
-            v3keyboard-app
+            tastra-app
             Qt6::Test
     )
 
@@ -336,15 +337,15 @@ if(BUILD_TESTING)
     add_executable(tst_smarttyping
         tests/tst_smarttyping.cpp
     )
-    target_compile_definitions(tst_smarttyping PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-    target_link_libraries(tst_smarttyping PRIVATE v3keyboard-core Qt6::Test)
+    target_compile_definitions(tst_smarttyping PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_smarttyping PRIVATE tastra-core Qt6::Test)
     add_test(NAME smarttyping COMMAND tst_smarttyping)
 
     add_executable(tst_clipboardemoji
         tests/tst_clipboardemoji.cpp
     )
-    target_compile_definitions(tst_clipboardemoji PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-    target_link_libraries(tst_clipboardemoji PRIVATE v3keyboard-core Qt6::Test)
+    target_compile_definitions(tst_clipboardemoji PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_clipboardemoji PRIVATE tastra-core Qt6::Test)
     add_test(NAME clipboardemoji COMMAND tst_clipboardemoji)
 endif()
 
@@ -353,46 +354,46 @@ if(BUILD_TESTING)
         tests/tst_qmlkeyboard.cpp
     )
     target_compile_definitions(tst_qmlkeyboard PRIVATE
-        V3KBD_MAIN_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Main.qml"
-        V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+        TASTRA_MAIN_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/ui/Main.qml"
+        TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     qt_add_resources(tst_qmlkeyboard "tst-qmlkeyboard-icons"
-        PREFIX "/v3keyboard"
+        PREFIX "/tastra"
         FILES
             src/ui/icons/shift.svg
             src/ui/icons/shift-lock.svg
             src/ui/icons/backspace.svg
             src/ui/icons/enter.svg
     )
-    target_link_libraries(tst_qmlkeyboard PRIVATE v3keyboard-app Qt6::Quick Qt6::Qml Qt6::Test)
+    target_link_libraries(tst_qmlkeyboard PRIVATE tastra-app Qt6::Quick Qt6::Qml Qt6::Test)
     add_test(NAME qmlkeyboard COMMAND tst_qmlkeyboard)
     set_tests_properties(qmlkeyboard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 if(BUILD_TESTING)
     add_executable(tst_lexicon tests/tst_lexicon.cpp)
-    target_compile_definitions(tst_lexicon PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-    target_link_libraries(tst_lexicon PRIVATE v3keyboard-core Qt6::Test)
+    target_compile_definitions(tst_lexicon PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_lexicon PRIVATE tastra-core Qt6::Test)
     add_test(NAME lexicon COMMAND tst_lexicon)
 endif()
 
 if(BUILD_TESTING)
     add_executable(tst_voice tests/tst_voice.cpp)
-    target_link_libraries(tst_voice PRIVATE v3keyboard-app Qt6::Test)
+    target_link_libraries(tst_voice PRIVATE tastra-app Qt6::Test)
     add_test(NAME voice COMMAND tst_voice)
 endif()
 
 # Gboard "Sound on keypress": only when Qt Multimedia is installed.
 find_package(Qt6 QUIET COMPONENTS Multimedia)
 if(TARGET Qt6::Multimedia)
-    target_link_libraries(v3keyboard-app PUBLIC Qt6::Multimedia)
-    target_compile_definitions(v3keyboard-app PUBLIC V3KBD_HAVE_KEY_SOUND=1)
+    target_link_libraries(tastra-app PUBLIC Qt6::Multimedia)
+    target_compile_definitions(tastra-app PUBLIC TASTRA_HAVE_KEY_SOUND=1)
 endif()
 
 # Offline voice input (opt-in at install time): built only when both Qt
 # Multimedia and whisper.cpp are present; otherwise the keyboard has no mic key.
-option(V3KBD_VOICE "Build offline voice input if whisper.cpp and Qt Multimedia are available" ON)
-set(V3KBD_HAVE_VOICE OFF)
-if(V3KBD_VOICE)
+option(TASTRA_VOICE "Build offline voice input if whisper.cpp and Qt Multimedia are available" ON)
+set(TASTRA_HAVE_VOICE OFF)
+if(TASTRA_VOICE)
     find_package(Qt6 QUIET COMPONENTS Multimedia)
     find_package(whisper CONFIG QUIET)
     if(NOT TARGET whisper)
@@ -403,45 +404,53 @@ if(V3KBD_VOICE)
         endif()
     endif()
     if(TARGET Qt6::Multimedia AND TARGET whisper)
-        set(V3KBD_HAVE_VOICE ON)
-        add_library(v3keyboard-voice STATIC
+        set(TASTRA_HAVE_VOICE ON)
+        add_library(tastra-voice STATIC
             src/voice/qtaudiorecorder.cpp
             src/voice/whisperrecognizer.cpp
         )
-        target_include_directories(v3keyboard-voice PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-        target_link_libraries(v3keyboard-voice PUBLIC v3keyboard-app Qt6::Multimedia whisper)
-        target_link_libraries(v3-keyboard PRIVATE v3keyboard-voice)
-        target_compile_definitions(v3-keyboard PRIVATE V3KBD_HAVE_VOICE=1)
+        target_include_directories(tastra-voice PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+        target_link_libraries(tastra-voice PUBLIC tastra-app Qt6::Multimedia whisper)
+        target_link_libraries(tastra PRIVATE tastra-voice)
+        target_compile_definitions(tastra PRIVATE TASTRA_HAVE_VOICE=1)
         if(BUILD_TESTING)
             add_executable(tst_voiceadapters tests/tst_voiceadapters.cpp)
-            target_link_libraries(tst_voiceadapters PRIVATE v3keyboard-voice Qt6::Test)
+            target_link_libraries(tst_voiceadapters PRIVATE tastra-voice Qt6::Test)
             add_test(NAME voiceadapters COMMAND tst_voiceadapters)
         endif()
     endif()
 endif()
-message(STATUS "V3 Keyboard offline voice input: ${V3KBD_HAVE_VOICE}")
+message(STATUS "Tastra offline voice input: ${TASTRA_HAVE_VOICE}")
 
 if(BUILD_TESTING)
     add_executable(tst_typingstress tests/tst_typingstress.cpp)
-    target_compile_definitions(tst_typingstress PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-    target_link_libraries(tst_typingstress PRIVATE v3keyboard-core Qt6::Test)
+    target_compile_definitions(tst_typingstress PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_typingstress PRIVATE tastra-core Qt6::Test)
     add_test(NAME typingstress COMMAND tst_typingstress)
 endif()
 
-option(V3KBD_BENCHMARKS "Build developer benchmarks" OFF)
-if(V3KBD_BENCHMARKS)
+option(TASTRA_BENCHMARKS "Build developer benchmarks" OFF)
+if(TASTRA_BENCHMARKS)
     add_executable(bench_keystroke tools/bench_keystroke.cpp)
-    target_link_libraries(bench_keystroke PRIVATE v3keyboard-app)
+    target_link_libraries(bench_keystroke PRIVATE tastra-app)
+    add_executable(bench_memory tools/bench_memory.cpp)
+    target_link_libraries(bench_memory PRIVATE tastra-core)
 endif()
 
 if(BUILD_TESTING)
     add_executable(tst_panelvisibility tests/tst_panelvisibility.cpp)
-    target_link_libraries(tst_panelvisibility PRIVATE v3keyboard-app Qt6::Test)
+    target_link_libraries(tst_panelvisibility PRIVATE tastra-app Qt6::Test)
     add_test(NAME panelvisibility COMMAND tst_panelvisibility)
 endif()
 
 if(BUILD_TESTING)
     add_executable(tst_capsmode tests/tst_capsmode.cpp)
-    target_link_libraries(tst_capsmode PRIVATE v3keyboard-core Qt6::Test)
+    target_link_libraries(tst_capsmode PRIVATE tastra-core Qt6::Test)
     add_test(NAME capsmode COMMAND tst_capsmode)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(tst_legacymigration tests/tst_legacymigration.cpp)
+    target_link_libraries(tst_legacymigration PRIVATE tastra-core Qt6::Test)
+    add_test(NAME legacymigration COMMAND tst_legacymigration)
 endif()

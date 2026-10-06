@@ -10,7 +10,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace V3Keyboard
+namespace Tastra
 {
 namespace
 {

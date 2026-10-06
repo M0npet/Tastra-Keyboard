@@ -5,7 +5,7 @@
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 
-class FakeInputMethodBackend final : public V3Keyboard::InputMethodBackend
+class FakeInputMethodBackend final : public Tastra::InputMethodBackend
 {
 public:
     void commitText(const QString &text) override
@@ -66,7 +66,7 @@ private Q_SLOTS:
     void tappingTextKeyCommitsExactlyOnce()
     {
         FakeInputMethodBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
+        Tastra::KeyboardController controller(backend);
 
         controller.tapText(QStringLiteral("a"));
 

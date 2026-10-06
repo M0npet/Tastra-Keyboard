@@ -1,64 +1,98 @@
-# V3 Keyboard 0.5 (in development)
+# Tastra
 
-A Gboard-like on-screen keyboard for KDE Plasma 6 on Wayland (KWin), made for
-the Minisforum V3 tablet. Native C++/Qt 6/QML — no Java, Electron or browser
-engine — fully offline, economical (one language in memory, data loaded in the
-background). GPL-3.0-or-later (see COPYING).
+A Gboard-style on-screen keyboard for KDE Plasma 6 on Wayland (KWin), made for
+touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
+Electron or browser engine), fully offline, light on memory. English, German,
+Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-## Install / update
+Status: **0.6.2, in development**. The typing core is done and tested; the
+remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
+was called "V3 Keyboard" up to 0.6.1; its settings and words move over
+automatically.
 
-From a release bundle:
+## Install
 
-    mkdir -p ~/Downloads/v3kbd && tar --zstd -xf v3-keyboard-*-bundle.tar.zst -C ~/Downloads/v3kbd
-    cd ~/Downloads/v3kbd && sha256sum -c SHA256SUMS && ./v3kbd-*-deploy.sh
-    kcmshell6 kcm_virtualkeyboard      # None -> Apply -> V3 Keyboard -> Apply
+On Arch Linux:
 
-The deploy script builds in an isolated git worktree, runs the full test suite
-and installs only when everything is green (the previous binary is backed up).
+    sudo pacman -S --needed git base-devel cmake ninja pkgconf python hunspell \
+        qt6-base qt6-declarative qt6-wayland qt6-svg wayland wayland-protocols libxkbcommon
+    git clone https://github.com/M0npet/Tastra.git ~/.local/src/tastra
+    ~/.local/src/tastra/scripts/tastra-install.sh
+    kcmshell6 kcm_virtualkeyboard      # None -> Apply -> Tastra -> Apply
 
-- Dictionaries: `v3kbd-dictionaries [--status]` (EN/DE/RU via pacman, UK from a
+The installer runs a static check, a fresh Release build and the full test
+suite, and installs into `~/.local` only when everything is green. The
+previous binary is kept for rolling back.
+
+- Update to the latest version: `tastra-update` (or `tastra-update --check`).
+- Roll back to the previous build: `tastra-rollback`.
+- Dictionaries: `tastra-dictionaries [--status]` (EN/DE/RU from pacman, UK from a
   pinned, checksummed upstream file).
-- Voice (optional): `v3kbd-voice-setup [--status|--remove]`, then re-run deploy.
-- Roll back to the previous build: `v3kbd-rollback`.
-- Uninstall: `v3kbd-uninstall [--purge]`.
+- Offline voice input (optional): `tastra-voice-setup`, then `tastra-update`.
+- Uninstall: `tastra-uninstall [--purge]`.
 
 ## Typing
 
-- Words are composed underlined (preedit) and committed by Space, punctuation,
-  a suggestion or glide — reliable autocorrect even in Firefox.
-- Autocorrect (libhunspell + word frequency + neighbouring keys), conservative;
-  Backspace right after a correction undoes it and remembers the word.
-- Suggestion strip: “typed” word, **correction** (what Space inserts), next
-  best; first-letter completions; next-word predictions from your own typing;
-  emoji suggestions; long-press a suggestion to remove it; offensive words are
-  never suggested (Settings).
-- Glide typing with trail; two-thumb typing; long-press for symbols with key
-  hints and a picker (accents, ß/ё/ґ, digits); period long-press for 16 marks.
-- Gestures: Space drag moves the cursor, Backspace drag deletes, `?123` slide
-  for a quick symbol, Shift slide for one capital, double-space for ". ".
-- Field-aware: number pad in number/phone fields, `@`/`/` and `.com` in
-  e-mail/URL fields, no autocorrect/learning in passwords, URLs, e-mail.
-- Personal dictionary: tap an unknown typed word (shown in quotes), then
-  “+ Add to dictionary”; manage in Settings; bulk: one word per line in
-  `~/.config/v3-keyboard/dictionary.txt`. Unknown words you type become yours
-  after 3 uses; a single typo is never learned as a word.
-- Text shortcuts: `~/.config/v3-keyboard/shortcuts.txt` (`omw = on my way`).
-- Emoji panel with search in EN/DE/RU/UK, recent emoji, optional fast-access row.
-- Clipboard history, text-editing panel, compact (one-handed) layout, number
-  row, themes (System/Light/Dark/AMOLED), offline voice input (optional).
+- Words are composed underlined and committed by Space, punctuation, a
+  suggestion or glide, so autocorrect works reliably even in Firefox.
+- Autocorrect: Hunspell + word frequency + where on the key you touched. It is
+  conservative, and Backspace right after a correction undoes it and remembers
+  your word. Tap back into a corrected word to get what you typed back.
+- Suggestion strip: your word, the **correction** (what Space inserts) and the
+  next best; completions; next-word predictions learned from your own typing;
+  emoji suggestions; long-press a suggestion to forget it. Offensive words are
+  never suggested.
+- Typed in the wrong layout? `ghbdtn` offers `привет`; picking it switches the
+  language.
+- Tap into the middle of a word for suggestions for the whole word.
+- Capital letters follow Android's keyboard rules: sentence starts, but not
+  after abbreviations such as "e.g."; quotes are handled, and German letters
+  and dates too (no capital on the line after "Liebe Anna," or after "3.").
+  Double Space types ". ", and a space is added after punctuation.
+- Glide typing with a trail (can be turned off), two-thumb typing,
+  long-press for accents and symbols (ß, ё, ґ, digits) with an adjustable delay
+  (200–700 ms), two symbol pages with your currency, number row, key popups,
+  optional key click.
+- Gestures: drag Space to move the cursor, drag Backspace to delete, hold
+  Backspace to repeat, slide from `?123` for one symbol or from Shift for one
+  capital.
+- Field-aware: number pad in number and phone fields, `@` and `.com` in e-mail
+  and URL fields, no autocorrect or learning in passwords, URLs and e-mail.
+- Layouts: full, split for thumb typing, and one-handed left/right. Choose
+  which languages the globe key cycles through. A button hides the keyboard.
+- Personal dictionary: tap an unknown word (shown in quotes), then
+  "+ Add to dictionary". Manage it in Settings, or add many words at once in
+  `~/.config/tastra/dictionary.txt`. Words you type 3 times become yours; a
+  single typo is never learned.
+- Text shortcuts in `~/.config/tastra/shortcuts.txt` (`omw = on my way`).
+- Emoji panel with search in all four languages, recent emoji, skin tones on
+  long-press, and an optional emoji row.
+- Clipboard: a chip offers what you just copied; history keeps items for an
+  hour; long-press to pin an item for good.
+- Text-editing panel with arrows (including up/down), Home/End and paste.
+- Settings grouped like Gboard; System/Light/Dark/AMOLED themes.
 
 ## Platform limits (KDE Plasma / KWin)
 
 - Select, Select all, Copy and Cut in the text-editing panel are not possible:
   KWin replaces the modifiers of keys sent by an input method, so Ctrl+C or
   Shift+Arrow never reach the application. Paste works (text is inserted).
-- The panel position is decided by KWin (no floating keyboard).
+- KWin decides where the panel goes, so there is no floating keyboard.
+
+## Memory and speed
+
+One language is in memory at a time, and its dictionary loads in the
+background. Resident memory with the dictionary loaded (`tools/bench_memory`):
+English and German about 25 MB, Russian about 36 MB, Ukrainian about 62 MB
+(Hunspell's Ukrainian dictionary alone is about 39 MB). A keystroke costs
+about one million instructions (`tools/bench_keystroke`).
 
 ## Privacy
 
-Nothing leaves the device. Learned words stay in `~/.config/V3Keyboard`.
-Dictation audio stays in memory only (max 30 s) and is erased after
-recognition. The optional trace (`touch ~/.local/state/v3-keyboard/trace.enable`)
+Nothing leaves the device. Settings and learned words are kept in
+`~/.config/tastra`. Dictation audio stays in memory only (30 s at most) and is
+erased after recognition. The optional trace
+(`touch ~/.local/state/tastra/trace.enable` before starting the keyboard)
 records sizes and decisions only, never text.
 
 ## Third-party data
@@ -66,15 +100,16 @@ records sizes and decisions only, never text.
 FrequencyWords (CC BY-SA 4.0), Unicode CLDR annotations (Unicode License V3),
 LDNOOBW word lists (CC BY 4.0), Hunspell dictionaries (system packages),
 LibreOffice uk_UA dictionary (MPL-1.1), optional whisper.cpp + ggml model
-(MIT). Details: `data/*/ATTRIBUTION.md`, installed to
-`~/.local/share/doc/v3-keyboard`.
+(MIT). Details are in `data/*/ATTRIBUTION.md`, installed to
+`~/.local/share/doc/tastra`.
 
 ## Development
 
-Continuous integration (`.github/workflows/ci.yml`) builds and runs the full
-test suite on Arch Linux for every push.
-
-    cmake -S . -B build -G Ninja && cmake --build build && ctest --test-dir build
+    cmake -S . -B build -G Ninja && cmake --build build
+    QT_QPA_PLATFORM=offscreen ctest --test-dir build
     python3 scripts/verify-static.py
+    cmake -S . -B build -DTASTRA_BENCHMARKS=ON    # tools/bench_keystroke, tools/bench_memory
 
-History, evidence and decisions: `docs/ledger.md`, `CHANGELOG.md`, `docs/HANDOFF.md`.
+Continuous integration (`.github/workflows/ci.yml`) builds and runs the full
+test suite on Arch Linux for every push. History, evidence and decisions are in
+`CHANGELOG.md`, `docs/ledger.md` and `docs/TEST-PLAN.md`.

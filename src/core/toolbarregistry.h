@@ -7,7 +7,7 @@
 #include <QString>
 #include <QVector>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 enum class ToolbarActionKind {

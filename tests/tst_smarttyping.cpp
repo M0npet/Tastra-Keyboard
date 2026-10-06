@@ -12,7 +12,7 @@
 #include "core/keyboardmodel.h"
 #include "core/typingengine.h"
 
-class FakeBackend final : public V3Keyboard::InputMethodBackend
+class FakeBackend final : public Tastra::InputMethodBackend
 {
 public:
     void commitText(const QString &text) override
@@ -65,7 +65,7 @@ public:
 namespace
 {
 // Simulates the client echoing its text state back after an IM edit.
-void echo(V3Keyboard::TypingEngine &engine, const QString &textBeforeCursor)
+void echo(Tastra::TypingEngine &engine, const QString &textBeforeCursor)
 {
     const int bytes = textBeforeCursor.toUtf8().size();
     engine.syncSurroundingText(textBeforeCursor, bytes, bytes);
@@ -80,19 +80,19 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(QStringLiteral("V3KeyboardTests"));
+        QCoreApplication::setOrganizationName(QStringLiteral("TastraTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_smarttyping"));
-        V3Keyboard::LocalLexicon::setDictionarySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setUserDictionaryFile(QStringLiteral(V3KBD_TEST_DATA "/empty/none.txt"));
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
     }
 
     void init() { QSettings().clear(); }
 
     void fallbackLexiconSuggestsPrefixesAndCorrectsTypos()
     {
-        V3Keyboard::LocalLexicon lexicon;
+        Tastra::LocalLexicon lexicon;
         lexicon.setLanguage(QStringLiteral("en"));
         QVERIFY(lexicon.waitForDictionary(5000));
 
@@ -104,8 +104,8 @@ private Q_SLOTS:
     void autocorrectReplacesCommittedWordBeforeSpace()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         engine.setLanguage(QStringLiteral("en"));
 
         engine.typeLetter(QStringLiteral("t"));
@@ -121,8 +121,8 @@ private Q_SLOTS:
     void suggestionChoiceReplacesWordAndAddsSpace()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("h"));
         engine.typeLetter(QStringLiteral("e"));
@@ -137,8 +137,8 @@ private Q_SLOTS:
     void shortTokensAreNotAggressivelyAutocorrected()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         engine.setLanguage(QStringLiteral("en"));
 
         engine.typeLetter(QStringLiteral("h"));
@@ -153,8 +153,8 @@ private Q_SLOTS:
     void doubleSpaceProducesPeriodSpace()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("h"));
         engine.typeLetter(QStringLiteral("i"));
@@ -169,8 +169,8 @@ private Q_SLOTS:
     void sentencePunctuationArmsAutoCapitalization()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         QVERIFY(engine.wantsAutoUppercase());
         engine.typeLetter(QStringLiteral("H"));
@@ -183,8 +183,8 @@ private Q_SLOTS:
     void sensitiveContextSuppressesLearningAndSuggestions()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.setSensitiveContext(true);
         engine.typeLetter(QStringLiteral("s"));
@@ -199,8 +199,8 @@ private Q_SLOTS:
     void surroundingTextSeedsCurrentAndPreviousWords()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         const QString text = QStringLiteral("hello wor");
         engine.syncSurroundingText(text, text.toUtf8().size(), text.toUtf8().size());
@@ -212,8 +212,8 @@ private Q_SLOTS:
     void staleSurroundingEchoDoesNotClobberLocalWord()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         engine.setLanguage(QStringLiteral("en"));
 
         engine.typeLetter(QStringLiteral("t"));
@@ -236,7 +236,7 @@ private Q_SLOTS:
     // correct it. Works even when the client echoes stale text (Firefox).
     // Mid-text by default ("Hi. " before the cursor: a sentence start, but not
     // an empty paragraph); empty paragraphs have their own test below.
-    static void composing(FakeBackend &backend, V3Keyboard::TypingEngine &engine,
+    static void composing(FakeBackend &backend, Tastra::TypingEngine &engine,
                           const QString &before = QStringLiteral("Hi. "))
     {
         backend.textChannel = true;
@@ -244,12 +244,54 @@ private Q_SLOTS:
         echo(engine, before);
     }
 
+    void aCorrectionThatChangesNothingIsNoCorrection()
+    {
+        // "I" typed with Shift: the lexicon's answer for "i" is "I" again.
+        // That must not count as an autocorrection, or Backspace after the
+        // space would "undo" it and keep "i" as a word of the user's.
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/latinime/hunspell")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/latinime/frequency")});
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        engine.setLanguage(QStringLiteral("en"));
+        QVERIFY(engine.waitForDictionaryForTesting(5000));
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        engine.typeLetter(QStringLiteral("i"));
+        QCOMPARE(engine.autocorrectTarget(), QStringLiteral("I"));
+        engine.backspace();
+        engine.typeLetter(QStringLiteral("I"));
+        QVERIFY(engine.autocorrectTarget().isEmpty());   // nothing to correct
+        engine.space();
+        engine.backspace();                              // the space; no correction to undo
+        engine.space();
+        engine.typeLetter(QStringLiteral("i"));
+        QCOMPARE(engine.autocorrectTarget(), QStringLiteral("I"));   // "i" was not kept as a word
+
+        // Clients without composition: no delete-and-retype of the same word.
+        FakeBackend plain;
+        plain.textChannel = true;
+        Tastra::KeyboardController plainController(plain);
+        Tastra::TypingEngine plainEngine(plainController);
+        plainEngine.setLanguage(QStringLiteral("en"));
+        QVERIFY(plainEngine.waitForDictionaryForTesting(5000));
+        echo(plainEngine, QStringLiteral("Hi. "));
+        plainEngine.setAutoCapitalizationEnabled(false);
+        plainEngine.typeLetter(QStringLiteral("I"));
+        echo(plainEngine, QStringLiteral("Hi. I"));     // the client confirms the letter
+        plainEngine.space();
+        QVERIFY2(plain.deletions.isEmpty(), qPrintable(plain.events.join(QLatin1Char(' '))));
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
     void capitalisationFollowsLatinIMEOnTheFieldText()
     {
         auto capsAfter = [](const QString &language, const QString &before) {
             FakeBackend backend;
-            V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::TypingEngine engine(controller);
+            Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller);
             engine.setLanguage(language);
             composing(backend, engine, before);
             return engine.wantsAutoUppercase();
@@ -267,8 +309,8 @@ private Q_SLOTS:
         // Gboard: put the cursor back at an autocorrected word and the strip
         // offers the original; choosing it restores and keeps it.
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         qint64 now = 1000;
         engine.setClockForTesting([&now] { return now; });
         composing(backend, engine);
@@ -297,8 +339,8 @@ private Q_SLOTS:
         // Gboard: put the cursor inside a word and the strip shows options for
         // the whole word; choosing one replaces the whole word.
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         qint64 now = 1000;
         engine.setClockForTesting([&now] { return now; });
         composing(backend, engine);
@@ -332,17 +374,17 @@ private Q_SLOTS:
     void wrongLayoutIsRecognisedAndOffered()
     {
         // "ghbdtn" is "привет" typed with the English layout active.
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/frequency-foreign")});
-        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/blocklist-foreign")});
-        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
-        V3Keyboard::LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("ru"));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/frequency-foreign")});
+        Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/blocklist-foreign")});
+        Tastra::LocalLexicon::clearForeignWordCacheForTesting();
+        Tastra::LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("ru"));
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
         engine.setAutoCapitalizationEnabled(false);
-        const QStringList en = V3Keyboard::KeyboardModel::rowsForLanguage(QStringLiteral("en"));
-        const QStringList ru = V3Keyboard::KeyboardModel::rowsForLanguage(QStringLiteral("ru"));
+        const QStringList en = Tastra::KeyboardModel::rowsForLanguage(QStringLiteral("en"));
+        const QStringList ru = Tastra::KeyboardModel::rowsForLanguage(QStringLiteral("ru"));
         QHash<QChar, QChar> map;
         for (int r = 0; r < 3; ++r)
             for (int i = 0; i < qMin(en.at(r).size(), ru.at(r).size()); ++i) map.insert(en.at(r).at(i), ru.at(r).at(i));
@@ -360,24 +402,27 @@ private Q_SLOTS:
         // (the offensive-word filter itself: foreignWordListsDropOffensiveWords).
         for (const QChar ch : QStringLiteral("kjr")) engine.typeLetter(QString(ch));      // "лок"
         QVERIFY(engine.layoutSuggestionWord().isEmpty());
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
-        QVERIFY(!V3Keyboard::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("x")));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::clearForeignWordCacheForTesting();
+        QVERIFY(!Tastra::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("x")));
     }
 
     void foreignWordListsDropOffensiveWords()
     {
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/frequency-foreign")});
-        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/blocklist-foreign")});
-        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/frequency-foreign")});
+        Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/blocklist-foreign")});
+        Tastra::LocalLexicon::clearForeignWordCacheForTesting();
         // The first lookup never blocks typing: it starts a background load.
-        QVERIFY(!V3Keyboard::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("привет")));
-        QTRY_VERIFY(V3Keyboard::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("привет")));
-        QVERIFY(!V3Keyboard::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("блок")));
-        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
-        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
+        QVERIFY(!Tastra::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("привет")));
+        QTRY_VERIFY(Tastra::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("привет")));
+        QVERIFY(!Tastra::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("блок")));
+        QVERIFY(Tastra::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("Привет")));
+        QVERIFY(!Tastra::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("приветик")));
+        QVERIFY(!Tastra::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QString()));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::clearForeignWordCacheForTesting();
     }
 
     void emptyParagraphCommitsTheFirstLetterBeforeComposing()
@@ -386,8 +431,8 @@ private Q_SLOTS:
         // placeholder on the first input and breaks a composition started
         // there; known from ProseMirror's changelog and a Yjs report.
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine, QString());              // empty field
         engine.setAutocorrectEnabled(true);
         for (const QChar ch : QStringLiteral("Teh")) engine.typeLetter(QString(ch));
@@ -409,8 +454,8 @@ private Q_SLOTS:
     void compositionCommitsCorrectedWordWithoutDeletions()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         engine.typeLetter(QStringLiteral("t"));
@@ -433,8 +478,8 @@ private Q_SLOTS:
     void backspaceRightAfterAutocorrectRevertsAndRemembers()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         for (const QChar ch : QStringLiteral("teh")) engine.typeLetter(QString(ch));
@@ -457,8 +502,8 @@ private Q_SLOTS:
     {
         for (const QString &finish : {QStringLiteral("space"), QStringLiteral("enter"), QStringLiteral(",")}) {
             FakeBackend backend;
-            V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::TypingEngine engine(controller);
+            Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller);
             composing(backend, engine);
             for (const QChar ch : QStringLiteral("teh")) engine.typeLetter(QString(ch));
             engine.space();
@@ -487,8 +532,8 @@ private Q_SLOTS:
     void compositionDoubleSpaceAndNextWord()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         engine.typeLetter(QStringLiteral("h"));
@@ -512,8 +557,8 @@ private Q_SLOTS:
     void compositionSuggestionTapCommitsOnce()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         engine.typeLetter(QStringLiteral("h"));
@@ -532,8 +577,8 @@ private Q_SLOTS:
         FakeBackend backend;
         backend.textChannel = true;
         backend.preeditSupport = true;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         echo(engine, QStringLiteral("\n"));
         for (const QChar ch : QStringLiteral("Slovo")) engine.typeLetter(QString(ch));
         engine.space();
@@ -550,8 +595,8 @@ private Q_SLOTS:
     void selfCausedEchoesAreIgnoredButLaterExternalEditsAdopted()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         qint64 now = 1000;
         engine.setClockForTesting([&now] { return now; });
 
@@ -567,8 +612,8 @@ private Q_SLOTS:
     void glidedWordBehavesLikeASuggestion()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
         engine.setAutoCapitalizationEnabled(false);
 
@@ -585,8 +630,8 @@ private Q_SLOTS:
     void dictationCommitsPendingWordThenSentenceCasedText()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         engine.insertDictation(QStringLiteral("привет как дела."));
@@ -606,8 +651,8 @@ private Q_SLOTS:
     {
         for (const bool composition : {false, true}) {
             FakeBackend backend;
-            V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::TypingEngine engine(controller);
+            Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller);
             if (composition) composing(backend, engine);
             engine.setAutoCapitalizationEnabled(false);
 
@@ -633,8 +678,8 @@ private Q_SLOTS:
     void spaceBeforePunctuationIsSwappedLikeLatinIME()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
         engine.setAutoCapitalizationEnabled(false);
         engine.setAutocorrectEnabled(false);
@@ -672,8 +717,8 @@ private Q_SLOTS:
     {
         for (const bool composition : {false, true}) {
             FakeBackend backend;
-            V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::TypingEngine engine(controller);
+            Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller);
             if (composition) composing(backend, engine);
             else echo(engine, QString());          // empty field known
             engine.typeLetter(QStringLiteral("H"));
@@ -691,8 +736,8 @@ private Q_SLOTS:
     {
         auto visible = [](FakeBackend &b) { return b.commits.join(QString()) + b.preedit; };
         {   // two quick spaces after a word -> ". "
-            FakeBackend backend; V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::TypingEngine engine(controller); composing(backend, engine);
+            FakeBackend backend; Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller); composing(backend, engine);
             qint64 now = 1000; engine.setClockForTesting([&now] { return now; });
             engine.setAutoCapitalizationEnabled(false); engine.setAutocorrectEnabled(false);
             engine.typeLetter(QStringLiteral("h")); engine.typeLetter(QStringLiteral("i"));
@@ -706,8 +751,8 @@ private Q_SLOTS:
             QCOMPARE(visible(backend), QStringLiteral("hi x"));
         }
         {   // the second space comes later than 1100 ms -> just a space
-            FakeBackend backend; V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::TypingEngine engine(controller); composing(backend, engine);
+            FakeBackend backend; Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller); composing(backend, engine);
             qint64 now = 1000; engine.setClockForTesting([&now] { return now; });
             engine.setAutoCapitalizationEnabled(false); engine.setAutocorrectEnabled(false);
             engine.typeLetter(QStringLiteral("h")); engine.typeLetter(QStringLiteral("i"));
@@ -715,8 +760,8 @@ private Q_SLOTS:
             QCOMPARE(visible(backend), QStringLiteral("hi  "));
         }
         {   // after punctuation there is no second period
-            FakeBackend backend; V3Keyboard::KeyboardController controller(backend);
-            V3Keyboard::TypingEngine engine(controller); composing(backend, engine);
+            FakeBackend backend; Tastra::KeyboardController controller(backend);
+            Tastra::TypingEngine engine(controller); composing(backend, engine);
             qint64 now = 1000; engine.setClockForTesting([&now] { return now; });
             engine.setAutoCapitalizationEnabled(false); engine.setAutocorrectEnabled(false);
             engine.typeLetter(QStringLiteral("h")); engine.typeLetter(QStringLiteral("i"));
@@ -729,8 +774,8 @@ private Q_SLOTS:
     void touchOffsetsTravelWithTheWord()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
         engine.setAutoCapitalizationEnabled(false);
         engine.setKeyboardRows({QStringLiteral("qwertyuiop"), QStringLiteral("asdfghjkl"), QStringLiteral("zxcvbnm")});
@@ -748,8 +793,8 @@ private Q_SLOTS:
     void spaceAfterSuggestionIsNotADoubleSpace()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         engine.typeLetter(QStringLiteral("h"));
@@ -772,8 +817,8 @@ private Q_SLOTS:
     void compositionBackspaceEditsPreeditFirst()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         engine.typeLetter(QStringLiteral("h"));
@@ -791,8 +836,8 @@ private Q_SLOTS:
     void compositionEnterCommitsWordBeforeReturn()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         engine.typeLetter(QStringLiteral("o"));
@@ -807,8 +852,8 @@ private Q_SLOTS:
     void compositionIgnoresEchoesAndClientResetDropsIt()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
 
         engine.typeLetter(QStringLiteral("w"));
@@ -823,8 +868,8 @@ private Q_SLOTS:
     void secureFieldsNeverUsePreedit()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         composing(backend, engine);
         engine.setSensitiveContext(true);
         echo(engine, QString());
@@ -838,8 +883,8 @@ private Q_SLOTS:
     {
         FakeBackend backend;
         backend.preeditSupport = true;          // backend could, client cannot
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("a"));
         QCOMPARE(backend.commits, QStringList({QStringLiteral("a")}));
@@ -849,8 +894,8 @@ private Q_SLOTS:
     {
         FakeBackend backend;
         backend.textChannel = true;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
         echo(engine, QStringLiteral("hi. "));          // field content on focus
         // Firefox-like: each commit is followed by an echo of the state
         // *before* that commit (GTK re-reads immediately, content lags).
@@ -865,8 +910,8 @@ private Q_SLOTS:
     void externalCursorMoveAdoptsClientState()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         qint64 now = 0;
         engine.setClockForTesting([&now] { return now; });
@@ -886,8 +931,8 @@ private Q_SLOTS:
     {
         FakeBackend backend;
         backend.textChannel = true;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("t")); echo(engine, QStringLiteral("t"));
         engine.typeLetter(QStringLiteral("e")); echo(engine, QStringLiteral("te"));
@@ -906,8 +951,8 @@ private Q_SLOTS:
     {
         FakeBackend backend;
         backend.textChannel = true;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("t")); echo(engine, QStringLiteral("t"));
         engine.typeLetter(QStringLiteral("e"));
@@ -925,8 +970,8 @@ private Q_SLOTS:
     {
         FakeBackend backend;
         backend.textChannel = true;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("h")); echo(engine, QStringLiteral("h"));
         engine.typeLetter(QStringLiteral("e")); echo(engine, QStringLiteral("he"));
@@ -949,8 +994,8 @@ private Q_SLOTS:
     void stalePreSpaceEchoDoesNotReopenCommittedWord()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("h"));
         engine.typeLetter(QStringLiteral("i"));
@@ -968,8 +1013,8 @@ private Q_SLOTS:
     void terminalPunctuationImmediatelyArmsCapitalization()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("H"));
         engine.typeLetter(QStringLiteral("i"));
@@ -981,8 +1026,8 @@ private Q_SLOTS:
     void repeatedBackspaceUpdatesCompositionInOneOperation()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.typeLetter(QStringLiteral("h"));
         engine.typeLetter(QStringLiteral("e"));
@@ -998,8 +1043,8 @@ private Q_SLOTS:
     void glideDecoderCanResolveSimpleTrace()
     {
         FakeBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::TypingEngine engine(controller);
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
 
         engine.beginGlide(QStringLiteral("h"));
         engine.glideThrough(QStringLiteral("e"));

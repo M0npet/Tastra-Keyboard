@@ -7,7 +7,7 @@
 #include <QStringList>
 #include <QVector>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 struct EmojiEntry

@@ -11,7 +11,7 @@
 #include <future>
 #include <memory>
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 struct DictionaryData;
@@ -33,7 +33,7 @@ public:
     LocalLexicon &operator=(const LocalLexicon &) = delete;
 
     // Directories searched for <lang>.aff/<lang>.dic. Defaults to the
-    // V3KBD_DICTIONARY_DIRS environment variable (colon separated) or the
+    // TASTRA_DICTIONARY_DIRS environment variable (colon separated) or the
     // standard system locations. Tests point this at fixtures.
     static void setDictionarySearchPaths(const QStringList &paths);
     static QStringList dictionarySearchPaths();
@@ -98,7 +98,10 @@ public:
     int dictionarySize() const;
 
 private:
-    enum class Edit { Other, RepeatedLetter, Transposition, NeighbourKey };
+    // LatinIME's error model: an omitted apostrophe ("dont") is an
+    // intentional omission and nearly free, a base letter for its accented
+    // form ("uber", "ueber", "strasse") almost free.
+    enum class Edit { Other, RepeatedLetter, Transposition, NeighbourKey, Apostrophe, Accent };
     struct Candidate {
         QString word;
         int score = 0;
@@ -116,6 +119,13 @@ private:
     QList<Candidate> correctionCandidates(const QString &typed, const QString &previousWord, bool full = true) const;
     QString pickCorrection(const QString &word, const QString &previousWord, bool full) const;
     bool knownCheaply(const QString &word) const;
+    // The spelling the dictionary uses (capital for "I'm", German nouns).
+    QString dictionaryForm(const QString &word) const;
+    // English words that only exist capitalized ("i" -> "I", "monday").
+    QString englishCapitalForm(const QString &typed) const;
+    QStringList apostropheVariants(const QString &typed) const;
+    QStringList accentVariants(const QString &typed) const;
+    bool isAccentVariant(const QString &typed, const QString &candidate) const;
     int priorScore(const QString &candidate, const QString &previousWord) const;
     int frequencyRank(const QString &word) const;
     bool suggestible(const QString &word) const;

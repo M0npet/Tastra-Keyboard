@@ -18,7 +18,7 @@
 
 namespace
 {
-class NullBackend final : public V3Keyboard::InputMethodBackend
+class NullBackend final : public Tastra::InputMethodBackend
 {
 public:
     void commitText(const QString &) override {}
@@ -48,9 +48,9 @@ int main(int argc, char **argv)
     for (const auto &[lang, text] : texts) {
         if (!only.isEmpty() && only != lang) continue;
         NullBackend backend;
-        V3Keyboard::KeyboardController controller(backend);
-        V3Keyboard::KeyboardModel model;
-        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
         bridge.setLanguage(QString::fromLatin1(lang));
         if (qEnvironmentVariableIsSet("BENCH_NO_LEARNING")) bridge.setLearningEnabled(false);
         bridge.setSurroundingText(QString(), 0, 0);

@@ -3,9 +3,9 @@
 
 #include <QLoggingCategory>
 
-Q_LOGGING_CATEGORY(lcPanel, "v3keyboard.panel", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcPanel, "tastra.panel", QtWarningMsg)
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 PanelVisibility::PanelVisibility(int hideDelayMs, QObject *parent)

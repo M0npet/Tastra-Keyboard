@@ -14,8 +14,8 @@ private Q_SLOTS:
         // Rich web editors briefly disable text input while re-rendering; if
         // the panel vanished, the next tap would land on the page and steal
         // the focus (seen with other on-screen keyboards on such sites).
-        V3Keyboard::PanelVisibility panel(250);
-        QSignalSpy spy(&panel, &V3Keyboard::PanelVisibility::visibleChanged);
+        Tastra::PanelVisibility panel(250);
+        QSignalSpy spy(&panel, &Tastra::PanelVisibility::visibleChanged);
         panel.setActive(true);
         QVERIFY(panel.visible());
         QCOMPARE(spy.count(), 1);
@@ -29,8 +29,8 @@ private Q_SLOTS:
 
     void hidesAfterTheGraceTimeWhenReallyLeft()
     {
-        V3Keyboard::PanelVisibility panel(250);
-        QSignalSpy spy(&panel, &V3Keyboard::PanelVisibility::visibleChanged);
+        Tastra::PanelVisibility panel(250);
+        QSignalSpy spy(&panel, &Tastra::PanelVisibility::visibleChanged);
         panel.setActive(true);
         panel.setActive(false);
         QVERIFY(panel.visible());

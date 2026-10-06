@@ -13,7 +13,7 @@
 class QAudioSource;
 class QIODevice;
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 // Captures the default microphone into memory only (never to disk) and

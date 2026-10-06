@@ -2,7 +2,7 @@
 
 #include "keyboardlayoutmetrics.h"
 
-namespace V3Keyboard
+namespace Tastra
 {
 
 KeyboardLayoutMetrics KeyboardLayoutMetrics::portrait()

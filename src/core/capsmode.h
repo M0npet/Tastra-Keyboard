@@ -3,7 +3,7 @@
 
 #include <QString>
 
-namespace V3Keyboard::CapsMode
+namespace Tastra::CapsMode
 {
 
 // Sentence auto-capitalisation, ported from AOSP LatinIME
