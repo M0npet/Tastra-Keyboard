@@ -1,4 +1,4 @@
-# V3 Keyboard 1.0
+# V3 Keyboard 0.5 (in development)
 
 A Gboard-like on-screen keyboard for KDE Plasma 6 on Wayland (KWin), made for
 the Minisforum V3 tablet. Native C++/Qt 6/QML — no Java, Electron or browser

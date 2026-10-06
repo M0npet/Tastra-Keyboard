@@ -1229,6 +1229,15 @@ Rectangle {
 
     Rectangle {
         id: panelSurface
+
+        // Panels are opaque to touch: a tap on an empty part of a panel must
+        // never fall through to the key underneath.
+        MouseArea {
+            objectName: "panelInputBlocker"
+            anchors.fill: parent
+            z: -1
+            onPressed: (mouse) => mouse.accepted = true
+        }
         z: 140
         visible: keyboardBridge.activePanel !== "typing"
             && keyboardBridge.activePanel !== "language"
@@ -1367,7 +1376,9 @@ Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.leftMargin: 12
                             anchors.rightMargin: 8
-                            text: modelData
+                            // Long-press pins (Gboard): pinned items stay past the hour.
+                            objectName: "clipboardItem"
+                            text: (keyboardBridge.clipboardHistory, keyboardBridge.isClipboardPinned(modelData) ? "\uD83D\uDCCC " : "") + modelData
                             color: root.textColor
                             font.pixelSize: root.portrait ? 15 : 13
                             elide: Text.ElideRight
@@ -1403,7 +1414,16 @@ Rectangle {
                             anchors.right: removeHistory.left
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            onClicked: keyboardBridge.pasteClipboardHistory(index)
+                            property bool pinToggled: false
+                            onPressed: pinToggled = false
+                            onPressAndHold: {
+                                pinToggled = true
+                                keyboardBridge.toggleClipboardPin(modelData)
+                            }
+                            onClicked: {
+                                if (pinToggled) return
+                                keyboardBridge.pasteClipboardHistory(index)
+                            }
                         }
                     }
                 }

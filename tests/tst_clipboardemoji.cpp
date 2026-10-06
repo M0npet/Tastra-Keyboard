@@ -79,6 +79,36 @@ private Q_SLOTS:
         QCOMPARE(history.items().size(), 2);
     }
 
+    void unpinnedClipsExpireAfterAnHourPinnedOnesStay()
+    {
+        // Gboard: clipboard items are kept for an hour unless pinned; only
+        // pinned items survive a restart (nothing else touches the disk).
+        qint64 now = 1'000'000;
+        {
+            V3Keyboard::ClipboardHistory history;
+            history.setClockForTesting([&now] { return now; });
+            history.clear();
+            history.setEnabled(true);
+            history.capture(QStringLiteral("address"));
+            history.capture(QStringLiteral("secret-password"));
+            history.setPinned(QStringLiteral("address"), true);
+            QVERIFY(history.isPinned(QStringLiteral("address")));
+            QCOMPARE(history.items().value(0), QStringLiteral("address"));          // pinned first
+            now += 59 * 60 * 1000;
+            QCOMPARE(history.items().size(), 2);
+            now += 2 * 60 * 1000;                                                // 61 minutes
+            QCOMPARE(history.items(), QStringList({QStringLiteral("address")}));
+            history.capture(QStringLiteral("fresh"));
+        }
+        V3Keyboard::ClipboardHistory reloaded;
+        reloaded.setClockForTesting([&now] { return now; });
+        QCOMPARE(reloaded.items(), QStringList({QStringLiteral("address")}));     // unpinned not on disk
+        QVERIFY(reloaded.isPinned(QStringLiteral("address")));
+        reloaded.setPinned(QStringLiteral("address"), false);
+        V3Keyboard::ClipboardHistory again;
+        QVERIFY(again.items().isEmpty());
+    }
+
     void emojiCatalogHasCategoriesAndSearch()
     {
         V3Keyboard::EmojiCatalog catalog;

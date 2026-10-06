@@ -1,4 +1,4 @@
-# V3 Keyboard 1.0 — live test checklist (most important first)
+# V3 Keyboard — live test checklist (most important first)
 
 Before: `touch ~/.local/state/v3-keyboard/trace.enable`, then relaunch the
 keyboard. On any problem send `~/.local/state/v3-keyboard/trace.log`.

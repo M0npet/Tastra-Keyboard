@@ -7,6 +7,8 @@
 #include <QtTest/QTest>
 
 #include <QColor>
+#include <QClipboard>
+#include <QSignalSpy>
 #include <QGuiApplication>
 #include <QPointer>
 #include <QQmlContext>
@@ -670,6 +672,42 @@ private Q_SLOTS:
         other.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &plain);
         other.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
         QVERIFY(!findNamed(other.rootObject(), QStringLiteral("hideKeyboardButton")));
+    }
+
+    void clipboardItemsArePinnedWithALongPress()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.clearClipboardHistory();
+        QGuiApplication::clipboard()->setText(QStringLiteral("keep me"));   // bridge listens to dataChanged
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        bridge.activateToolbarAction(QStringLiteral("clipboard"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("clipboardItem")));
+        QTest::qWait(100);
+        QQuickItem *item = findNamed(view.rootObject(), QStringLiteral("clipboardItem"));   // the list entry
+        const QPoint at = item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint();
+        QSignalSpy changed(&bridge, &V3Keyboard::KeyboardUiBridge::clipboardChanged);
+        QTest::mousePress(&view, Qt::LeftButton, {}, at);
+        QTest::qWait(qApp->styleHints()->mousePressAndHoldInterval() + 200);
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, at);
+        QTRY_VERIFY(bridge.isClipboardPinned(QStringLiteral("keep me")));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("\U0001F4CC keep me")));
+        QVERIFY(backend.commits.isEmpty());                    // a long press does not paste
+
+        // A tap on a non-interactive part of the open panel (the header that
+        // shows the current clipboard; a key lies underneath it) must not
+        // reach that key — first live symptom: "&" typed through the panel.
+        QQuickItem *header = findText(view.rootObject(), QStringLiteral("keep me"));   // list shows "📌 keep me" now
+        QVERIFY(header);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, header->mapToScene(QPointF(header->width() / 2, header->height() / 2)).toPoint());
+        QTest::qWait(50);
+        QVERIFY2(backend.commits.isEmpty(), qPrintable(backend.commits.join(',')));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

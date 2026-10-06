@@ -204,6 +204,9 @@ public:
     Q_INVOKABLE void setTheme(const QString &theme);
     Q_INVOKABLE void cycleTheme();
     Q_INVOKABLE void setEmojiSuggestionsEnabled(bool enabled);
+    // Gboard clipboard: pinned items stay (and are the only ones on disk).
+    Q_INVOKABLE bool isClipboardPinned(const QString &text) const;
+    Q_INVOKABLE void toggleClipboardPin(const QString &text);
     Q_INVOKABLE void setKeySound(bool enabled);
     Q_INVOKABLE void setGlideTrail(bool enabled);
     Q_INVOKABLE void keyFeedback();

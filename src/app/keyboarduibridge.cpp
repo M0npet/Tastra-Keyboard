@@ -456,6 +456,13 @@ QString KeyboardUiBridge::clipboardText() const
 }
 
 QStringList KeyboardUiBridge::clipboardHistory() const { return m_clipboardHistory.items(); }
+bool KeyboardUiBridge::isClipboardPinned(const QString &text) const { return m_clipboardHistory.isPinned(text); }
+
+void KeyboardUiBridge::toggleClipboardPin(const QString &text)
+{
+    m_clipboardHistory.setPinned(text, !m_clipboardHistory.isPinned(text));
+    Q_EMIT clipboardChanged();
+}
 QStringList KeyboardUiBridge::emojiItems() const { return m_emojiCatalog.glyphs(QStringLiteral("All"), {}, 240); }
 QStringList KeyboardUiBridge::emojiCategories() const { return m_emojiCatalog.categories(); }
 QStringList KeyboardUiBridge::emojiSearch(const QString &query, const QString &category) const
