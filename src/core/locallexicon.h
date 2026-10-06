@@ -53,6 +53,14 @@ public:
     // never legitimised. A plain-text file adds words for every language.
     static constexpr int PromotionCount = 3;
     static void setUserDictionaryFile(const QString &path);
+    // Whether `word` is in another language's bundled frequency list; the list
+    // is loaded on first use only (wrong-layout detection).
+    // Never blocks: the first call starts a background load and returns false.
+    static bool knownInLanguage(const QString &language, const QString &word);
+    static void preloadForeignWordsForTesting(const QString &language);   // blocking
+    // Known without Hunspell (frequency list, stems, user and core words).
+    bool hasWordCheaply(const QString &word) const;
+    static void clearForeignWordCacheForTesting();
     static QString userDictionaryFile();
     bool addUserWord(const QString &word);
     void removeUserWord(const QString &word);
@@ -122,6 +130,7 @@ private:
     mutable std::future<std::shared_ptr<DictionaryData>> m_pending;
     mutable std::shared_ptr<DictionaryData> m_data;
     QStringList m_coreWords;
+    QSet<QString> m_coreWordSet;          // isCore() runs per correction variant
     QHash<QString, QString> m_typoMap;
     QHash<QString, int> m_personalFrequency;
     QHash<QString, int> m_bigramFrequency;

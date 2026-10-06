@@ -2,6 +2,8 @@
 
 #include "keyboarduibridge.h"
 
+#include <QDateTime>
+
 #ifdef V3KBD_HAVE_KEY_SOUND
 #include <QSoundEffect>
 #endif
@@ -51,6 +53,7 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
+    updateForeignLayouts();
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     Q_EMIT userWordsChanged();
     m_amoled = settings.value(QStringLiteral("amoled"), false).toBool();
@@ -76,6 +79,7 @@ KeyboardUiBridge::KeyboardUiBridge(
     }
     m_keySound = canPlayKeySound() && settings.value(QStringLiteral("keySound"), false).toBool();
     m_glideTrail = settings.value(QStringLiteral("glideTrail"), true).toBool();
+    m_longPressDelay = qBound(150, settings.value(QStringLiteral("longPressDelay"), 300).toInt(), 1000);
     m_autoSpaceAfterPunctuation = settings.value(QStringLiteral("autoSpaceAfterPunctuation"), false).toBool();
     m_typingEngine.setAutoSpaceAfterPunctuation(m_autoSpaceAfterPunctuation);
     m_emojiRow = settings.value(QStringLiteral("emojiRow"), false).toBool();
@@ -103,7 +107,10 @@ KeyboardUiBridge::KeyboardUiBridge(
         captureClipboard();
         connect(clipboard, &QClipboard::dataChanged, this, [this]() {
             captureClipboard();
+            m_freshClipboard = clipboardText().trimmed();
+            m_freshClipboardMs = QDateTime::currentMSecsSinceEpoch();
             Q_EMIT clipboardChanged();
+            Q_EMIT suggestionsChanged();
         });
     }
 }
@@ -151,6 +158,7 @@ void KeyboardUiBridge::setLanguageEnabled(const QString &code, bool enabled)
     m_enabledLanguages = ordered;
     persistPreference(QStringLiteral("enabledLanguages"), ordered);
     if (!enabled && m_model.languageCode() == code) nextLanguage();
+    updateForeignLayouts();
     Q_EMIT keyboardStateChanged();
 }
 QStringList KeyboardUiBridge::languageLabels() const
@@ -178,12 +186,48 @@ void KeyboardUiBridge::hideKeyboard()
     m_hider->hideKeyboard();
 }
 QString KeyboardUiBridge::saveWordCandidate() const { return m_saveCandidate; }
+
+void KeyboardUiBridge::updateForeignLayouts()
+{
+    const QStringList current = KeyboardModel::rowsForLanguage(m_model.languageCode());
+    QList<QPair<QString, QHash<QChar, QChar>>> maps;
+    for (const QString &code : languageCodes()) {
+        if (code == m_model.languageCode()) continue;
+        const QStringList other = KeyboardModel::rowsForLanguage(code);
+        if (other.size() != 3 || current.size() != 3) continue;
+        QHash<QChar, QChar> map;
+        for (int r = 0; r < 3; ++r) {
+            for (qsizetype i = 0; i < qMin(current.at(r).size(), other.at(r).size()); ++i) {
+                if (current.at(r).at(i) != other.at(r).at(i)) map.insert(current.at(r).at(i), other.at(r).at(i));
+            }
+        }
+        // Same-script languages (en/de, ru/uk) share most keys: only a
+        // different script makes a meaningful wrong-layout reading.
+        if (map.size() >= 15) maps.append({code, map});
+    }
+    m_typingEngine.setForeignLayouts(maps);
+}
+
+QString KeyboardUiBridge::clipboardSuggestion() const
+{
+    if (m_secureInput || m_freshClipboard.isEmpty() || !m_typingEngine.currentWord().isEmpty()) return {};
+    if (QDateTime::currentMSecsSinceEpoch() - m_freshClipboardMs > 60 * 1000) return {};
+    return m_freshClipboard;
+}
+
+void KeyboardUiBridge::pasteClipboardSuggestion()
+{
+    const QString text = clipboardSuggestion();
+    m_freshClipboard.clear();
+    if (!text.isEmpty()) tapText(text);
+    Q_EMIT suggestionsChanged();
+}
 QStringList KeyboardUiBridge::userWords() const { return m_typingEngine.userWords(); }
 
 bool KeyboardUiBridge::typedWordUnknown() const
 {
     const QString word = m_typingEngine.currentWord();
-    return !m_secureInput && word.size() >= 2 && !m_typingEngine.isKnownWord(word);
+    return !m_secureInput && word.size() >= 2 && !m_typingEngine.currentWordKnown();
 }
 
 void KeyboardUiBridge::addWordToDictionary(const QString &word)
@@ -558,6 +602,7 @@ void KeyboardUiBridge::tapLetter(const QString &letter) { tapLetterAt(letter, 0,
 void KeyboardUiBridge::tapLetterAt(const QString &letter, qreal dx, qreal dy)
 {
     m_saveCandidate.clear();
+    m_freshClipboard.clear();                       // typing dismisses the paste offer
     const bool oneShotWasActive = m_model.uppercase() && !m_model.capsLock();
     const bool autoUpperWasActive = m_typingEngine.wantsAutoUppercase();
     const QString output = uppercase() ? letter.toUpper() : letter.toLower();
@@ -608,8 +653,10 @@ void KeyboardUiBridge::selectSuggestion(const QString &word)
         m_typingEngine.typeText(QStringLiteral(" ") + word);
     } else {
         const bool keepUnknown = word == m_typingEngine.currentWord() && typedWordUnknown();
+        const QString switchTo = word == m_typingEngine.layoutSuggestionWord() ? m_typingEngine.layoutSuggestionLanguage() : QString();
         m_typingEngine.chooseSuggestion(word);
         m_saveCandidate = keepUnknown ? word : QString();
+        if (!switchTo.isEmpty()) setLanguage(switchTo);      // keep typing in the meant language
     }
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
     Q_EMIT suggestionsChanged();
@@ -638,6 +685,7 @@ void KeyboardUiBridge::nextLanguage()
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
+    updateForeignLayouts();
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     Q_EMIT userWordsChanged();
     persistLanguage();
@@ -651,6 +699,7 @@ void KeyboardUiBridge::setLanguage(const QString &code)
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
     m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
+    updateForeignLayouts();
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     Q_EMIT userWordsChanged();
     persistLanguage();
@@ -707,6 +756,33 @@ void KeyboardUiBridge::deleteForward()
     m_typingEngine.resetComposition();
     m_controller.deleteForward();
     typingStateDidChange();
+}
+
+void KeyboardUiBridge::moveUp()
+{
+    m_typingEngine.commitComposition();
+    m_typingEngine.resetComposition();
+    m_controller.moveUp();
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::moveDown()
+{
+    m_typingEngine.commitComposition();
+    m_typingEngine.resetComposition();
+    m_controller.moveDown();
+    typingStateDidChange();
+}
+
+int KeyboardUiBridge::longPressDelay() const { return m_longPressDelay; }
+
+void KeyboardUiBridge::cycleLongPressDelay()
+{
+    static const QList<int> steps = {200, 300, 400, 500, 700};
+    const qsizetype at = steps.indexOf(m_longPressDelay);
+    m_longPressDelay = steps.at((at < 0 ? 1 : at + 1) % steps.size());
+    persistPreference(QStringLiteral("longPressDelay"), m_longPressDelay);
+    Q_EMIT uiPreferencesChanged();
 }
 
 void KeyboardUiBridge::moveLeft()

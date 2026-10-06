@@ -271,6 +271,8 @@ void EmojiCatalog::setKeywordLanguage(const QString &code)
     m_keywordLanguage = code;
     m_languageKeywords.clear();          // only one extra language in memory
     m_languageLoaded = false;
+    m_exactLanguage.clear();
+    m_exactLanguageBuilt = false;
 }
 
 void EmojiCatalog::ensureKeywords() const
@@ -282,17 +284,27 @@ void EmojiCatalog::ensureKeywords() const
     }
 }
 
+void EmojiCatalog::buildExactIndex(const QHash<QString, QString> &keywords, QHash<QString, QString> &index) const
+{
+    index.clear();
+    for (const auto &entry : m_entries) {
+        const QString list = keywords.value(withoutVariationSelector(entry.glyph));
+        for (QStringView keyword : QStringView(list).split(QLatin1Char('|'), Qt::SkipEmptyParts)) {
+            const QString key = keyword.trimmed().toString().toLower();
+            if (!key.isEmpty() && !index.contains(key)) index.insert(key, entry.glyph);
+        }
+    }
+}
+
 QString EmojiCatalog::emojiForWord(const QString &word) const
 {
     const QString w = word.trimmed().toLower();
     if (w.size() < 2) return {};
     ensureKeywords();
-    for (const QHash<QString, QString> *map : {&m_languageKeywords, &m_englishKeywords}) {
-        for (const auto &entry : m_entries) {
-            if (keywordMatch(map->value(withoutVariationSelector(entry.glyph)), w) == 3) return entry.glyph;
-        }
-    }
-    return {};
+    if (!m_exactLanguageBuilt) { buildExactIndex(m_languageKeywords, m_exactLanguage); m_exactLanguageBuilt = true; }
+    if (!m_exactEnglishBuilt) { buildExactIndex(m_englishKeywords, m_exactEnglish); m_exactEnglishBuilt = true; }
+    const QString hit = m_exactLanguage.value(w);
+    return hit.isEmpty() ? m_exactEnglish.value(w) : hit;
 }
 
 QStringList EmojiCatalog::glyphs(const QString &category, const QString &query, int limit) const

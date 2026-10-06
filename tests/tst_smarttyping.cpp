@@ -9,6 +9,7 @@
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 #include "core/locallexicon.h"
+#include "core/keyboardmodel.h"
 #include "core/typingengine.h"
 
 class FakeBackend final : public V3Keyboard::InputMethodBackend
@@ -326,6 +327,57 @@ private Q_SLOTS:
         engine.space();
         QCOMPARE(backend.deletions.size(), deletionsBefore);
         QCOMPARE(backend.commits.last(), QStringLiteral(" "));
+    }
+
+    void wrongLayoutIsRecognisedAndOffered()
+    {
+        // "ghbdtn" is "привет" typed with the English layout active.
+        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/frequency-foreign")});
+        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/blocklist-foreign")});
+        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
+        V3Keyboard::LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("ru"));
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        const QStringList en = V3Keyboard::KeyboardModel::rowsForLanguage(QStringLiteral("en"));
+        const QStringList ru = V3Keyboard::KeyboardModel::rowsForLanguage(QStringLiteral("ru"));
+        QHash<QChar, QChar> map;
+        for (int r = 0; r < 3; ++r)
+            for (int i = 0; i < qMin(en.at(r).size(), ru.at(r).size()); ++i) map.insert(en.at(r).at(i), ru.at(r).at(i));
+        engine.setForeignLayouts({{QStringLiteral("ru"), map}});
+        for (const QChar ch : QStringLiteral("ghbdtn")) engine.typeLetter(QString(ch));
+        QCOMPARE(engine.suggestions().value(0), QStringLiteral("привет"));
+        QCOMPARE(engine.layoutSuggestionLanguage(), QStringLiteral("ru"));
+        engine.space();
+        // "hel" is still becoming an English word ("hello"): no "рук".
+        for (const QChar ch : QStringLiteral("hel")) engine.typeLetter(QString(ch));
+        QVERIFY(engine.layoutSuggestionWord().isEmpty());
+        QVERIFY(!engine.suggestions().contains(QStringLiteral("рук")));
+        engine.space();
+        // Letters that read as no word of the other language: nothing offered
+        // (the offensive-word filter itself: foreignWordListsDropOffensiveWords).
+        for (const QChar ch : QStringLiteral("kjr")) engine.typeLetter(QString(ch));      // "лок"
+        QVERIFY(engine.layoutSuggestionWord().isEmpty());
+        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
+        QVERIFY(!V3Keyboard::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("x")));
+    }
+
+    void foreignWordListsDropOffensiveWords()
+    {
+        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/frequency-foreign")});
+        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/blocklist-foreign")});
+        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
+        // The first lookup never blocks typing: it starts a background load.
+        QVERIFY(!V3Keyboard::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("привет")));
+        QTRY_VERIFY(V3Keyboard::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("привет")));
+        QVERIFY(!V3Keyboard::LocalLexicon::knownInLanguage(QStringLiteral("ru"), QStringLiteral("блок")));
+        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
     }
 
     void emptyParagraphCommitsTheFirstLetterBeforeComposing()

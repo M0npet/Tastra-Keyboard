@@ -74,6 +74,12 @@ public:
     // from preceding text, applies sentence case and updates the context.
     void insertDictation(const QString &text);
     QString autocorrectTarget() const;
+    // Wrong-layout detection: per other language, current key -> its key.
+    void setForeignLayouts(const QList<QPair<QString, QHash<QChar, QChar>>> &maps);
+    QString layoutSuggestionWord() const;
+    QString layoutSuggestionLanguage() const;
+    // Whether the current word is a known word (computed once per keystroke).
+    bool currentWordKnown() const;
     bool surroundingTextSupported() const;
     void setSensitiveContext(bool sensitive);
     bool syncSurroundingText(const QString &text, int cursorByte, int anchorByte);
@@ -156,6 +162,10 @@ private:
     // the empty paragraph's placeholder on the first input and break an IME
     // composition started there (first letter lost / replaced).
     QString m_committedHead;
+    QList<QPair<QString, QHash<QChar, QChar>>> m_foreignLayouts;
+    QString m_layoutSuggestionWord;
+    QString m_layoutSuggestionLanguage;
+    bool m_currentWordKnown = true;
     bool m_autoSpaceAfterPunctuation = false;
     bool m_autoSpacePending = false;
     bool m_preeditRejected = false; // backend/client cannot show preedit

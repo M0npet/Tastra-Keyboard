@@ -2,6 +2,8 @@
 
 #include <QtTest/QTest>
 
+#include <xkbcommon/xkbcommon-keysyms.h>
+
 #include <QPair>
 
 #include "platform/kwin/kwininputmethodv1backend.h"
@@ -81,6 +83,17 @@ private Q_SLOTS:
         QCOMPARE(context.deletes.at(0), qMakePair(qint32(-3), quint32(3)));
         QCOMPARE(context.deletes.at(1), qMakePair(qint32(-8), quint32(8)));
         QVERIFY(context.keySyms.isEmpty());
+    }
+
+    void upAndDownAreSentAsKeysyms()
+    {
+        V3Keyboard::KWin::KWinInputMethodV1Backend backend;
+        FakeInputMethodV1Context context;
+        backend.setContext(&context);
+        backend.moveUp();
+        backend.moveDown();
+        QVERIFY(context.keySyms.contains(XKB_KEY_Up));
+        QVERIFY(context.keySyms.contains(XKB_KEY_Down));
     }
 
     void deleteAroundCursorCoversBothSidesInBytes()

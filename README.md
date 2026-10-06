@@ -47,6 +47,13 @@ and installs only when everything is green (the previous binary is backed up).
 - Clipboard history, text-editing panel, compact (one-handed) layout, number
   row, themes (System/Light/Dark/AMOLED), offline voice input (optional).
 
+## Platform limits (KDE Plasma / KWin)
+
+- Select, Select all, Copy and Cut in the text-editing panel are not possible:
+  KWin replaces the modifiers of keys sent by an input method, so Ctrl+C or
+  Shift+Arrow never reach the application. Paste works (text is inserted).
+- The panel position is decided by KWin (no floating keyboard).
+
 ## Privacy
 
 Nothing leaves the device. Learned words stay in `~/.config/V3Keyboard`.

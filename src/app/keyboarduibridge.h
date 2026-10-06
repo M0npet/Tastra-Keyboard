@@ -49,6 +49,8 @@ class KeyboardUiBridge final : public QObject
     // Personal dictionary (Gboard "Touch again to save" flow).
     Q_PROPERTY(bool typedWordUnknown READ typedWordUnknown NOTIFY suggestionsChanged)
     Q_PROPERTY(QString saveWordCandidate READ saveWordCandidate NOTIFY suggestionsChanged)
+    // Gboard: just-copied text offered for pasting (one minute, idle strip).
+    Q_PROPERTY(QString clipboardSuggestion READ clipboardSuggestion NOTIFY suggestionsChanged)
     Q_PROPERTY(QStringList userWords READ userWords NOTIFY userWordsChanged)
     // "text", "email", "url", "number" or "phone" — drives Gboard-like layouts.
     Q_PROPERTY(QString inputPurpose READ inputPurpose NOTIFY inputContextChanged)
@@ -68,6 +70,8 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QStringList recentEmojis READ recentEmojis NOTIFY emojiChanged)
     // Gboard "Sound on keypress" (off by default) and "Show gesture trail".
     Q_PROPERTY(bool keySound READ keySound WRITE setKeySound NOTIFY uiPreferencesChanged)
+    // Gboard "Key long press delay" (default 300 ms).
+    Q_PROPERTY(int longPressDelay READ longPressDelay NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool canPlayKeySound READ canPlayKeySound CONSTANT)
     Q_PROPERTY(bool glideTrail READ glideTrail WRITE setGlideTrail NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool emojiSuggestionsEnabled READ emojiSuggestionsEnabled WRITE setEmojiSuggestionsEnabled NOTIFY typingPreferencesChanged)
@@ -118,6 +122,8 @@ public:
     QString autocorrectSuggestion() const;
     bool typedWordUnknown() const;
     QString saveWordCandidate() const;
+    QString clipboardSuggestion() const;
+    Q_INVOKABLE void pasteClipboardSuggestion();
     QStringList userWords() const;
     QString inputPurpose() const;
     QStringList suggestions() const;
@@ -215,6 +221,10 @@ public:
     Q_INVOKABLE bool isClipboardPinned(const QString &text) const;
     Q_INVOKABLE void toggleClipboardPin(const QString &text);
     Q_INVOKABLE void setKeySound(bool enabled);
+    Q_INVOKABLE void cycleLongPressDelay();
+    Q_INVOKABLE void moveUp();
+    Q_INVOKABLE void moveDown();
+    int longPressDelay() const;
     Q_INVOKABLE void setGlideTrail(bool enabled);
     Q_INVOKABLE void keyFeedback();
     Q_INVOKABLE void setAutoSpaceAfterPunctuation(bool enabled);
@@ -286,6 +296,7 @@ private:
     QString m_theme = QStringLiteral("system");
     bool m_emojiSuggestions = true;
     bool m_keySound = false;
+    int m_longPressDelay = 300;
     bool m_glideTrail = true;
     QSoundEffect *m_click = nullptr;          // created on first use only
     bool m_autoSpaceAfterPunctuation = false;
@@ -293,6 +304,9 @@ private:
     QString m_inputPurpose = QStringLiteral("text");
     QStringList m_enabledLanguages;         // empty = all
     QString m_saveCandidate;
+    void updateForeignLayouts();
+    QString m_freshClipboard;
+    qint64 m_freshClipboardMs = 0;
     QHash<QString, QString> m_shortcuts;
     void loadShortcuts();
     bool m_symbolHints = true;

@@ -854,6 +854,10 @@ void TypingEngine::chooseSuggestion(const QString &word)
 }
 
 QString TypingEngine::autocorrectTarget() const { return m_autocorrectTarget; }
+void TypingEngine::setForeignLayouts(const QList<QPair<QString, QHash<QChar, QChar>>> &maps) { m_foreignLayouts = maps; }
+QString TypingEngine::layoutSuggestionWord() const { return m_layoutSuggestionWord; }
+QString TypingEngine::layoutSuggestionLanguage() const { return m_layoutSuggestionLanguage; }
+bool TypingEngine::currentWordKnown() const { return m_currentWordKnown; }
 
 void TypingEngine::refreshSuggestions()
 {
@@ -880,7 +884,40 @@ void TypingEngine::refreshSuggestions()
         const bool midWord = !m_composing && !m_wordAfterCursor.isEmpty();
         const QString wholeWord = midWord ? m_currentWord + m_wordAfterCursor : m_currentWord;
         m_suggestions = m_lexicon.suggestions(wholeWord, m_previousWord, 3);
+        // Letters that can still become a word are not "unknown"; otherwise
+        // cheap lists first and Hunspell (slow on invalid long words) last.
+        const bool stillAPrefix = std::any_of(m_suggestions.cbegin(), m_suggestions.cend(), [&](const QString &s) {
+            return s.size() > wholeWord.size() && s.startsWith(wholeWord, Qt::CaseInsensitive);
+        });
+        m_currentWordKnown = stillAPrefix || m_lexicon.hasWordCheaply(m_currentWord) || m_lexicon.hasWord(m_currentWord);
         m_recorrectionOriginal.clear();
+        // Typed with the wrong layout ("ghbdtn" -> "привет")? Offer the word
+        // of the language whose keys were meant; checked only for unknown words.
+        m_layoutSuggestionWord.clear();
+        m_layoutSuggestionLanguage.clear();
+        // Not while the letters may still become a word of this language
+        // ("cer" -> "certain"): measured on the real lists, this rule and the
+        // offensive-word filter remove every false reading of 6671 EN prefixes.
+        if (!m_foreignLayouts.isEmpty() && wholeWord.size() >= 3 && !stillAPrefix) {
+            for (const auto &[language, map] : std::as_const(m_foreignLayouts)) {
+                QString mapped;
+                for (const QChar ch : wholeWord) {
+                    const QChar to = map.value(ch.toLower());
+                    if (to.isNull()) { mapped.clear(); break; }
+                    mapped += to;
+                }
+                // Cheap lookup first; the validity check only for a real hit.
+                if (mapped.isEmpty() || !LocalLexicon::knownInLanguage(language, mapped)) continue;
+                if (midWord ? m_lexicon.hasWord(wholeWord) : m_currentWordKnown) break;
+                if (wholeWord.front().isUpper()) mapped[0] = mapped.at(0).toUpper();
+                m_suggestions.removeAll(mapped);
+                m_suggestions.prepend(mapped);
+                while (m_suggestions.size() > 3) m_suggestions.removeLast();
+                m_layoutSuggestionWord = mapped;
+                m_layoutSuggestionLanguage = language;
+                break;
+            }
+        }
         if (!m_composing) {
             for (const auto &entry : std::as_const(m_recentCorrections)) {
                 if (entry.first.compare(wholeWord, Qt::CaseInsensitive) == 0) {

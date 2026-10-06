@@ -436,7 +436,7 @@ Rectangle {
 
             Timer {
                 id: holdTimer
-                interval: Qt.styleHints.mousePressAndHoldInterval
+                interval: keyboardBridge.longPressDelay
                 onTriggered: {
                     if (mouse.pressed && key.longPressEnabled && mouse.inside(mouse.lastX, mouse.lastY)) {
                         mouse.held = true
@@ -667,8 +667,36 @@ Rectangle {
                 }
             }
 
+            Rectangle {
+                // Gboard: paste what was just copied.
+                id: clipboardChip
+                objectName: "clipboardChip"
+                visible: keyboardBridge.clipboardSuggestion.length > 0 && keyboardBridge.suggestions.length === 0
+                    && !saveWordChip.visible && !voiceStatus.visible && !root.toolbarExpanded
+                anchors.centerIn: parent
+                width: Math.min(clipboardChipText.implicitWidth + 32, parent.width * 0.6)
+                height: parent.height - 10
+                radius: height / 2
+                color: clipboardChipMouse.pressed ? root.pressedColor : root.selectedColor
+                Text {
+                    id: clipboardChipText
+                    anchors.centerIn: parent
+                    width: parent.width - 28
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideMiddle
+                    text: "\uD83D\uDCCB " + keyboardBridge.clipboardSuggestion.replace(/\s+/g, " ")
+                    color: root.textColor
+                    font.pixelSize: root.portrait ? 17 : 15
+                }
+                MouseArea {
+                    id: clipboardChipMouse
+                    anchors.fill: parent
+                    onClicked: keyboardBridge.pasteClipboardSuggestion()
+                }
+            }
+
             Row {
-                visible: !suggestionRow.visible
+                visible: !suggestionRow.visible && !clipboardChip.visible
                 anchors.centerIn: parent
                 spacing: root.portrait ? 18 : 14
 
@@ -1620,6 +1648,16 @@ Rectangle {
 
                 PanelButton {
                     width: root.portrait ? 150 : 124
+                    label: "↑ Up"
+                    onTriggered: keyboardBridge.moveUp()
+                }
+                PanelButton {
+                    width: root.portrait ? 150 : 124
+                    label: "↓ Down"
+                    onTriggered: keyboardBridge.moveDown()
+                }
+                PanelButton {
+                    width: root.portrait ? 150 : 124
                     label: "← Left"
                     onTriggered: keyboardBridge.moveLeft()
                 }
@@ -1750,6 +1788,11 @@ Rectangle {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - popupButton.width - parent.spacing; height: popupButton.height; verticalAlignment: Text.AlignVCenter; text: "Key popups"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
                         PanelButton { id: popupButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keyPopups ? "On" : "Off"; onTriggered: keyboardBridge.setKeyPopups(!keyboardBridge.keyPopups) }
+                    }
+                    Row {
+                        width: parent.width; spacing: 12
+                        Text { width: parent.width - longPressButton.width - parent.spacing; height: longPressButton.height; verticalAlignment: Text.AlignVCenter; text: "Long-press delay"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+                        PanelButton { id: longPressButton; width: root.portrait ? 170 : 150; label: keyboardBridge.longPressDelay + " ms"; onTriggered: keyboardBridge.cycleLongPressDelay() }
                     }
 
                     Row {

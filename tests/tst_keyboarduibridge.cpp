@@ -43,6 +43,8 @@ public:
         ++deleteForwardCount;
     }
 
+    void moveUp() override { events.append(QStringLiteral("up")); }
+    void moveDown() override { events.append(QStringLiteral("down")); }
     void moveLeft() override
     {
         ++moveLeftCount;
@@ -499,6 +501,47 @@ private Q_SLOTS:
         V3Keyboard::KeyboardUiBridge reloaded(controller, model);
         QCOMPARE(reloaded.languageCodes(), QStringList({QStringLiteral("uk")}));
         QCOMPARE(reloaded.languageLabels().size(), 1);
+    }
+
+    void upDownAndLongPressDelayLikeGboard()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        {
+            V3Keyboard::KeyboardUiBridge bridge(controller, model);
+            bridge.moveUp();
+            bridge.moveDown();
+            QCOMPARE(backend.events.mid(backend.events.size() - 2), QStringList({QStringLiteral("up"), QStringLiteral("down")}));
+            QCOMPARE(bridge.longPressDelay(), 300);              // Gboard default
+            bridge.cycleLongPressDelay();
+            QCOMPARE(bridge.longPressDelay(), 400);
+        }
+        V3Keyboard::KeyboardUiBridge reloaded(controller, model);
+        QCOMPARE(reloaded.longPressDelay(), 400);
+        for (int i = 0; i < 4; ++i) reloaded.cycleLongPressDelay();   // 500, 700, 200, 300
+        QCOMPARE(reloaded.longPressDelay(), 300);
+    }
+
+    void choosingAWrongLayoutFixSwitchesTheLanguage()
+    {
+        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/frequency-foreign")});
+        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
+        V3Keyboard::LocalLexicon::preloadForeignWordsForTesting(QStringLiteral("ru"));
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setLanguage(QStringLiteral("en"));
+        bridge.setAutoCapitalizationEnabled(false);
+        bridge.setSurroundingText(QStringLiteral("Hi. "), 4, 4);
+        for (const QChar ch : QStringLiteral("ghbdtn")) bridge.tapLetter(QString(ch));
+        QVERIFY2(bridge.suggestions().contains(QStringLiteral("привет")), qPrintable(bridge.suggestions().join(',')));
+        bridge.selectSuggestion(QStringLiteral("привет"));
+        QVERIFY(backend.commits.contains(QStringLiteral("привет")));
+        QCOMPARE(bridge.languageCode(), QStringLiteral("ru"));          // keep typing in Russian
+        V3Keyboard::LocalLexicon::setFrequencySearchPaths({QStringLiteral(V3KBD_TEST_DATA "/empty")});
+        V3Keyboard::LocalLexicon::clearForeignWordCacheForTesting();
     }
 
     void tapTextReachesController()

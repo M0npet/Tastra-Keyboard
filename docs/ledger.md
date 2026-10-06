@@ -1041,3 +1041,40 @@ modifiers and FE0F, so "☝️" = 261D FE0F matches "☝🏻" = 261D 1F3FB);
 mixed-tone sequences are left out; long-press an emoji for the picker (base +
 5 tones), a tap outside closes it. Fixture: real lines from Unicode's official
 emoji-test.txt 19.0 (unicode-org/unicodetools). Catalog + UI tests.
+
+## 2026-10-05 — 0.6.0 batch (user: "work in big batches until fully featured")
+
+- Text-editing panel: Up/Down added. Investigated Select / Select all / Copy /
+  Cut from KWin's source (inputmethod.cpp keysymReceived -> forwardKeySym): the
+  compositor replaces modifiers with exactly those needed for the keysym and
+  resets them afterwards, so an input method cannot send Ctrl+C or Shift+Arrow
+  on KWin. Not implementable here (documented in README); Paste already
+  commits the clipboard text directly.
+- Long-press delay setting (Gboard default 300 ms; was the 800 ms system
+  default): 200/300/400/500/700 ms.
+- Clipboard chip (Gboard): text copied in the last minute is offered in the
+  idle strip; one tap pastes; typing dismisses it; not in secure fields.
+- Wrong layout ("ghbdtn" -> "привет"): unknown words are read through the
+  other-script layouts (key position mapping between our layouts; same-script
+  pairs en/de, ru/uk are skipped) and checked against that language's bundled
+  frequency list, loaded lazily on first use. Measured on the real lists: 37
+  false readings among 6671 unknown EN prefixes (incl. an offensive word) ->
+  0 after two rules: not while the letters are still a prefix of a word of the
+  current language, and the other language's offensive words are removed.
+  Choosing the offer switches the keyboard language.
+
+Performance follow-up in the same batch (measured, not guessed):
+- The lazy foreign-list load cost 116 ms once on the typing path -> moved to
+  a background thread (QThreadPool; lookups never block; TSan clean).
+- Two hypotheses about remaining slow keystrokes (Hunspell validity checks)
+  were tested and did not explain the numbers; callgrind then showed 97 % of
+  the suggestion work in correction-variant generation: isCore() was a linear
+  QStringList scan per variant (since 0.2.x) and the variant set rehashed per
+  keystroke (since 1.0.1, when only Space was re-measured). Fixed (hash set,
+  reserve). Knownness is now computed once per keystroke, cheap-first.
+- Sandbox wall-clock numbers on one vCPU are too noisy for sub-10 ms work; the
+  deterministic count for the whole keystroke path (RU) is ~1 M instructions
+  per keystroke (well under 1 ms on the tablet).
+- Emoji suggestions scanned the whole catalog per strip read (on the device
+  with the system emoji list, ~1900 entries); now an exact-keyword index built
+  once per language.

@@ -837,6 +837,33 @@ private Q_SLOTS:
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiTonePicker")));
     }
 
+    void justCopiedTextIsOfferedForPasting()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QGuiApplication::clipboard()->setText(QStringLiteral("https://example.org/a"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("clipboardChip")));
+        QTest::qWait(50);
+        QQuickItem *chip = findNamed(view.rootObject(), QStringLiteral("clipboardChip"));
+        QTest::mouseClick(&view, Qt::LeftButton, {}, chip->mapToScene(QPointF(chip->width() / 2, chip->height() / 2)).toPoint());
+        QTRY_COMPARE(backend.commits.join(QString()), QStringLiteral("https://example.org/a"));
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("clipboardChip")));    // used once
+
+        // Typing dismisses a fresh offer.
+        QGuiApplication::clipboard()->setText(QStringLiteral("second"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("clipboardChip")));
+        bridge.tapLetter(QStringLiteral("a"));
+        bridge.space();
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("clipboardChip")));
+    }
+
     void caseChangesDoNotRecreateLetterKeys()
     {
         FakeBackend backend;

@@ -33,3 +33,6 @@ keyboard. On any problem send `~/.local/state/v3-keyboard/trace.log`.
 20. `v3kbd-dictionaries --status`, `v3kbd-voice-setup --status`.
 21. Settings → Keyboard layout → Split (landscape): halves apart, thumbs reach the space bar; typing works on both halves.
 22. Tap into the middle of a misspelt word (e.g. "wrold"): the strip offers "world"; tapping it replaces the whole word.
+23. English active, type "ghbdtn": strip offers "привет"; tap -> inserted, keyboard switches to Russian.
+24. Copy text in an app: a 📋 chip appears in the strip; tap pastes it.
+25. Settings → Long-press delay; long-press symbols react at the chosen speed.

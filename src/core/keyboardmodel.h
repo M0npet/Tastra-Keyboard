@@ -35,6 +35,8 @@ public:
     // Gboard-style long-press choices; the first one is preselected (a
     // language letter such as ß/ё/ґ, otherwise the key's symbol hint).
     QStringList alternatesForKey(const QString &text) const;
+    // The three letter rows of a language's layout (for layout conversion).
+    static QStringList rowsForLanguage(const QString &code);
 
     QString languageCode() const;
     QString languageLabel() const;

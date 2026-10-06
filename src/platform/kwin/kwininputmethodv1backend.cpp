@@ -116,6 +116,9 @@ void KWinInputMethodV1Backend::moveEnd()
     sendKeySym(XKB_KEY_End);
 }
 
+void KWinInputMethodV1Backend::moveUp() { sendKeySym(XKB_KEY_Up); }
+void KWinInputMethodV1Backend::moveDown() { sendKeySym(XKB_KEY_Down); }
+
 void KWinInputMethodV1Backend::enter()
 {
     sendKeySym(XKB_KEY_Return);

@@ -47,6 +47,13 @@ private:
     QVector<EmojiEntry> m_entries;
     QStringList m_recent;
     QHash<QString, QStringList> m_tones;   // base (no FE0F) -> tone variants
+    // keyword -> first emoji in catalog order; built once per language so the
+    // per-keystroke emoji suggestion is a hash lookup (not a catalog scan).
+    mutable QHash<QString, QString> m_exactLanguage;
+    mutable QHash<QString, QString> m_exactEnglish;
+    mutable bool m_exactLanguageBuilt = false;
+    mutable bool m_exactEnglishBuilt = false;
+    void buildExactIndex(const QHash<QString, QString> &keywords, QHash<QString, QString> &index) const;
     QString m_keywordLanguage;
     // glyph without U+FE0F -> keywords joined by '|'; loaded lazily.
     mutable QHash<QString, QString> m_englishKeywords;

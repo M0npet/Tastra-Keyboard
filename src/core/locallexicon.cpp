@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "locallexicon.h"
+#include <QThreadPool>
+#include <QMutex>
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -425,6 +427,7 @@ QString collapsed(const QString &word)
 LocalLexicon::LocalLexicon()
 {
     m_coreWords = coreWords(m_language);
+    m_coreWordSet = QSet<QString>(m_coreWords.cbegin(), m_coreWords.cend());
     m_typoMap = curatedTypos(m_language);
 }
 
@@ -464,6 +467,84 @@ QStringList LocalLexicon::blocklistSearchPaths()
 void LocalLexicon::setBlockOffensive(bool enabled) { m_blockOffensive = enabled; }
 
 void LocalLexicon::setUserDictionaryFile(const QString &path) { userDictionaryFileOverride() = path; }
+
+namespace
+{
+struct ForeignWords
+{
+    QMutex mutex;
+    QHash<QString, QSet<QString>> sets;
+    QSet<QString> loading;
+};
+
+ForeignWords &foreignWords()
+{
+    static ForeignWords words;
+    return words;
+}
+
+QSet<QString> readForeignWords(const QString &language, const QStringList &frequencyPaths, const QStringList &blockPaths)
+{
+    QSet<QString> words;
+    for (const QString &dir : frequencyPaths) {
+        QFile file(dir + QLatin1Char('/') + language + QStringLiteral(".txt"));
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+        const QString text = QString::fromUtf8(file.readAll());
+        for (QStringView line : QStringView(text).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+            words.insert(line.trimmed().toString().toLower());
+        }
+        break;
+    }
+    // Never offer that language's offensive words either.
+    for (const QString &dir : blockPaths) {
+        QFile file(dir + QLatin1Char('/') + language + QStringLiteral(".txt"));
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+        const QString text = QString::fromUtf8(file.readAll());
+        for (QStringView line : QStringView(text).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+            words.remove(line.trimmed().toString().toLower());
+        }
+        break;
+    }
+    return words;
+}
+}
+
+void LocalLexicon::clearForeignWordCacheForTesting()
+{
+    QMutexLocker lock(&foreignWords().mutex);
+    foreignWords().sets.clear();
+    foreignWords().loading.clear();
+}
+
+void LocalLexicon::preloadForeignWordsForTesting(const QString &language)
+{
+    QSet<QString> words = readForeignWords(language, frequencySearchPaths(), blocklistSearchPaths());
+    QMutexLocker lock(&foreignWords().mutex);
+    foreignWords().sets.insert(language, std::move(words));
+}
+
+bool LocalLexicon::knownInLanguage(const QString &language, const QString &word)
+{
+    ForeignWords &f = foreignWords();
+    {
+        QMutexLocker lock(&f.mutex);
+        const auto it = f.sets.constFind(language);
+        if (it != f.sets.constEnd()) return it->contains(word.toLower());
+        if (f.loading.contains(language)) return false;
+        f.loading.insert(language);
+    }
+    // Load off the typing path (measured: ~115 ms for two lists on the GUI
+    // thread); offers start once the list is there.
+    const QStringList frequencyPaths = frequencySearchPaths();
+    const QStringList blockPaths = blocklistSearchPaths();
+    QThreadPool::globalInstance()->start([language, frequencyPaths, blockPaths] {
+        QSet<QString> words = readForeignWords(language, frequencyPaths, blockPaths);
+        QMutexLocker lock(&foreignWords().mutex);
+        foreignWords().sets.insert(language, std::move(words));
+        foreignWords().loading.remove(language);
+    });
+    return false;
+}
 
 QString LocalLexicon::userDictionaryFile()
 {
@@ -641,6 +722,7 @@ void LocalLexicon::setLanguage(const QString &code)
     if (code != m_language) flushLearning();
     m_language = code;
     m_coreWords = coreWords(code);
+    m_coreWordSet = QSet<QString>(m_coreWords.cbegin(), m_coreWords.cend());
     m_typoMap = curatedTypos(code);
     loadLearning();
     loadBlocklist();
@@ -703,7 +785,7 @@ QString LocalLexicon::alphabet() const
     return QStringLiteral("abcdefghijklmnopqrstuvwxyz");
 }
 
-bool LocalLexicon::isCore(const QString &word) const { return m_coreWords.contains(word); }
+bool LocalLexicon::isCore(const QString &word) const { return m_coreWordSet.contains(word); }
 
 bool LocalLexicon::isValidWord(const QString &word) const
 {
@@ -745,6 +827,12 @@ int LocalLexicon::priorScore(const QString &candidate, const QString &previousWo
     return score;
 }
 
+bool LocalLexicon::hasWordCheaply(const QString &word) const
+{
+    adoptLoadedData();
+    return knownCheaply(normalize(word));
+}
+
 bool LocalLexicon::knownCheaply(const QString &word) const
 {
     if (word.isEmpty()) return false;
@@ -760,6 +848,7 @@ QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString 
     // ones first, so long unknown words (German compounds) cannot stall Space.
     QStringList ordered;
     QSet<QString> seen{typed};
+    seen.reserve(int(typed.size() + 1) * int(alphabet().size()) * 2 + 64);   // no rehash per keystroke
     auto add = [&](const QString &v) { if (!seen.contains(v)) { seen.insert(v); ordered.append(v); } };
     const QString chars = alphabet();
     for (int i = 0; i + 1 < typed.size(); ++i) { QString v = typed; std::swap(v[i], v[i + 1]); add(v); }

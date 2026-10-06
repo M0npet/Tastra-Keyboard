@@ -99,6 +99,16 @@ QString KeyboardModel::textForLetter(const QString &text) const
     return uppercase() ? text.toUpper() : text.toLower();
 }
 
+QStringList KeyboardModel::rowsForLanguage(const QString &code)
+{
+    for (const auto &layout : layouts) {
+        if (QString::fromLatin1(layout.code) == code) {
+            return {QString::fromUtf8(layout.row1), QString::fromUtf8(layout.row2), QString::fromUtf8(layout.row3)};
+        }
+    }
+    return {};
+}
+
 QStringList KeyboardModel::alternatesForKey(const QString &text) const
 {
     if (m_layer != Layer::Alphabet) return {};
