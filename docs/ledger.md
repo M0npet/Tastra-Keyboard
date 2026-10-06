@@ -1005,3 +1005,15 @@ Also in 0.5.0:
   (Gboard "Languages"); at least one stays on; switching off the current one
   moves to the next enabled one; persisted. A first test expected the wrong
   order (the layout order is en, de, uk, ru) — debugged with state output.
+
+## 2026-10-05 — 0.5.2 split keyboard (Gboard on tablets)
+
+Settings → Keyboard layout: Full width → Split → Compact left → Compact right.
+Split moves the two halves apart (gap 28 % of the width) for thumb typing on
+the 14" tablet; keys are shifted with a Translate (input follows the
+transform), the bottom row instead widens the space bar across the gap so both
+thumbs reach it; number pads stay whole. RED->GREEN UI test (t|y gap, asdfg|hjkl,
+space spans the gap, a tap on a shifted key types it, number pad unsplit).
+The first version kept the centre key of odd rows ("g") in place (it formally
+spans the centre); fixed by exempting only wide keys — found from geometry
+debug output; render checked twice (space bar first sat inside the gap).

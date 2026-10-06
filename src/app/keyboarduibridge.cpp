@@ -832,7 +832,8 @@ void KeyboardUiBridge::setAmoled(bool enabled)
 
 void KeyboardUiBridge::setLayoutMode(const QString &mode)
 {
-    if (mode != QStringLiteral("full") && mode != QStringLiteral("left") && mode != QStringLiteral("right")) return;
+    if (mode != QStringLiteral("full") && mode != QStringLiteral("split") && mode != QStringLiteral("left")
+        && mode != QStringLiteral("right")) return;
     if (m_layoutMode == mode) return;
     m_layoutMode = mode;
     persistPreference(QStringLiteral("layoutMode"), mode);
@@ -841,9 +842,10 @@ void KeyboardUiBridge::setLayoutMode(const QString &mode)
 
 void KeyboardUiBridge::cycleLayoutMode()
 {
-    setLayoutMode(m_layoutMode == QStringLiteral("full") ? QStringLiteral("left")
-                  : m_layoutMode == QStringLiteral("left") ? QStringLiteral("right")
-                                                            : QStringLiteral("full"));
+    // Full width -> Split (Gboard on tablets: thumb typing) -> Compact left -> right.
+    static const QStringList order = {QStringLiteral("full"), QStringLiteral("split"),
+                                      QStringLiteral("left"), QStringLiteral("right")};
+    setLayoutMode(order.at((order.indexOf(m_layoutMode) + 1) % order.size()));
 }
 
 void KeyboardUiBridge::setKeyScale(double scale)

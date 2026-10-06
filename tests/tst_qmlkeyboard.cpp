@@ -760,6 +760,50 @@ private Q_SLOTS:
         QVERIFY(under(QStringLiteral("Underline word while typing"), QStringLiteral("Advanced")));
     }
 
+    void splitLayoutForThumbTypingLikeGboardOnTablets()
+    {
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        bridge.setAutoCapitalizationEnabled(false);
+        QQuickView view;
+        view.setResizeMode(QQuickView::SizeRootObjectToView);
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.resize(1600, 560);                                   // landscape tablet
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        bridge.setLayoutMode(QStringLiteral("split"));
+        QTest::qWait(150);
+        auto box = [&](const QString &label) {
+            QQuickItem *key = findText(view.rootObject(), label)->parentItem();
+            return key->mapRectToScene(QRectF(0, 0, key->width(), key->height()));
+        };
+        const qreal mid = view.width() / 2.0;
+        const QRectF t = box(QStringLiteral("t"));
+        const QRectF y = box(QStringLiteral("y"));
+        QVERIFY2(t.right() < mid && y.left() > mid, "t on the left half, y on the right half");
+        QVERIFY2(y.left() - t.right() > view.width() * 0.15, qPrintable(QStringLiteral("gap %1").arg(y.left() - t.right())));
+        const QRectF g = box(QStringLiteral("g"));
+        const QRectF h = box(QStringLiteral("h"));
+        QVERIFY(g.right() < mid && h.left() > mid);                // asdfg | hjkl
+        QQuickItem *space = findText(view.rootObject(), QStringLiteral("English"));
+        QVERIFY(space);
+        const QRectF s = space->parentItem()->mapRectToScene(QRectF(0, 0, space->parentItem()->width(), space->parentItem()->height()));
+        QVERIFY2(s.left() < mid && s.right() > mid, "the space bar stays reachable from both halves");
+        // ...and spans the gap: its ends meet the inner edges of both halves.
+        const qreal slack = view.width() * 0.03;
+        QVERIFY2(s.left() <= t.right() + slack && s.right() >= y.left() - slack,
+                 qPrintable(QStringLiteral("space %1..%2, halves end %3 / start %4").arg(s.left()).arg(s.right()).arg(t.right()).arg(y.left())));
+        // Touch follows the moved keys.
+        QTest::mouseClick(&view, Qt::LeftButton, {}, y.center().toPoint());
+        QTRY_COMPARE(backend.commits.value(0), QStringLiteral("y"));
+        // Number fields keep the plain number pad.
+        bridge.setContentType(0, 4);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("numpadKey_5")));
+    }
+
     void caseChangesDoNotRecreateLetterKeys()
     {
         FakeBackend backend;

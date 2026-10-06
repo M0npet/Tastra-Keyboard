@@ -14,14 +14,18 @@ Rectangle {
     readonly property real keyGap: metrics.keyGap
     readonly property real keyHeight: metrics.keyHeight
     readonly property real toolbarHeight: portrait ? 54 : 48
-    readonly property bool compact: keyboardBridge.layoutMode !== "full"
+    readonly property bool compact: keyboardBridge.layoutMode === "left" || keyboardBridge.layoutMode === "right"
+    // Split (Gboard on tablets): the two halves move apart for thumb typing;
+    // number pads stay whole.
+    readonly property bool splitMode: keyboardBridge.layoutMode === "split" && !numpadShown
+    readonly property real splitGap: splitMode ? width * 0.28 : 0
     // Compact mode: a narrower keyboard docked to one side, for one-handed use
     // of a large tablet (the input panel itself stays docked by KWin).
     readonly property real contentWidth: Math.min(
         width - metrics.outerMargin * 2,
         width * metrics.contentWidthRatio,
         metrics.maxContentWidth
-    ) * (compact ? 0.62 : 1.0)
+    ) * (compact ? 0.62 : 1.0) - splitGap
     readonly property real baseKeyWidth: (contentWidth - keyGap * 9) / 10
     // Palette: Gboard-like light and dark themes; "system" follows Plasma.
     readonly property string themeName: keyboardBridge.effectiveTheme
@@ -198,6 +202,17 @@ Rectangle {
         // Gboard-style long-press choices; first is preselected. More than
         // one opens a picker: slide to choose, release to insert.
         property var alternates: []
+        // Split layout: keys move left or right of the centre; a key that
+        // spans the centre (the space bar) stays for both thumbs.
+        readonly property real splitShift: {
+            if (!root.splitMode || !parent || parent.absorbsSplit === true) return 0
+            var mid = parent.width / 2
+            // Only a wide key (the space bar) stays in the middle; the centre
+            // key of an odd row (g, р) belongs to the left half.
+            if (width > root.baseKeyWidth * 1.8 && x < mid - 1 && x + width > mid + 1) return 0
+            return (x + width / 2 <= mid + 0.5) ? -root.splitGap / 2 : root.splitGap / 2
+        }
+        transform: Translate { x: key.splitShift }
         // Touch-down point (key coordinates) for touch-aware correction.
         property real pressX: width / 2
         property real pressY: height / 2
@@ -1130,6 +1145,9 @@ Rectangle {
         }
 
         Row {
+            // Split: the space bar grows across the gap so both thumbs reach it;
+            // the row itself spreads the halves, so its keys are not shifted.
+            property bool absorbsSplit: true
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: root.keyGap
 
@@ -1186,7 +1204,7 @@ Rectangle {
                 id: spaceKey
                 property real dragStartX: 0
                 property int cursorStep: 0
-                preferredWidth: root.baseKeyWidth * 4.05
+                preferredWidth: root.baseKeyWidth * 4.05 + root.splitGap
                 label: keyboardBridge.languageLabel
                 popupEnabled: false
                 longPressEnabled: true
@@ -1682,7 +1700,7 @@ Rectangle {
                     Row {
                         width: parent.width; spacing: 12
                         Text { width: parent.width - layoutButton.width - parent.spacing; height: layoutButton.height; verticalAlignment: Text.AlignVCenter; text: "Keyboard layout"; color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
-                        PanelButton { id: layoutButton; width: root.portrait ? 170 : 150; label: keyboardBridge.layoutMode === "left" ? "Compact left" : keyboardBridge.layoutMode === "right" ? "Compact right" : "Full width"; onTriggered: keyboardBridge.cycleLayoutMode() }
+                        PanelButton { id: layoutButton; width: root.portrait ? 170 : 150; label: keyboardBridge.layoutMode === "left" ? "Compact left" : keyboardBridge.layoutMode === "right" ? "Compact right" : keyboardBridge.layoutMode === "split" ? "Split" : "Full width"; onTriggered: keyboardBridge.cycleLayoutMode() }
                     }
 
                     Text {
