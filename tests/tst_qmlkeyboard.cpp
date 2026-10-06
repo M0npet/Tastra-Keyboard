@@ -17,6 +17,7 @@
 #include <QStandardPaths>
 
 #include "app/keyboarduibridge.h"
+#include "core/emojicatalog.h"
 #include "app/keyboardhider.h"
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
@@ -802,6 +803,38 @@ private Q_SLOTS:
         // Number fields keep the plain number pad.
         bridge.setContentType(0, 4);
         QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("numpadKey_5")));
+    }
+
+    void longPressOnAnEmojiOffersSkinTones()
+    {
+        V3Keyboard::EmojiCatalog::setSystemDataPathForTesting(QStringLiteral(V3KBD_TEST_DATA "/emoji-system/emoji-test.txt"));
+        FakeBackend backend;
+        V3Keyboard::KeyboardController controller(backend);
+        V3Keyboard::KeyboardModel model;
+        V3Keyboard::KeyboardUiBridge bridge(controller, model);
+        V3Keyboard::EmojiCatalog::setSystemDataPathForTesting(QString());
+        QCOMPARE(bridge.emojiSkinTones(QStringLiteral("👍")).size(), 5);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(V3KBD_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        bridge.activateToolbarAction(QStringLiteral("emoji"));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("👍")));
+        QTest::qWait(100);
+        QQuickItem *tile = findText(view.rootObject(), QStringLiteral("👍"));
+        const QPoint at = tile->mapToScene(QPointF(tile->width() / 2, tile->height() / 2)).toPoint();
+        QTest::mousePress(&view, Qt::LeftButton, {}, at);
+        QTest::qWait(qApp->styleHints()->mousePressAndHoldInterval() + 200);
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, at);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("emojiTonePicker")));
+        QVERIFY(backend.commits.isEmpty());                         // the long press itself inserts nothing
+        QQuickItem *dark = findText(view.rootObject(), QStringLiteral("👍🏿"));
+        QVERIFY(dark);
+        QTest::qWait(50);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, dark->mapToScene(QPointF(dark->width() / 2, dark->height() / 2)).toPoint());
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("👍🏿")}));
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiTonePicker")));
     }
 
     void caseChangesDoNotRecreateLetterKeys()

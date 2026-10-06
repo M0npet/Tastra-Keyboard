@@ -109,6 +109,24 @@ private Q_SLOTS:
         QVERIFY(again.items().isEmpty());
     }
 
+    void skinTonesHideBehindTheBaseEmoji()
+    {
+        // Real lines from Unicode's emoji-test.txt (19.0): tone variants are not
+        // separate grid entries but long-press choices of their base (Gboard).
+        V3Keyboard::EmojiCatalog::setSystemDataPathForTesting(QStringLiteral(V3KBD_TEST_DATA "/emoji-system/emoji-test.txt"));
+        V3Keyboard::EmojiCatalog catalog;
+        const QStringList all = catalog.glyphs(QStringLiteral("All"), {}, 500);
+        QVERIFY(all.contains(QStringLiteral("👍")));
+        QVERIFY(!all.contains(QStringLiteral("👍🏻")));
+        const QStringList tones = catalog.skinTones(QStringLiteral("👍"));
+        QCOMPARE(tones.size(), 5);
+        QCOMPARE(tones.first(), QStringLiteral("👍🏻"));
+        QCOMPARE(catalog.skinTones(QStringLiteral("☝️")).size(), 5);       // base carries FE0F
+        QVERIFY(catalog.skinTones(QStringLiteral("😀")).isEmpty());
+        QVERIFY(catalog.skinTones(QStringLiteral("🧑‍🤝‍🧑")).size() <= 5);  // mixed-tone pairs are skipped
+        V3Keyboard::EmojiCatalog::setSystemDataPathForTesting(QString());
+    }
+
     void emojiCatalogHasCategoriesAndSearch()
     {
         V3Keyboard::EmojiCatalog catalog;

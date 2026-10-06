@@ -1031,3 +1031,13 @@ of that check used "te|h" and could not fail (words < 3 letters are never
 corrected); rewritten as "teh|x", observed RED, then fixed.
 Typing-speed signal deliberately not added: without data it would be a guess
 that could suppress good corrections after a thinking pause.
+
+## 2026-10-05 — 0.5.4 emoji skin tones (Gboard)
+
+Found: with the system emoji-test.txt (Arch package unicode-emoji) the grid
+listed every fully-qualified line, i.e. ~2900 skin-tone variants next to their
+bases. Now tone variants are grouped under their base (key without tone
+modifiers and FE0F, so "☝️" = 261D FE0F matches "☝🏻" = 261D 1F3FB);
+mixed-tone sequences are left out; long-press an emoji for the picker (base +
+5 tones), a tap outside closes it. Fixture: real lines from Unicode's official
+emoji-test.txt 19.0 (unicode-org/unicodetools). Catalog + UI tests.

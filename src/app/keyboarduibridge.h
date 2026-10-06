@@ -220,6 +220,7 @@ public:
     Q_INVOKABLE void setAutoSpaceAfterPunctuation(bool enabled);
     Q_INVOKABLE void setEmojiRow(bool enabled);
     Q_INVOKABLE void insertEmoji(const QString &glyph);
+    Q_INVOKABLE QStringList emojiSkinTones(const QString &glyph) const;
     Q_INVOKABLE void setSymbolHints(bool enabled);
     Q_INVOKABLE void setNumberRow(bool enabled);
     Q_INVOKABLE QStringList alternatesForKey(const QString &key) const;

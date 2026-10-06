@@ -4,6 +4,10 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.5.4
+- Emoji skin tones: long-press an emoji to choose the tone (Gboard); the grid
+  no longer lists every tone variant separately.
+
 ## 0.5.3
 - Tap into the middle of a word: the strip offers options for the whole word
   and a choice replaces all of it (Gboard). A Space inside a word just splits it.

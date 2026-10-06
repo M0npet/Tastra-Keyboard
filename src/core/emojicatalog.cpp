@@ -2,6 +2,8 @@
 
 #include "emojicatalog.h"
 
+#include <algorithm>
+
 #include <QFile>
 #include <QSettings>
 #include <QFileInfo>
@@ -58,13 +60,44 @@ QString EmojiCatalog::categoryForName(const QString &name) const
     return QStringLiteral("Symbols");
 }
 
+namespace
+{
+QString &systemDataOverride()
+{
+    static QString path;
+    return path;
+}
+
+bool isToneModifier(char32_t cp) { return cp >= 0x1F3FB && cp <= 0x1F3FF; }
+
+// The glyph without skin-tone modifiers and without emoji variation selectors.
+QString toneFreeKey(const QString &glyph, QList<char32_t> *tones = nullptr)
+{
+    QString key;
+    for (const char32_t cp : glyph.toUcs4()) {
+        if (isToneModifier(cp)) { if (tones) tones->append(cp); continue; }
+        if (cp == 0xFE0F) continue;
+        key += QString::fromUcs4(&cp, 1);
+    }
+    return key;
+}
+}
+
+void EmojiCatalog::setSystemDataPathForTesting(const QString &path) { systemDataOverride() = path; }
+
+QStringList EmojiCatalog::skinTones(const QString &glyph) const
+{
+    return m_tones.value(toneFreeKey(glyph));
+}
+
 void EmojiCatalog::loadSystemEmojiData()
 {
-    const QStringList candidates = {
+    QStringList candidates = {
         QStringLiteral("/usr/share/unicode/emoji/emoji-test.txt"),
         QStringLiteral("/usr/share/unicode/emoji-test.txt"),
         QStringLiteral("/usr/share/emoji/emoji-test.txt"),
     };
+    if (!systemDataOverride().isEmpty()) candidates = {systemDataOverride()};
     QString path;
     for (const QString &candidate : candidates) {
         if (QFileInfo::exists(candidate)) { path = candidate; break; }
@@ -86,6 +119,16 @@ void EmojiCatalog::loadSystemEmojiData()
         const QRegularExpression re(QStringLiteral("^\\S+\\s+E[0-9.]+\\s+(.+)$"));
         const auto match = re.match(annotation);
         const QString name = match.hasMatch() ? match.captured(1) : annotation;
+        QList<char32_t> tones;
+        const QString key = toneFreeKey(glyph, &tones);
+        if (!tones.isEmpty()) {
+            // One tone throughout -> a long-press choice of the base; mixed
+            // tones (two people) are left out of the picker.
+            if (std::all_of(tones.begin(), tones.end(), [&](char32_t t) { return t == tones.first(); })) {
+                m_tones[key].append(glyph);
+            }
+            continue;
+        }
         add(glyph, name, categoryForName(name));
     }
 }

@@ -123,6 +123,60 @@ Rectangle {
         return null
     }
 
+
+    // Skin-tone picker (long-press an emoji); a tap outside closes it.
+    property var toneChoices: []
+    function openTonePicker(base, tones, anchorItem) {
+        toneChoices = [base].concat(tones)
+        var p = anchorItem.mapToItem(root, 0, 0)
+        var w = toneChoices.length * tonePicker.cell
+        tonePicker.x = Math.max(4, Math.min(root.width - w - 4, p.x + anchorItem.width / 2 - w / 2))
+        tonePicker.y = Math.max(4, p.y - tonePicker.height - 6)
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        z: 299
+        visible: root.toneChoices.length > 0
+        onPressed: root.toneChoices = []
+    }
+
+    Rectangle {
+        id: tonePicker
+        objectName: "emojiTonePicker"
+        readonly property real cell: root.portrait ? 54 : 48
+        visible: root.toneChoices.length > 0
+        z: 300
+        width: root.toneChoices.length * cell
+        height: cell + 8
+        radius: 14
+        color: root.specialKeyColor
+        border.width: 1
+        border.color: root.borderColor
+        Row {
+            anchors.centerIn: parent
+            Repeater {
+                model: root.toneChoices
+                delegate: Rectangle {
+                    required property string modelData
+                    width: tonePicker.cell
+                    height: tonePicker.cell
+                    radius: 10
+                    color: toneMouse.pressed ? root.pressedColor : "transparent"
+                    Text { anchors.centerIn: parent; text: modelData; font.pixelSize: root.portrait ? 28 : 24 }
+                    MouseArea {
+                        id: toneMouse
+                        anchors.fill: parent
+                        onClicked: {
+                            keyboardBridge.insertEmoji(modelData)
+                            root.toneChoices = []
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     property var glidePoints: []
 
     Canvas {
@@ -1540,7 +1594,19 @@ Rectangle {
                         MouseArea {
                             id: emojiMouse
                             anchors.fill: parent
-                            onClicked: keyboardBridge.insertEmoji(modelData)
+                            property bool picked: false
+                            onPressed: picked = false
+                            // Gboard: long-press an emoji for its skin tones.
+                            onPressAndHold: {
+                                const tones = keyboardBridge.emojiSkinTones(modelData)
+                                if (tones.length === 0) return
+                                picked = true
+                                root.openTonePicker(modelData, tones, parent)
+                            }
+                            onClicked: {
+                                if (picked) return
+                                keyboardBridge.insertEmoji(modelData)
+                            }
                         }
                     }
                 }

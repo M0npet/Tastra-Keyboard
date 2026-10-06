@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     V3Keyboard
-    VERSION 0.5.3
+    VERSION 0.5.4
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -343,6 +343,7 @@ if(BUILD_TESTING)
     add_executable(tst_clipboardemoji
         tests/tst_clipboardemoji.cpp
     )
+    target_compile_definitions(tst_clipboardemoji PRIVATE V3KBD_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     target_link_libraries(tst_clipboardemoji PRIVATE v3keyboard-core Qt6::Test)
     add_test(NAME clipboardemoji COMMAND tst_clipboardemoji)
 endif()

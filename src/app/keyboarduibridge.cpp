@@ -201,6 +201,8 @@ void KeyboardUiBridge::removeWordFromDictionary(const QString &word)
     Q_EMIT suggestionsChanged();
 }
 
+QStringList KeyboardUiBridge::emojiSkinTones(const QString &glyph) const { return m_emojiCatalog.skinTones(glyph); }
+
 void KeyboardUiBridge::insertEmoji(const QString &glyph)
 {
     tapText(glyph);

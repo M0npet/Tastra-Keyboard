@@ -1,0 +1,14 @@
+1F600                                                  ; fully-qualified     # 😀 E1.0 grinning face
+261D FE0F                                              ; fully-qualified     # ☝️ E0.6 index pointing up
+261D 1F3FB                                             ; fully-qualified     # ☝🏻 E1.0 index pointing up: light skin tone
+261D 1F3FC                                             ; fully-qualified     # ☝🏼 E1.0 index pointing up: medium-light skin tone
+261D 1F3FD                                             ; fully-qualified     # ☝🏽 E1.0 index pointing up: medium skin tone
+261D 1F3FE                                             ; fully-qualified     # ☝🏾 E1.0 index pointing up: medium-dark skin tone
+261D 1F3FF                                             ; fully-qualified     # ☝🏿 E1.0 index pointing up: dark skin tone
+1F44D                                                  ; fully-qualified     # 👍 E0.6 thumbs up
+1F44D 1F3FB                                            ; fully-qualified     # 👍🏻 E1.0 thumbs up: light skin tone
+1F44D 1F3FC                                            ; fully-qualified     # 👍🏼 E1.0 thumbs up: medium-light skin tone
+1F44D 1F3FD                                            ; fully-qualified     # 👍🏽 E1.0 thumbs up: medium skin tone
+1F44D 1F3FE                                            ; fully-qualified     # 👍🏾 E1.0 thumbs up: medium-dark skin tone
+1F44D 1F3FF                                            ; fully-qualified     # 👍🏿 E1.0 thumbs up: dark skin tone
+1F9D1 1F3FB 200D 1F91D 200D 1F9D1 1F3FF                ; fully-qualified     # 🧑🏻‍🤝‍🧑🏿 E12.1 people holding hands: light skin tone, dark skin tone

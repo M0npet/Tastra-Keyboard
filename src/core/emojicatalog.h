@@ -31,6 +31,10 @@ public:
     QString emojiForWord(const QString &word) const;
     // Gboard-style "recently used" category (newest first, persisted).
     void noteUsed(const QString &glyph);
+    // Gboard: skin-tone variants are long-press choices of their base emoji
+    // (light ... dark), not separate grid entries. Empty if none.
+    QStringList skinTones(const QString &glyph) const;
+    static void setSystemDataPathForTesting(const QString &path);
     void clearRecent();
     int size() const;
 
@@ -42,6 +46,7 @@ private:
 
     QVector<EmojiEntry> m_entries;
     QStringList m_recent;
+    QHash<QString, QStringList> m_tones;   // base (no FE0F) -> tone variants
     QString m_keywordLanguage;
     // glyph without U+FE0F -> keywords joined by '|'; loaded lazily.
     mutable QHash<QString, QString> m_englishKeywords;
