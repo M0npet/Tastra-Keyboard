@@ -16,6 +16,8 @@ Clipboard history	Verlauf der Zwischenablage
 Clipboard is empty	Die Zwischenablage ist leer
 Compact left	Kompakt links
 Compact right	Kompakt rechts
+Copy	Kopieren
+Cut	Ausschneiden
 Dark	Dunkel
 Data: FrequencyWords and wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).	Daten: FrequencyWords und wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell-Wörterbücher (Systempakete), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).
 Delete	Entfernen

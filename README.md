@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.7.0, in development**. The typing core is done and tested; the
+Status: **0.7.1, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
@@ -78,16 +78,22 @@ previous binary is kept for rolling back.
   a `:-)` tab of text faces, recent emoji, skin tones on long-press, and an
   optional emoji row.
 - Clipboard: a chip offers what you just copied; history keeps items for an
-  hour; long-press to pin an item for good.
+  hour; long-press to pin an item for good. Copy, Cut and Paste in the
+  text-editing panel for text selected in the application.
 - Text-editing panel with arrows (including up/down), Home/End and paste.
 - Settings grouped like Gboard; System/Light/Dark/AMOLED themes. The interface
   is in English, German, Russian and Ukrainian (follows the system language).
 
 ## Platform limits (KDE Plasma / KWin)
 
-- Select, Select all, Copy and Cut in the text-editing panel are not possible:
-  KWin replaces the modifiers of keys sent by an input method, so Ctrl+C or
-  Shift+Arrow never reach the application. Paste works (text is inserted).
+- Selecting text from the keyboard (Select, Select all) is not possible: KWin
+  replaces the modifiers of keys sent by an input method, so Shift+Arrow or
+  Ctrl+A never reach the application. Select by touch in the application;
+  Copy, Cut and Paste in the text-editing panel then work.
+- The clipboard is read and set through KWin's data-control protocol (as
+  Klipper does), because KWin offers the regular Wayland clipboard only to the
+  focused window, which an on-screen keyboard never is. Needs Plasma 6.4 or
+  newer (and wayland-protocols 1.39 when building).
 - KWin decides where the panel goes, so there is no floating keyboard.
 
 ## Memory and speed

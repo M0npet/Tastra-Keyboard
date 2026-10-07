@@ -70,4 +70,6 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 46. Ukrainian layout: `ка` offers `казав`/`каже`…, never `как`; `зн` never offers `знаешь`.
 47. Settings → Interface language: with Plasma in German the button shows `System (Deutsch)` and the settings are German; tap it through English, Deutsch, Русский, Українська: the open panel changes at once; after a restart the choice is kept.
 48. Type `окей` (Russian), `naja` (German), `honour` (English) + Space: they stay; `thats` still becomes `that's`.
+49. Copy text in Firefox (Ctrl+C or the context menu), open the keyboard: the chip offers it, the clipboard panel lists it, Paste inserts it. (Before 0.7.1 the keyboard could not see the clipboard at all under KWin.)
+50. Select a word by touch in a text field, open the text-editing panel: Copy and Cut are enabled; Copy, then paste elsewhere with Ctrl+V on a hardware keyboard or the panel's Paste: the word arrives; Cut removes it from the field. In a password field Copy/Cut stay disabled.
 

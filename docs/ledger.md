@@ -1453,3 +1453,33 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
 - Follow-up: the user checked Gboard (German) on a phone: "haus" is only
   offered as "Haus", Space does not change it. That is Tastra's behaviour;
   pinned by germanNounTypedLowercaseIsOfferedNotForced.
+
+## 2026-10-07 — 0.7.1 clipboard through KWin data control; Copy / Cut
+
+- Question checked from KWin's source (GitHub mirror of KDE/kwin, master of
+  2026-10-07): src/wayland/seat.cpp offers the wl_data_device selection only
+  to the devices of the client set by setFocusedDataDeviceSurface (the focused
+  window) plus every data-control device; set_selection without keyboard
+  focus is refused (also reported on kwin@kde.org, 2023-09). An input panel is
+  never focused, so QClipboard in the keyboard saw nothing: clipboard history,
+  the "just copied" chip and Paste could not have worked on the device (never
+  tested there yet). src/wayland_server.cpp allowInterface() returns true for
+  the input-method connection, so ext_data_control_manager_v1 (KWin since
+  Plasma 6.4, commit 78c5e546 2025-04; wlr-data-control dropped 2025-05;
+  marked restricted for sandboxed clients 2026-09) is available to Tastra.
+- DataControlClipboard: plain libwayland proxies on Qt's display (Qt's event
+  loop dispatches them), reading other applications' text asynchronously
+  through a pipe and owning the clipboard for Copy/Cut; its own offers are
+  recognised by a private MIME type so it never reads from itself. Fallback
+  to QClipboard without the protocol. Tests: an in-process compositor
+  (libwayland-server, tests/fakecompositor.h) with two clients (read,
+  Unicode, 60 KB in several reads, own copy reaching another client, source
+  cancelled, clear, image-only offer, no data control); and the same through
+  Qt's Wayland platform plugin against that compositor (the keyboard's real
+  path). First runs found a shared MIME marker between two instances (now
+  per process and object) and a blocking test pump (now non-blocking).
+- Copy / Cut: the selection comes with KWin's surrounding text (inputmethod.cpp
+  sends cursor and anchor); Copy puts it on the clipboard, Cut also sends
+  BackSpace (no modifier needed). Selecting from the keyboard stays
+  impossible (Shift is replaced by KWin). Never in password fields. Bridge
+  and UI tests.

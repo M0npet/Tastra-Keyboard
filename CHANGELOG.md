@@ -4,6 +4,15 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.1
+- The clipboard works under KWin: history, the "just copied" chip and Paste
+  now see what other applications copy. KWin offers the regular Wayland
+  clipboard only to the focused window, which an on-screen keyboard never is,
+  so the keyboard now uses KWin's data-control protocol, like Klipper
+  (Plasma 6.4 or newer).
+- Text-editing panel: Copy, Cut and Paste for text selected (by touch) in the
+  application, as in Gboard.
+
 ## 0.7.0
 - The keyboard's own texts (settings, panels, hints) are in German, Russian
   and Ukrainian too. Like Gboard they follow the system language; Settings →

@@ -22,6 +22,7 @@ Q_LOGGING_CATEGORY(lcOtherProbe, "other.test", QtWarningMsg)
 
 #include "app/keyboarduibridge.h"
 #include "app/uitranslator.h"
+#include "core/systemclipboard.h"
 #include "app/keyboardhider.h"
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
@@ -94,6 +95,21 @@ public:
     int enterCount = 0;
 };
 
+// The desktop clipboard as data control would give it (KWin never offers
+// the regular one to an input panel).
+class FakeClipboard final : public Tastra::SystemClipboard
+{
+public:
+    QString text() const override { return m_text; }
+    void setText(const QString &text) override { m_text = text; ++sets; Q_EMIT changed(); }
+    void clear() override { m_text.clear(); Q_EMIT changed(); }
+    void copiedElsewhere(const QString &text) { m_text = text; Q_EMIT changed(); }
+    int sets = 0;
+
+private:
+    QString m_text;
+};
+
 class KeyboardUiBridgeTest : public QObject
 {
     Q_OBJECT
@@ -111,6 +127,52 @@ private Q_SLOTS:
     }
 
     void init() { QSettings().clear(); }
+
+    void copyAndCutTakeTheApplicationsSelection()
+    {
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        FakeClipboard clipboard;
+        bridge.setSystemClipboard(&clipboard);
+        QSignalSpy selection(&bridge, &Tastra::KeyboardUiBridge::selectionChanged);
+
+        QVERIFY(!bridge.hasSelection());
+        bridge.copySelection();                                     // nothing selected
+        QCOMPARE(clipboard.sets, 0);
+        // "Привіт світ" with "світ" selected (byte offsets, as KWin sends them).
+        const QString text = QStringLiteral("Привіт світ");
+        const int start = QStringLiteral("Привіт ").toUtf8().size(), end = text.toUtf8().size();
+        bridge.setSurroundingText(text, end, start);
+        QVERIFY(bridge.hasSelection());
+        QCOMPARE(selection.count(), 1);
+        bridge.copySelection();
+        QCOMPARE(clipboard.text(), QStringLiteral("світ"));
+        QCOMPARE(bridge.clipboardText(), QStringLiteral("світ"));   // read back through the same object
+
+        const int before = backend.backspaceCount;
+        bridge.setSurroundingText(QStringLiteral("Hello world"), 0, 5);   // anchor after the cursor
+        bridge.cutSelection();
+        QCOMPARE(clipboard.text(), QStringLiteral("Hello"));
+        QCOMPARE(backend.backspaceCount, before + 1);                   // the selection is deleted
+        QVERIFY(!bridge.hasSelection());
+
+        // Never from a password field.
+        bridge.setSurroundingText(QStringLiteral("secret"), 6, 0);
+        bridge.setContentType(0, 8);
+        QVERIFY(!bridge.hasSelection());
+        bridge.copySelection();
+        QCOMPARE(clipboard.text(), QStringLiteral("Hello"));
+        bridge.setContentType(0, 0);
+
+        // Text copied in another application reaches the history and the chip.
+        clipboard.copiedElsewhere(QStringLiteral("from Firefox"));
+        QCOMPARE(bridge.clipboardText(), QStringLiteral("from Firefox"));
+        QVERIFY(bridge.clipboardHistory().contains(QStringLiteral("from Firefox")));
+        QCOMPARE(bridge.clipboardSuggestion(), QStringLiteral("from Firefox"));
+        bridge.setSystemClipboard(nullptr);                         // back to QClipboard
+    }
 
     void interfaceLanguageFollowsTheSystemOrTheSetting()
     {

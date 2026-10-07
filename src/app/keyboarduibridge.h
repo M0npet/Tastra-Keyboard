@@ -111,6 +111,8 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool clipboardHistoryEnabled READ clipboardHistoryEnabled WRITE setClipboardHistoryEnabled NOTIFY clipboardChanged)
 
     Q_PROPERTY(QString clipboardText READ clipboardText NOTIFY clipboardChanged)
+    // Text selected in the application (for Copy / Cut).
+    Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY selectionChanged)
     Q_PROPERTY(QStringList clipboardHistory READ clipboardHistory NOTIFY clipboardChanged)
     Q_PROPERTY(QStringList emojiItems READ emojiItems CONSTANT)
     Q_PROPERTY(QStringList emojiCategories READ emojiCategories NOTIFY emojiChanged)
@@ -257,6 +259,12 @@ public:
     Q_INVOKABLE QString endGlidePath(const QVariantList &points, const QVariantMap &keyCentres, double keyWidth);
 
     Q_INVOKABLE void pasteClipboard();
+    Q_INVOKABLE void copySelection();
+    Q_INVOKABLE void cutSelection();
+    bool hasSelection() const { return !m_selectedText.isEmpty() && !m_secureInput; }
+    // The clipboard the keyboard reads and owns: KWin's data control in the
+    // app; null restores QClipboard. Not owned.
+    void setSystemClipboard(class SystemClipboard *clipboard);
     Q_INVOKABLE void pasteClipboardHistory(int index);
     Q_INVOKABLE void removeClipboardHistory(int index);
     Q_INVOKABLE void clearClipboard();
@@ -336,6 +344,7 @@ Q_SIGNALS:
     void clipboardChanged();
     void inputContextChanged();
     void uiLanguageChanged();
+    void selectionChanged();
 
 private:
     void persistLanguage() const;
@@ -400,6 +409,9 @@ private:
     QString m_uiLanguage = QStringLiteral("system");
     class UiTranslator *m_translator = nullptr;
     QPointer<QQmlEngine> m_qmlEngine;
+    class SystemClipboard *m_clipboard = nullptr;
+    class QtSystemClipboard *m_qtClipboard = nullptr;
+    QString m_selectedText;
 };
 
 }

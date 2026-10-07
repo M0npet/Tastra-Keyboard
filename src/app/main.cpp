@@ -2,6 +2,9 @@
 
 #include "keyboardhider.h"
 #include "keyboarduibridge.h"
+#ifdef TASTRA_DATA_CONTROL
+#include "platform/kwin/datacontrolclipboard.h"
+#endif
 #include "panelvisibility.h"
 #include "tracelog.h"
 #include "voicecontroller.h"
@@ -60,6 +63,12 @@ int main(int argc, char **argv)
     view.setResizeMode(QQuickView::SizeViewToRootObject);
     view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
     bridge.setQmlEngine(view.engine());
+#ifdef TASTRA_DATA_CONTROL
+    // KWin offers the Wayland clipboard only to the focused window, which an
+    // input panel never is: read and set it through data control instead.
+    const auto dataControlClipboard = Tastra::KWin::DataControlClipboard::createForApplication();
+    if (dataControlClipboard) bridge.setSystemClipboard(dataControlClipboard.get());
+#endif
     view.setSource(QUrl(QStringLiteral("qrc:/tastra/Main.qml")));
 
     if (view.status() == QQuickView::Error) {

@@ -2,6 +2,7 @@
 
 #include "keyboarduibridge.h"
 #include "uitranslator.h"
+#include "qtsystemclipboard.h"
 
 #include <QQmlEngine>
 
@@ -33,12 +34,6 @@ namespace Tastra
 {
 namespace
 {
-
-QClipboard *systemClipboard()
-{
-    if (!qobject_cast<QGuiApplication *>(QCoreApplication::instance())) return nullptr;
-    return QGuiApplication::clipboard();
-}
 
 }
 
@@ -112,16 +107,26 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_typingEngine.setDoubleSpacePeriodEnabled(settings.value(QStringLiteral("doubleSpacePeriodEnabled"), true).toBool());
     m_typingEngine.setCompositionEnabled(settings.value(QStringLiteral("compositionEnabled"), true).toBool());
 
-    if (auto *clipboard = systemClipboard()) {
-        captureClipboard();
-        connect(clipboard, &QClipboard::dataChanged, this, [this]() {
-            captureClipboard();
-            m_freshClipboard = clipboardText().trimmed();
-            m_freshClipboardMs = QDateTime::currentMSecsSinceEpoch();
-            Q_EMIT clipboardChanged();
-            Q_EMIT suggestionsChanged();
-        });
+    setSystemClipboard(nullptr);                        // QClipboard until told otherwise
+}
+
+void KeyboardUiBridge::setSystemClipboard(SystemClipboard *clipboard)
+{
+    if (m_clipboard) disconnect(m_clipboard, nullptr, this, nullptr);
+    if (!clipboard) {
+        if (!m_qtClipboard) m_qtClipboard = new QtSystemClipboard(this);
+        clipboard = m_qtClipboard;
     }
+    m_clipboard = clipboard;
+    captureClipboard();
+    connect(m_clipboard, &SystemClipboard::changed, this, [this]() {
+        captureClipboard();
+        m_freshClipboard = clipboardText().trimmed();
+        m_freshClipboardMs = QDateTime::currentMSecsSinceEpoch();
+        Q_EMIT clipboardChanged();
+        Q_EMIT suggestionsChanged();
+    });
+    Q_EMIT clipboardChanged();
 }
 
 bool KeyboardUiBridge::uppercase() const
@@ -803,8 +808,7 @@ bool KeyboardUiBridge::clipboardHistoryEnabled() const { return m_clipboardHisto
 
 QString KeyboardUiBridge::clipboardText() const
 {
-    if (auto *clipboard = systemClipboard()) return clipboard->text();
-    return {};
+    return m_clipboard ? m_clipboard->text() : QString();
 }
 
 QStringList KeyboardUiBridge::clipboardHistory() const { return m_clipboardHistory.items(); }
@@ -1204,8 +1208,26 @@ void KeyboardUiBridge::removeClipboardHistory(int index)
 
 void KeyboardUiBridge::clearClipboard()
 {
-    if (auto *clipboard = systemClipboard()) clipboard->clear();
+    if (m_clipboard) m_clipboard->clear();
     Q_EMIT clipboardChanged();
+}
+
+void KeyboardUiBridge::copySelection()
+{
+    // Gboard's Copy: the text the user selected in the application (by
+    // touch). KWin passes the selection with the surrounding text; Ctrl+C
+    // cannot be sent (KWin replaces an input method's modifiers).
+    if (m_selectedText.isEmpty() || m_secureInput || !m_clipboard) return;
+    m_clipboard->setText(m_selectedText);
+}
+
+void KeyboardUiBridge::cutSelection()
+{
+    if (m_selectedText.isEmpty() || m_secureInput || !m_clipboard) return;
+    m_clipboard->setText(m_selectedText);
+    m_controller.backspace();                       // deletes the selection
+    m_selectedText.clear();
+    Q_EMIT selectionChanged();
 }
 
 void KeyboardUiBridge::clearClipboardHistory()
@@ -1352,6 +1374,10 @@ void KeyboardUiBridge::resetInputContext()
         m_secureInput = false;
         Q_EMIT inputContextChanged();
     }
+    if (!m_selectedText.isEmpty()) {
+        m_selectedText.clear();
+        Q_EMIT selectionChanged();
+    }
     m_panelManager.returnToTyping();
     Q_EMIT keyboardStateChanged();
     Q_EMIT suggestionsChanged();
@@ -1360,6 +1386,15 @@ void KeyboardUiBridge::resetInputContext()
 
 void KeyboardUiBridge::setSurroundingText(const QString &text, int cursorByte, int anchorByte)
 {
+    // The selection (cursor != anchor), for Copy and Cut.
+    const QByteArray utf8 = text.toUtf8();
+    const int from = qBound(0, qMin(cursorByte, anchorByte), int(utf8.size()));
+    const int to = qBound(0, qMax(cursorByte, anchorByte), int(utf8.size()));
+    const QString selected = cursorByte >= 0 && anchorByte >= 0 ? QString::fromUtf8(utf8.mid(from, to - from)) : QString();
+    if (selected != m_selectedText) {
+        m_selectedText = selected;
+        Q_EMIT selectionChanged();
+    }
     const bool uppercaseBefore = uppercase();
     if (!m_typingEngine.syncSurroundingText(text, cursorByte, anchorByte)) return;
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
@@ -1396,6 +1431,7 @@ void KeyboardUiBridge::setContentType(quint32 hint, quint32 purpose)
     if (m_secureInput != secure || purposeChanged) {
         m_secureInput = secure;
         Q_EMIT inputContextChanged();
+        Q_EMIT selectionChanged();
     }
     if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
     Q_EMIT suggestionsChanged();

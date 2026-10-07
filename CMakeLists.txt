@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     Tastra
-    VERSION 0.7.0
+    VERSION 0.7.1
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -44,6 +44,7 @@ add_library(tastra-core STATIC
     src/core/emojicatalog.cpp
     src/core/legacymigration.cpp
     src/core/glidegeometry.cpp
+    src/core/systemclipboard.h
 )
 
 target_include_directories(tastra-core
@@ -110,6 +111,60 @@ target_link_libraries(tastra-platform-kwin
         Qt6::WaylandClientPrivate
 )
 
+# The clipboard through ext-data-control-v1 (wayland-protocols >= 1.39; KWin
+# since Plasma 6.4). Without it the keyboard falls back to QClipboard.
+pkg_check_modules(WAYLAND_CLIENT IMPORTED_TARGET wayland-client)
+pkg_get_variable(WAYLAND_SCANNER wayland-scanner wayland_scanner)
+set(EXT_DATA_CONTROL_PROTOCOL "${WAYLAND_PROTOCOLS_DATADIR}/staging/ext-data-control/ext-data-control-v1.xml")
+set(TASTRA_DATA_CONTROL OFF)
+if(EXISTS "${EXT_DATA_CONTROL_PROTOCOL}" AND WAYLAND_SCANNER AND WAYLAND_CLIENT_FOUND)
+    set(TASTRA_DATA_CONTROL ON)
+    set(DATA_CONTROL_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/protocols")
+    file(MAKE_DIRECTORY "${DATA_CONTROL_GENERATED}")
+    foreach(kind client-header server-header private-code)
+        if(kind STREQUAL "client-header")
+            set(out "${DATA_CONTROL_GENERATED}/ext-data-control-v1-client-protocol.h")
+        elseif(kind STREQUAL "server-header")
+            set(out "${DATA_CONTROL_GENERATED}/ext-data-control-v1-server-protocol.h")
+        else()
+            set(out "${DATA_CONTROL_GENERATED}/ext-data-control-v1-protocol.c")
+        endif()
+        add_custom_command(
+            OUTPUT "${out}"
+            COMMAND "${WAYLAND_SCANNER}" ${kind} "${EXT_DATA_CONTROL_PROTOCOL}" "${out}"
+            DEPENDS "${EXT_DATA_CONTROL_PROTOCOL}"
+            VERBATIM)
+    endforeach()
+    add_library(tastra-data-control-protocol STATIC
+        "${DATA_CONTROL_GENERATED}/ext-data-control-v1-protocol.c"
+        "${DATA_CONTROL_GENERATED}/ext-data-control-v1-client-protocol.h"
+        "${DATA_CONTROL_GENERATED}/ext-data-control-v1-server-protocol.h")
+    set_target_properties(tastra-data-control-protocol PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_include_directories(tastra-data-control-protocol PUBLIC "${DATA_CONTROL_GENERATED}")
+    target_link_libraries(tastra-data-control-protocol PUBLIC PkgConfig::WAYLAND_CLIENT)
+    add_library(tastra-data-control STATIC src/platform/kwin/datacontrolclipboard.cpp)
+    target_include_directories(tastra-data-control PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(tastra-data-control PUBLIC TASTRA_DATA_CONTROL=1)
+    target_link_libraries(tastra-data-control
+        PUBLIC tastra-core Qt6::Gui
+        PRIVATE tastra-data-control-protocol Qt6::GuiPrivate)
+endif()
+message(STATUS "Clipboard through ext-data-control-v1: ${TASTRA_DATA_CONTROL}")
+pkg_check_modules(WAYLAND_SERVER IMPORTED_TARGET wayland-server)
+if(BUILD_TESTING AND TASTRA_DATA_CONTROL AND WAYLAND_SERVER_FOUND)
+    add_executable(tst_datacontrolclipboard tests/tst_datacontrolclipboard.cpp)
+    target_link_libraries(tst_datacontrolclipboard PRIVATE tastra-data-control tastra-data-control-protocol PkgConfig::WAYLAND_SERVER Qt6::Test Threads::Threads)
+    add_test(NAME datacontrolclipboard COMMAND tst_datacontrolclipboard)
+    set_tests_properties(datacontrolclipboard PROPERTIES ENVIRONMENT "XDG_RUNTIME_DIR=${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
+    file(CHMOD "${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime" DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+    # The same through Qt's Wayland platform plugin (needs qt6-wayland).
+    add_executable(tst_datacontrolqtdisplay tests/tst_datacontrolqtdisplay.cpp)
+    target_link_libraries(tst_datacontrolqtdisplay PRIVATE tastra-data-control tastra-data-control-protocol PkgConfig::WAYLAND_SERVER Qt6::Test Qt6::Gui Threads::Threads)
+    add_test(NAME datacontrolqtdisplay COMMAND tst_datacontrolqtdisplay)
+    set_tests_properties(datacontrolqtdisplay PROPERTIES ENVIRONMENT "XDG_RUNTIME_DIR=${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
+endif()
+
 
 add_library(tastra-app STATIC
     src/app/keyboarduibridge.cpp
@@ -119,6 +174,7 @@ add_library(tastra-app STATIC
     src/app/keyboardhider.cpp
     src/app/voicecontroller.cpp
     src/app/uitranslator.cpp
+    src/app/qtsystemclipboard.cpp
 )
 
 target_include_directories(tastra-app
@@ -144,6 +200,7 @@ target_link_libraries(tastra
     PRIVATE
         tastra-app
         tastra-platform-kwin
+        $<$<BOOL:${TASTRA_DATA_CONTROL}>:tastra-data-control>
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick

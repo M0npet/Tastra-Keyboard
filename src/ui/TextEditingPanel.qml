@@ -38,6 +38,30 @@ Grid {
         label: qsTr("End")
         onTriggered: keyboardBridge.moveEnd()
     }
+    // Gboard's Copy / Cut / Paste. Copy and Cut take what is selected in
+    // the application (select by touch there; selecting from the keyboard
+    // needs Shift+arrows, which KWin does not pass on).
+    PanelButton {
+        objectName: "copyButton"
+        width: root.portrait ? 150 : 124
+        label: qsTr("Copy")
+        enabled: keyboardBridge.hasSelection
+        onTriggered: keyboardBridge.copySelection()
+    }
+    PanelButton {
+        objectName: "cutButton"
+        width: root.portrait ? 150 : 124
+        label: qsTr("Cut")
+        enabled: keyboardBridge.hasSelection
+        onTriggered: keyboardBridge.cutSelection()
+    }
+    PanelButton {
+        objectName: "pasteButton"
+        width: root.portrait ? 150 : 124
+        label: qsTr("Paste")
+        enabled: keyboardBridge.clipboardText.length > 0
+        onTriggered: keyboardBridge.pasteClipboard()
+    }
     PanelButton {
         width: root.portrait ? 150 : 124
         label: qsTr("Delete")

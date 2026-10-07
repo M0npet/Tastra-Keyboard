@@ -22,6 +22,7 @@
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
 #include "core/keyboardmodel.h"
+#include "core/systemclipboard.h"
 #include "app/voicecontroller.h"
 #include "core/locallexicon.h"
 
@@ -32,6 +33,17 @@
 
 namespace
 {
+
+class FakeClipboard final : public Tastra::SystemClipboard
+{
+public:
+    QString text() const override { return m_text; }
+    void setText(const QString &text) override { m_text = text; Q_EMIT changed(); }
+    void clear() override { m_text.clear(); Q_EMIT changed(); }
+
+private:
+    QString m_text;
+};
 
 class FakeBackend final : public Tastra::InputMethodBackend
 {
@@ -912,6 +924,43 @@ private Q_SLOTS:
         click(findText(findNamed(view.rootObject(), QStringLiteral("emojiSearchBar")), QStringLiteral("🍕")));
         QTRY_COMPARE(backend.commits, QStringList{QStringLiteral("🍕")});
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiSearchBar")));
+    }
+
+    void textEditingPanelCopiesCutsAndPastesTheSelection()
+    {
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        FakeClipboard clipboard;
+        bridge.setSystemClipboard(&clipboard);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto click = [&](QQuickItem *item) {
+            QTest::mouseClick(&view, Qt::LeftButton, {}, item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
+            QTest::qWait(30);
+        };
+        bridge.activateToolbarAction(QStringLiteral("text-editing"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("copyButton")));
+        QQuickItem *copy = findNamed(view.rootObject(), QStringLiteral("copyButton"));
+        QQuickItem *cut = findNamed(view.rootObject(), QStringLiteral("cutButton"));
+        QQuickItem *paste = findNamed(view.rootObject(), QStringLiteral("pasteButton"));
+        QVERIFY(!copy->isEnabled() && !cut->isEnabled() && !paste->isEnabled());
+
+        bridge.setSurroundingText(QStringLiteral("Hello world"), 11, 6);    // "world" selected in the app
+        QTRY_VERIFY(copy->isEnabled());
+        click(copy);
+        QCOMPARE(clipboard.text(), QStringLiteral("world"));
+        QTRY_VERIFY(paste->isEnabled());
+        click(cut);
+        QCOMPARE(backend.backspaces, 1);
+        QTRY_VERIFY(!copy->isEnabled());
+        click(paste);
+        QVERIFY(backend.commits.join(QString()).endsWith(QStringLiteral("world")));
+        bridge.setSystemClipboard(nullptr);
     }
 
     void interfaceTextsFollowTheChosenLanguage()
