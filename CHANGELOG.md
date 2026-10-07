@@ -4,6 +4,19 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.6.9
+- Autocorrect fixes words with several slipped keys, as LatinIME's
+  proximity search does ("otjerd" -> "others"): before, a word was only
+  corrected when a single key was off. With sloppy taps (simulated) the share
+  of typos fixed went from 36-72 % to 80-93 %.
+- Two words typed without the space ("ofthe", "вобщем", "потомучто"), or
+  with a letter above the space bar for it ("thisnis"), become two words on
+  Space. German compounds stay one word.
+- Typing Ukrainian no longer offers Russian words: the Ukrainian word list
+  had 15 500 of them ("что" was its 8th most common word).
+- Words that are only in Hunspell's dictionary rank below listed ones, so
+  "ohers" is no longer changed to "hoers" ("others" is offered first).
+
 ## 0.6.8
 - The keyboard starts about twice as fast and uses ~6 MB less memory: its
   panels (settings, emoji, clipboard, text editing) are built when first

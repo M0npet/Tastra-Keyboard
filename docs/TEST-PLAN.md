@@ -64,3 +64,7 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 42. Emoji panel → "Search emoji": the panel closes, letters (lowercase) type into the search bar, matching emoji appear; tap one -> inserted, normal typing again; ✕ leaves without typing anything.
 43. Settings → Dictionary → "+ Add word": Shift + `oldenburg` -> `Oldenburg`, ✓, shortcut `olb`, ✓ -> back in Settings, word and `olb → Oldenburg` listed; typing `olb` offers `Oldenburg`; tap the shortcut chip -> removed.
 
+## I. Autocorrect (0.6.9)
+44. Type fast and sloppily: `otjerd` + Space -> `others`; Russian `ппивеи` + Space -> `привет` (two keys off).
+45. `ofthe` + Space -> `of the`; `вобщем` -> `в общем`; `thisnis` -> `this is`; Backspace right after gives back what was typed. German `Haustür` typed as `haustür` is not split.
+46. Ukrainian layout: `ка` offers `казав`/`каже`…, never `как`; `зн` never offers `знаешь`.

@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.6.8, in development**. The typing core is done and tested; the
+Status: **0.6.9, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
@@ -35,9 +35,11 @@ previous binary is kept for rolling back.
 
 - Words are composed underlined and committed by Space, punctuation, a
   suggestion or glide, so autocorrect works reliably even in Firefox.
-- Autocorrect: Hunspell + word frequency + where on the key you touched. It is
-  conservative, and Backspace right after a correction undoes it and remembers
-  your word. Tap back into a corrected word to get what you typed back.
+- Autocorrect: Hunspell + word frequency + where on the key you touched, also
+  for several slipped keys in one word, and two words typed without the space
+  ("ofthe" -> "of the"). It is conservative, and Backspace right after a
+  correction undoes it and remembers your word. Tap back into a corrected word
+  to get what you typed back.
 - Suggestion strip: your word, the **correction** (what Space inserts) and the
   next best; completions; next-word predictions learned from your own typing;
   emoji suggestions; long-press a suggestion to forget it. Offensive words are

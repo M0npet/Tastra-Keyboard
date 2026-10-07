@@ -1378,3 +1378,48 @@ file.
   ctest verbosely and turns QML runtime warnings into annotations
   (scripts/ci-qml-warnings.py), which the repository API returns.
 
+
+## 2026-10-07 — 0.6.9 autocorrect measured against seeded typos
+
+Evaluation tools (sandbox only, not in the repository): 1500 frequent words
+per language x 2 rounds with one seeded single-edit typo each (neighbouring
+key, swap, missing letter, extra neighbouring letter; no touch data); the
+same for wordfreq words outside the bundled list (3-15 % of what is typed,
+weighted by that share); 3000 words typed with Gaussian tap noise around the
+key centres (sigma 0.18 / 0.25 / 0.35 key widths, offsets passed on as from
+the screen); 1500 random pairs of frequent words typed without the space or
+with a letter above the space bar for it. Every run also checks that no
+valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
+
+- A LatinIME-style extra-letter penalty was tried first and rejected: it
+  moved errors between typo kinds without lowering them (right 80.1 ->
+  77.4 %).
+- Hunspell-only words now score 70 below listed ones (a rank beyond the
+  list, as wordfreq ranks them): single-edit typos right 80.1 -> 82.3 %,
+  wrong 4.5 -> 3.9 %; typos of unlisted words wrong 2.4 -> 3.1 %. RED->GREEN
+  aWordMissingFromTheFrequencyListIsRare ("ohers" -> "hoers" before).
+- The Ukrainian frequency list held 15 503 Russian words ("что" rank 8,
+  "как" 34). tools/drop-foreign-words.py drops words the Russian Hunspell
+  accepts and either the Ukrainian one rejects or wordfreq finds ten times
+  more common in Russian, plus words with ы/э/ъ/ё. Checked by sampling every
+  60th dropped word (all Russian; a few homographs such as "тем" lose only
+  their rank, Hunspell still accepts them). The Russian list has 12 such
+  words and the English list's German words are parts of English phrases
+  ("de facto", "et cetera"), so only Ukrainian was cleaned. RED->GREEN
+  bundledUkrainianListHasNoRussianWords.
+- Several slipped keys (LatinIME proximity search): before, words with two
+  or more keys off were never corrected (0 % of them). Trie walk by binary
+  search over the sorted list; 2 slips from 4 letters, 3 from 6, 4 from 9;
+  each extra slip costs 260 (grid 120-400, lengths 3-10). Tap noise sigma
+  0.25: right 69.6 -> 93.1 %, wrong 0.80 -> 0.35 %; sigma 0.35: 36 -> 80 %;
+  sigma 0.18: 93 -> 96 %. Single-edit typos: 82.4 -> 81.9 %, wrong 3.9 ->
+  4.0 %. Keystroke benchmark against 0.6.8: p50/p95 within run-to-run noise.
+- Words run together (LatinIME space omission / mistyped space): two words
+  back on Space in 95/97 % (en), 60/64 % (de, compounds kept), 92/97 % (ru),
+  89/93 % (uk), before 0; wrong 0.2-2.3 % (before 0.3-6.5 %: other
+  corrections of the joined word). Single-edit typos 81.9 -> 81.7 %. The
+  eval's mistyped-space cases that are ambiguous by construction ("thendark")
+  are skipped. Engine: a two-word correction is learned as two words and the
+  next word follows the second (RED: previous word was "and the").
+  RED->GREEN wordsRunTogetherAreSplit (compound guard shown to fail without
+  the rule), twoWordsRunTogetherAreSplitAndLearnedAsWords.
