@@ -54,6 +54,7 @@ target_include_directories(tastra-core
 
 file(GLOB TASTRA_DATA_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/frequency/*.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/data/bigrams/*.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/emoji/*.tsv"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/blocklist/*.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/sounds/*.wav"

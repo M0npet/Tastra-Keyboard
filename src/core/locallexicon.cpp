@@ -69,6 +69,38 @@ struct DictionaryData
     std::vector<quint64> listedOnly;
     bool isListedOnly(QStringView word) const { return std::binary_search(listedOnly.begin(), listedOnly.end(), wordHash(word)); }
 
+    // Bundled word pairs (data/bigrams, tools/build-bigrams.py): how often a
+    // word followed another in the corpora. Sorted pair hashes for scoring,
+    // and each previous word's most common followers for the strip (indices
+    // into freq, so only words of the frequency list Hunspell accepts).
+    struct PairCount { quint64 pair; quint32 count; };
+    std::vector<PairCount> pairs;
+    struct Follower { quint64 previous; quint32 freqIndex; quint32 count; };
+    std::vector<Follower> followers;
+    static constexpr int FollowersKept = 6;
+
+    static quint64 pairHash(QStringView previous, QStringView word)
+    {
+        quint64 h = wordHash(previous);
+        for (const QChar ch : QStringView(u"\x1f")) { h ^= ch.unicode(); h *= 1099511628211ULL; }
+        for (const QChar ch : word) { h ^= ch.unicode(); h *= 1099511628211ULL; }
+        return h;
+    }
+    quint32 pairCount(QStringView previous, QStringView word) const
+    {
+        const quint64 h = pairHash(previous, word);
+        const auto it = std::lower_bound(pairs.begin(), pairs.end(), h, [](const PairCount &p, quint64 v) { return p.pair < v; });
+        return it != pairs.end() && it->pair == h ? it->count : 0;
+    }
+    std::pair<size_t, size_t> followerRange(QStringView previous) const
+    {
+        const quint64 h = wordHash(previous);
+        const auto lo = std::lower_bound(followers.begin(), followers.end(), h, [](const Follower &f, quint64 v) { return f.previous < v; });
+        auto hi = lo;
+        while (hi != followers.end() && hi->previous == h) ++hi;
+        return {size_t(lo - followers.begin()), size_t(hi - followers.begin())};
+    }
+
     std::pair<size_t, size_t> freqRange(QStringView prefix) const
     {
         auto less = [](const FreqEntry &e, QStringView p) { return QStringView(e.word).compare(p) < 0; };
@@ -265,6 +297,12 @@ QStringList &blocklistPathOverride()
     return paths;
 }
 
+QStringList &bigramPathOverride()
+{
+    static QStringList paths;
+    return paths;
+}
+
 QString &userDictionaryFileOverride()
 {
     static QString path;
@@ -309,6 +347,44 @@ void loadFrequency(DictionaryData &data, const QString &language, const QStringL
     data.freq.shrink_to_fit();
 }
 
+// After loadFrequency: followers point into the sorted frequency list.
+void loadBigrams(DictionaryData &data, const QString &language, const QStringList &paths)
+{
+    QFile file;
+    for (const QString &dir : paths) {
+        file.setFileName(dir + QLatin1Char('/') + language + QStringLiteral(".txt"));
+        if (file.exists()) break;
+    }
+    if (data.freq.empty() || !file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+    const QString text = QString::fromUtf8(file.readAll());
+    std::vector<DictionaryData::Follower> followers;
+    for (QStringView line : QStringView(text).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+        if (line.startsWith(QLatin1Char('#'))) continue;
+        const qsizetype a = line.indexOf(QLatin1Char(' '));
+        const qsizetype b = a < 0 ? -1 : line.indexOf(QLatin1Char(' '), a + 1);
+        if (b < 0) continue;
+        const QStringView previous = line.left(a), word = line.mid(a + 1, b - a - 1);
+        const quint32 count = line.mid(b + 1).toUInt();
+        if (count == 0) continue;
+        data.pairs.push_back({DictionaryData::pairHash(previous, word), count});
+        if (const auto *entry = data.freqFind(word)) {
+            followers.push_back({wordHash(previous), quint32(entry - data.freq.data()), count});
+        }
+    }
+    std::sort(data.pairs.begin(), data.pairs.end(), [](const auto &x, const auto &y) { return x.pair < y.pair; });
+    data.pairs.shrink_to_fit();
+    std::stable_sort(followers.begin(), followers.end(), [](const auto &x, const auto &y) {
+        return x.previous != y.previous ? x.previous < y.previous : x.count > y.count;
+    });
+    for (size_t i = 0; i < followers.size();) {
+        size_t end = i;
+        while (end < followers.size() && followers[end].previous == followers[i].previous) ++end;
+        for (size_t k = i; k < end && k < i + DictionaryData::FollowersKept; ++k) data.followers.push_back(followers[k]);
+        i = end;
+    }
+    data.followers.shrink_to_fit();
+}
+
 bool isWordText(QStringView word)
 {
     if (word.isEmpty() || word.size() > 48) return false;
@@ -328,7 +404,7 @@ QString decodeText(const QByteArray &raw, const QByteArray &encoding)
 }
 
 std::shared_ptr<DictionaryData> loadDictionary(const QString &language, const QStringList &searchPaths,
-                                               const QStringList &frequencyPaths)
+                                               const QStringList &frequencyPaths, const QStringList &bigramPaths)
 {
     QElapsedTimer timer;
     timer.start();
@@ -349,6 +425,7 @@ std::shared_ptr<DictionaryData> loadDictionary(const QString &language, const QS
     if (base.isEmpty()) {
         qCInfo(lcLexicon) << "no dictionary for" << language;
         loadFrequency(*data, language, frequencyPaths);
+        loadBigrams(*data, language, bigramPaths);
         return data;
     }
 
@@ -398,8 +475,9 @@ std::shared_ptr<DictionaryData> loadDictionary(const QString &language, const QS
     }
     data->blob.squeeze();
     loadFrequency(*data, language, frequencyPaths);
+    loadBigrams(*data, language, bigramPaths);
     qCInfo(lcLexicon) << "loaded" << language << data->entries.size() << "entries," << data->freq.size()
-                      << "frequency words in" << timer.elapsed() << "ms";
+                      << "frequency words," << data->pairs.size() << "word pairs in" << timer.elapsed() << "ms";
     return data;
 }
 
@@ -484,6 +562,17 @@ QStringList LocalLexicon::frequencySearchPaths()
 {
     if (!frequencyPathOverride().isEmpty()) return frequencyPathOverride();
     return {QStringLiteral(":/tastra/frequency")};
+}
+
+void LocalLexicon::setBigramSearchPaths(const QStringList &paths)
+{
+    bigramPathOverride() = paths;
+}
+
+QStringList LocalLexicon::bigramSearchPaths()
+{
+    if (!bigramPathOverride().isEmpty()) return bigramPathOverride();
+    return {QStringLiteral(":/tastra/bigrams")};
 }
 
 void LocalLexicon::setBlocklistSearchPaths(const QStringList &paths)
@@ -971,8 +1060,8 @@ void LocalLexicon::startLoading()
     std::promise<std::shared_ptr<DictionaryData>> promise;
     m_pending = promise.get_future();
     std::thread([promise = std::move(promise), language = m_language, paths = dictionarySearchPaths(),
-                 freqPaths = frequencySearchPaths()]() mutable {
-        auto data = loadDictionary(language, paths, freqPaths);
+                 freqPaths = frequencySearchPaths(), bigramPaths = bigramSearchPaths()]() mutable {
+        auto data = loadDictionary(language, paths, freqPaths, bigramPaths);
         // The load's temporaries are freed by now; hand the pages back here,
         // off the typing thread (measured up to 13 ms for Ukrainian).
         releaseFreedMemory();
@@ -1064,6 +1153,15 @@ int LocalLexicon::priorScore(const QString &candidate, const QString &previousWo
         score += qMin(450, 100 + personal * 40);
         // Bigrams only exist for learned words; skip the key allocation otherwise.
         if (!previousWord.isEmpty()) score += qMin(600, m_bigramFrequency.value(bigramKey(previousWord, candidate)) * 60);
+    }
+    // The bundled pairs: "i hvae" -> "have", glides after "thank" -> "you".
+    // Measured on held-out text of the corpora (typos from noisy taps,
+    // human-like glides; en/de/ru/uk): 30 per doubling lifted glides from
+    // 88.4 to 89.7 % and left autocorrect even (76.5 -> 76.8 % right,
+    // 0.65 -> 0.72 % wrong); 60 and 100 added wrong corrections.
+    if (!previousWord.isEmpty() && m_data && !m_data->pairs.empty()) {
+        if (const quint32 n = m_data->pairCount(previousWord, candidate); n > 0)
+            score += qMin(300, int(30.0 * std::log2(1.0 + n)));
     }
     return score;
 }
@@ -1465,6 +1563,9 @@ QStringList LocalLexicon::nextWords(const QString &previousWord, int limit) cons
 {
     const QString prev = normalize(previousWord);
     if (prev.isEmpty() || limit <= 0) return {};
+    adoptLoadedData();
+    // The user's own pairs first (each use counts), then the bundled ones,
+    // most common first: what was typed after a word beats the corpora.
     struct Scored { QString word; int score; };
     QVector<Scored> scored;
     const QString prefix = prev + QChar(0x001f);
@@ -1476,10 +1577,19 @@ QStringList LocalLexicon::nextWords(const QString &previousWord, int limit) cons
         if (a.score != b.score) return a.score > b.score;
         return a.word < b.word;
     });
+    QStringList words;
+    for (const auto &item : std::as_const(scored)) words.append(item.word);
+    if (m_data) {
+        const auto [lo, hi] = m_data->followerRange(prev);
+        for (size_t i = lo; i < hi; ++i) words.append(m_data->freq[m_data->followers[i].freqIndex].word);
+    }
     QStringList result;
-    for (const auto &item : scored) {
+    for (const QString &word : std::as_const(words)) {
         if (result.size() >= limit) break;
-        result.append(item.word);
+        if (!suggestible(word)) continue;
+        const QString capital = englishCapitalForm(word);
+        const QString form = capital.isEmpty() ? dictionaryForm(word) : capital;
+        if (!result.contains(form)) result.append(form);
     }
     return result;
 }

@@ -19,7 +19,7 @@ Compact right	Компактная справа
 Copy	Копировать
 Cut	Вырезать
 Dark	Тёмная
-Data: FrequencyWords and wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).	Данные: FrequencyWords и wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), словари Hunspell (системные пакеты), LibreOffice uk_UA (MPL-1.1); по желанию whisper.cpp (MIT).
+Data: FrequencyWords, wordfreq and Universal Dependencies treebanks (CC BY-SA 4.0), UA-GEC (CC BY 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).	Данные: FrequencyWords, wordfreq и корпуса Universal Dependencies (CC BY-SA 4.0), UA-GEC (CC BY 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), словари Hunspell (системные пакеты), LibreOffice uk_UA (MPL-1.1); по желанию whisper.cpp (MIT).
 Delete	Удалить
 Dictionary	Словарь
 Double-space period	Точка двойным пробелом

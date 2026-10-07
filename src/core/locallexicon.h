@@ -41,6 +41,9 @@ public:
     // lists, most frequent word first. Default: the bundled lists.
     static void setFrequencySearchPaths(const QStringList &paths);
     static QStringList frequencySearchPaths();
+    // Bundled word pairs for next-word suggestions (default :/tastra/bigrams).
+    static void setBigramSearchPaths(const QStringList &paths);
+    static QStringList bigramSearchPaths();
     // Offensive-word lists (<lang>.txt), used only to filter suggestions.
     static void setBlocklistSearchPaths(const QStringList &paths);
     static QStringList blocklistSearchPaths();

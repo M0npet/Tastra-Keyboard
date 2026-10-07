@@ -116,7 +116,8 @@ records sizes and decisions only, never text.
 
 ## Third-party data
 
-FrequencyWords and wordfreq (CC BY-SA 4.0), Unicode CLDR annotations (Unicode License V3),
+FrequencyWords, wordfreq and Universal Dependencies treebanks (CC BY-SA 4.0), UA-GEC
+(CC BY 4.0), Unicode CLDR annotations (Unicode License V3),
 LDNOOBW word lists (CC BY 4.0), Hunspell dictionaries (system packages),
 LibreOffice uk_UA dictionary (MPL-1.1), optional whisper.cpp + ggml model
 (MIT), KDE's fake-input protocol description (LGPL-2.1-or-later,

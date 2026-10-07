@@ -536,6 +536,37 @@ private Q_SLOTS:
         QVERIFY(words.indexOf(QStringLiteral("як")) < 30);
     }
 
+    void bundledWordPairsPredictTheNextWord()
+    {
+        // Gboard ships a language model: "I" is followed by "have" and "am"
+        // before anything was learned. The pairs come from CC BY-SA / CC BY
+        // corpora (tools/build-bigrams.py); what the user typed comes first.
+        LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        LocalLexicon::setBlocklistSearchPaths({QStringLiteral(":/tastra/blocklist")});
+        LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
+        const struct { const char *language, *previous, *next; } expected[] = {
+            {"en", "i", "have"}, {"en", "i", "am"}, {"en", "thank", "you"}, {"de", "ich", "bin"},
+            {"ru", "я", "не"}, {"ru", "потому", "что"}, {"uk", "я", "не"}, {"uk", "тому", "що"},
+        };
+        for (const auto &e : expected) {
+            LocalLexicon lexicon;
+            lexicon.setLanguage(QString::fromUtf8(e.language));
+            QVERIFY(lexicon.waitForDictionary(10000));
+            const QStringList next = lexicon.nextWords(QString::fromUtf8(e.previous), 3);
+            QVERIFY2(next.contains(QString::fromUtf8(e.next)), qPrintable(QString::fromUtf8(e.previous) + QLatin1String(": ") + next.join(QLatin1Char(','))));
+        }
+        LocalLexicon lexicon;
+        lexicon.setLanguage(QStringLiteral("en"));
+        QVERIFY(lexicon.waitForDictionary(10000));
+        QVERIFY(lexicon.nextWords(QString(), 3).isEmpty());
+        lexicon.learnWordWithContext(QStringLiteral("love"), QStringLiteral("i"));
+        QCOMPARE(lexicon.nextWords(QStringLiteral("i"), 3).value(0), QStringLiteral("love"));
+        lexicon.forgetWord(QStringLiteral("have"));
+        QVERIFY(!lexicon.nextWords(QStringLiteral("i"), 3).contains(QStringLiteral("have")));
+        QCOMPARE(lexicon.nextWords(QStringLiteral("i"), 3).size(), 3);
+    }
+
     void germanNounTypedLowercaseIsOfferedNotForced()
     {
         // As Gboard does (checked by the user on a phone): "haus" + Space

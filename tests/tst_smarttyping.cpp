@@ -608,6 +608,47 @@ private Q_SLOTS:
         QVERIFY(!engine.suggestions().isEmpty());
     }
 
+    void aNewSentenceHasNoPreviousWord()
+    {
+        // LatinIME: after a sentence ends the context is the beginning of a
+        // sentence, so the next word is neither predicted from nor learned
+        // after the last word before it.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        auto type = [&](const QString &word) {
+            for (const QChar ch : word) engine.typeLetter(QString(ch));
+        };
+        type(QStringLiteral("thanks"));
+        engine.typeText(QStringLiteral("."));
+        engine.space();
+        QVERIFY(engine.previousWord().isEmpty());
+        type(QStringLiteral("ok"));
+        engine.typeText(QStringLiteral(","));
+        QCOMPARE(engine.previousWord(), QStringLiteral("ok"));        // a comma keeps it
+        engine.space();
+        type(QStringLiteral("fine"));
+        engine.space();
+        QCOMPARE(engine.previousWord(), QStringLiteral("fine"));
+        engine.space();                                                // double space: ". "
+        QVERIFY(engine.previousWord().isEmpty());
+        type(QStringLiteral("bye"));
+        engine.enter();
+        QVERIFY(engine.previousWord().isEmpty());
+        // From the application's text too.
+        for (const auto &[text, previous] : {std::pair{QStringLiteral("See you. Then"), QString()},
+                                            std::pair{QStringLiteral("See you\nThen"), QString()},
+                                            std::pair{QStringLiteral("See you, then"), QStringLiteral("you")}}) {
+            FakeBackend other;
+            Tastra::KeyboardController otherController(other);
+            Tastra::TypingEngine fresh(otherController);
+            composing(other, fresh, text);
+            QCOMPARE(fresh.previousWord(), previous);
+        }
+    }
+
     void compositionDoubleSpaceAndNextWord()
     {
         FakeBackend backend;

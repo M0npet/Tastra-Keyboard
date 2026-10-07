@@ -19,7 +19,7 @@ Compact right	Компактна праворуч
 Copy	Копіювати
 Cut	Вирізати
 Dark	Темна
-Data: FrequencyWords and wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).	Дані: FrequencyWords і wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), словники Hunspell (системні пакети), LibreOffice uk_UA (MPL-1.1); за бажанням whisper.cpp (MIT).
+Data: FrequencyWords, wordfreq and Universal Dependencies treebanks (CC BY-SA 4.0), UA-GEC (CC BY 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).	Дані: FrequencyWords, wordfreq і корпуси Universal Dependencies (CC BY-SA 4.0), UA-GEC (CC BY 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), словники Hunspell (системні пакети), LibreOffice uk_UA (MPL-1.1); за бажанням whisper.cpp (MIT).
 Delete	Видалити
 Dictionary	Словник
 Double-space period	Крапка подвійним пробілом

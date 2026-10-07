@@ -154,7 +154,7 @@ void TypingEngine::insertDictation(const QString &text)
     m_sentenceStart = last == QLatin1Char('.') || last == QLatin1Char('!') || last == QLatin1Char('?');
     m_sentencePunctuationPending = false;
     const QStringList words = phrase.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-    m_previousWord = words.isEmpty() ? QString() : words.last().toLower();
+    m_previousWord = words.isEmpty() || m_sentenceStart ? QString() : words.last().toLower();
     m_currentWord.clear();
     m_lastActionWasSpace = false;
     m_spaceFromSuggestion = false;
@@ -337,6 +337,9 @@ void TypingEngine::observePunctuation(const QString &text)
         // Arm capitalization immediately. This also covers clients that do not
         // send a fresh surrounding-text event between punctuation and the next tap.
         m_sentenceStart = true;
+        // A new sentence has no previous word (LatinIME: beginning-of-sentence
+        // context), so neither suggestions nor learning pair across it.
+        m_previousWord.clear();
     }
 }
 
@@ -578,6 +581,7 @@ void TypingEngine::space()
             m_lastSpaceMs = -1;               // no chained double space
             m_pendingSpaceAfterWord = false;
             m_sentenceStart = true;
+            m_previousWord.clear();
             m_sentencePunctuationPending = false;
             m_lastActionWasSpace = false;
             refreshSuggestions();
@@ -598,6 +602,7 @@ void TypingEngine::space()
             m_lastWasDoublePeriod = true;
             m_lastSpaceMs = -1;               // no chained double space
             m_sentenceStart = true;
+            m_previousWord.clear();
             m_sentencePunctuationPending = false;
             m_lastActionWasSpace = false;
             refreshSuggestions();
@@ -811,6 +816,7 @@ void TypingEngine::enter()
     m_model = tail(m_model + QLatin1Char('\n'));
     recordLocalState();
     m_sentenceStart = true;
+    m_previousWord.clear();
     m_sentencePunctuationPending = false;
     m_lastActionWasSpace = false;
     refreshSuggestions();
@@ -1093,6 +1099,15 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
         int prevStart = prevEnd;
         while (prevStart > 0 && before.at(prevStart - 1).isLetter()) --prevStart;
         incomingPrevious = before.mid(prevStart, prevEnd - prevStart).toLower();
+        // Not across a sentence end or a line break.
+        for (qsizetype i = prevEnd; i < start; ++i) {
+            const QChar ch = before.at(i);
+            if (ch == QLatin1Char('.') || ch == QLatin1Char('!') || ch == QLatin1Char('?') || ch == QLatin1Char('\n')
+                || ch == QChar(0x2026)) {
+                incomingPrevious.clear();
+                break;
+            }
+        }
         incomingSentenceStart = before.trimmed().isEmpty();
         if (!incomingSentenceStart && trailing.isEmpty()) {
             const QChar last = before.trimmed().back();
