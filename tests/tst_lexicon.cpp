@@ -536,6 +536,16 @@ private Q_SLOTS:
         QVERIFY(words.indexOf(QStringLiteral("як")) < 30);
     }
 
+    void germanNounTypedLowercaseIsOfferedNotForced()
+    {
+        // As Gboard does (checked by the user on a phone): "haus" + Space
+        // stays "haus", but "Haus" is offered first in the strip.
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("de"));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("haus")).isEmpty());
+        QCOMPARE(lexicon.suggestions(QStringLiteral("haus"), QString(), 3).value(0), QStringLiteral("Haus"));
+    }
+
     void listedWordsHunspellLacksAreKept()
     {
         // The frequency list has words the dictionary lacks: chat words

@@ -1450,3 +1450,6 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   than its space; settings rendered and inspected in German and Russian.
   The panel titles ("Settings", ...) were missed by the first text search
   and found on the render.
+- Follow-up: the user checked Gboard (German) on a phone: "haus" is only
+  offered as "Haus", Space does not change it. That is Tastra's behaviour;
+  pinned by germanNounTypedLowercaseIsOfferedNotForced.
