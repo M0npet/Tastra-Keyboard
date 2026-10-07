@@ -119,7 +119,7 @@ private:
     // LatinIME's error model: an omitted apostrophe ("dont") is an
     // intentional omission and nearly free, a base letter for its accented
     // form ("uber", "ueber", "strasse") almost free.
-    enum class Edit { Other, RepeatedLetter, Transposition, NeighbourKey, Apostrophe, Accent, NeighbourKeys };
+    enum class Edit { Other, RepeatedLetter, Transposition, NeighbourKey, Apostrophe, Accent, NeighbourKeys, Split };
     struct Candidate {
         QString word;
         int score = 0;
@@ -154,6 +154,13 @@ private:
     // two or more neighbouring keys (LatinIME's proximity search).
     void addNeighbourKeyCandidates(const QString &typed, const QString &previousWord,
                                    const QSet<QString> &seen, QList<Candidate> &result) const;
+    // Two words run together ("ofthe") or with a letter next to the space
+    // bar for the space ("thisnis"): LatinIME's space omission and
+    // mistyped space.
+    void addSplitCandidates(const QString &typed, const QString &previousWord, QList<Candidate> &result) const;
+    // The rank that decides how sure a correction is; for two words, the
+    // rarer one's.
+    int correctionRank(const QString &word) const;
     void loadBlocklist();
     QString bigramKey(const QString &previousWord, const QString &word) const;
 

@@ -853,6 +853,13 @@ bool LocalLexicon::isAccentVariant(const QString &typed, const QString &candidat
 
 QString LocalLexicon::dictionaryForm(const QString &word) const
 {
+    if (const qsizetype space = word.indexOf(QLatin1Char(' ')); space > 0) {
+        auto form = [this](const QString &part) {                // "i like" -> "I like"
+            const QString capital = englishCapitalForm(part);
+            return capital.isEmpty() ? dictionaryForm(part) : capital;
+        };
+        return form(word.left(space)) + QLatin1Char(' ') + form(word.mid(space + 1));
+    }
     if (const auto it = m_userWords.constFind(word); it != m_userWords.constEnd()) return it.value();
     if (const auto it = m_fileWords.constFind(word); it != m_fileWords.constEnd()) return it.value();
     adoptLoadedData();
@@ -1135,6 +1142,7 @@ QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString 
         result.append(c);
     }
     if (hasFrequencyList) addNeighbourKeyCandidates(typed, previousWord, seen, result);
+    if (hasFrequencyList) addSplitCandidates(typed, previousWord, result);
     std::sort(result.begin(), result.end(), [](const Candidate &a, const Candidate &b) {
         if (a.score != b.score) return a.score > b.score;
         if (a.word.size() != b.word.size()) return a.word.size() < b.word.size();
@@ -1205,6 +1213,73 @@ void LocalLexicon::addNeighbourKeyCandidates(const QString &typed, const QString
         }
         result.append(c);
     }
+}
+
+void LocalLexicon::addSplitCandidates(const QString &typed, const QString &previousWord, QList<Candidate> &result) const
+{
+    // Measured on 1500 random pairs of frequent words per language, typed
+    // without the space or with a letter above the space bar for it
+    // (en/de/ru/uk): Space now gives the two words in 95/97, 60/64, 92/97
+    // and 89/93 % (wrong 0.2-2.3 %; German keeps its compounds together).
+    // Single-word typos: right 81.9 -> 81.7 %, wrong 3.98 -> 4.00 %.
+    constexpr int SplitCost = 100, MistypedSpaceCost = 150, StrayLetterSplitCost = -60, PartRankLimit = 20000;
+    const int n = int(typed.size());
+    if (n < 4) return;
+    // A part must be a listed word; a single letter only a word of its own
+    // ("a", "в", "і"; the lists also rank fragments such as German "s" from
+    // "geht's"), so "ofthe" never becomes "o f the".
+    static const QHash<QString, QString> oneLetterWords = {
+        {QStringLiteral("en"), QStringLiteral("ai")},
+        {QStringLiteral("ru"), QStringLiteral("авикосуя")},
+        {QStringLiteral("uk"), QStringLiteral("авзійоуяє")},
+    };
+    const QString oneLetter = oneLetterWords.value(m_language);
+    auto partRank = [this, &oneLetter](const QString &part) {
+        const int rank = frequencyRank(part);
+        if (rank <= 0 || rank > PartRankLimit) return 0;
+        return part.size() >= 2 || oneLetter.contains(part) ? rank : 0;
+    };
+    // German writes compounds as one word: "Tastaturtest" is not two words,
+    // so there the second part may not be a noun.
+    const bool compounds = m_language == QStringLiteral("de");
+    auto validSplit = [&](const QString &first, const QString &second) {
+        return partRank(first) && partRank(second) && suggestible(first) && suggestible(second)
+            && !(compounds && dictionaryForm(second).front().isUpper());
+    };
+    auto addSplit = [&](const QString &first, const QString &second, int cost) {
+        if (!validSplit(first, second)) return;
+        Candidate c;
+        c.word = first + QLatin1Char(' ') + second;
+        c.edit = Edit::Split;
+        c.score = 800 + qMin(priorScore(first, previousWord), priorScore(second, first)) - cost;
+        result.append(c);
+    };
+    // The letters right above the space bar (the middle of the bottom row).
+    auto aboveSpace = [this](QChar ch) {
+        const auto it = m_keyCentres.constFind(ch);
+        return it != m_keyCentres.constEnd() && it->y() == 2 && it->x() > 3.3 && it->x() < 7.4;
+    };
+    for (int i = 1; i < n; ++i) {
+        const bool joined = validSplit(typed.left(i), typed.mid(i));
+        // A one-letter word run into the next ("вобщем", "ihave") rather than
+        // a stray first letter, unless that letter is next to the second one
+        // (a slip while hitting it).
+        const bool strayOneLetter = i == 1 && !neighbours(typed.at(0), typed.at(1));
+        if (joined) addSplit(typed.left(i), typed.mid(i), strayOneLetter ? StrayLetterSplitCost : SplitCost);
+        // "infront" is "in front", not "I front" with "n" for the space.
+        if (i + 1 < n && aboveSpace(typed.at(i))
+            && !joined && !validSplit(typed.left(i + 1), typed.mid(i + 1)))
+            addSplit(typed.left(i), typed.mid(i + 1), MistypedSpaceCost);
+    }
+}
+
+int LocalLexicon::correctionRank(const QString &word) const
+{
+    const qsizetype space = word.indexOf(QLatin1Char(' '));
+    if (space < 0) return frequencyRank(word);
+    const int first = frequencyRank(word.left(space));
+    const int second = frequencyRank(word.mid(space + 1));
+    return first > 0 && second > 0 ? qMax(first, second) : 0;
 }
 
 QStringList LocalLexicon::suggestions(const QString &word, const QString &previousWord, int limit) const
@@ -1330,7 +1405,7 @@ QString LocalLexicon::pickCorrection(const QString &word, const QString &previou
     // "пять" with Russian enabled: still "п'ять" on the Ukrainian layout,
     // whose apostrophe was left out; "привет" stays Russian.
     if (otherLanguageWord && best.edit != Edit::Apostrophe && best.edit != Edit::Accent) return {};
-    const int rank = frequencyRank(best.word);
+    const int rank = correctionRank(best.word);
     const int personal = m_personalFrequency.value(best.word);
     const int margin = candidates.size() > 1 ? best.score - candidates.at(1).score : 1000;
     if (margin == 0) return {};

@@ -536,6 +536,28 @@ private Q_SLOTS:
         QVERIFY(words.indexOf(QStringLiteral("як")) < 30);
     }
 
+    void wordsRunTogetherAreSplit()
+    {
+        // LatinIME's space omission and mistyped space: Space between two
+        // words left out, or a letter above the space bar typed for it.
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("en"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("andthe")), QStringLiteral("and the"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("andbthe")), QStringLiteral("and the"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("mondayand")), QStringLiteral("Monday and"));   // dictionary forms
+        QVERIFY(lexicon.suggestions(QStringLiteral("andthe"), QString(), 3).contains(QStringLiteral("and the")));
+
+        // A one-letter word run into the next one ("вобщем"), rather than a
+        // stray first letter.
+        useLatinImeFixtures(lexicon, QStringLiteral("ru"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("вобщем")), QStringLiteral("в общем"));
+
+        // German writes compounds as one word: no "schon Haus".
+        useLatinImeFixtures(lexicon, QStringLiteral("de"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("aberschon")), QStringLiteral("aber schon"));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("schonhaus")) != QStringLiteral("schon Haus"));
+    }
+
     void wordsOfAnotherEnabledLanguageAreNotCorrected()
     {
         // Gboard's multilingual typing: with German enabled next to English,

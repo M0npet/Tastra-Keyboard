@@ -479,13 +479,17 @@ bool TypingEngine::replaceBeforeCursor(const QString &existing, const QString &r
 void TypingEngine::finalizeCurrentWord(bool updatePrevious)
 {
     if (m_currentWord.isEmpty()) return;
-    const QString finalized = m_currentWord.toLower();
-    if (m_learningEnabled) {
+    // A correction can be two words ("ofthe" -> "of the"): each is learned
+    // after the one before it, and the next word follows the last.
+    const QStringList words = m_currentWord.toLower().split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    QString previous = m_previousWord;
+    for (const QString &finalized : words) {
         // Persist one combined learning update instead of serializing the full
         // learned maps twice for every completed word.
-        m_lexicon.learnWordWithContext(finalized, m_previousWord);
+        if (m_learningEnabled) m_lexicon.learnWordWithContext(finalized, previous);
+        previous = finalized;
     }
-    if (updatePrevious) m_previousWord = finalized;
+    if (updatePrevious && !words.isEmpty()) m_previousWord = previous;
     m_currentWord.clear();
 }
 

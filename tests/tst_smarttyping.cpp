@@ -287,6 +287,36 @@ private Q_SLOTS:
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
+    void twoWordsRunTogetherAreSplitAndLearnedAsWords()
+    {
+        // LatinIME's space omission: "andthe" + Space gives "and the ", the
+        // next word follows "the", and Backspace brings back what was typed.
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/latinime/hunspell")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/latinime/frequency")});
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        engine.setLanguage(QStringLiteral("en"));
+        QVERIFY(engine.waitForDictionaryForTesting(5000));
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("andthe")) engine.typeLetter(QString(ch));
+        QCOMPARE(engine.autocorrectTarget(), QStringLiteral("and the"));
+        engine.space();
+        QCOMPARE(backend.preedit, QStringLiteral("and the "));
+        engine.typeLetter(QStringLiteral("x"));               // commits "and the "
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("and the "));
+        QCOMPARE(engine.previousWord(), QStringLiteral("the"));
+        engine.space();
+        for (const QChar ch : QStringLiteral("andthe")) engine.typeLetter(QString(ch));
+        engine.space();
+        QCOMPARE(backend.preedit, QStringLiteral("and the "));
+        engine.backspace();                                   // undo
+        QCOMPARE(backend.preedit, QStringLiteral("andthe"));
+        Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
     void aWordOfAnotherEnabledLanguageIsKnownAndKept()
     {
         Tastra::LocalLexicon::setDictionarySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/latinime/hunspell")});
