@@ -44,8 +44,13 @@ def report_failed_tests(lines: list[str]) -> None:
     last lines of its output."""
     failed = {}
     for line in lines:
-        m = re.search(r'Test\s+#(\d+): (\S+) \.+\s*\*+(Failed|Exception|Timeout|Not Run)', line)
+        # "Test #17: name .....***Failed", "...Subprocess aborted***Exception: ..."
+        m = re.search(r'Test\s+#(\d+): (\S+) .*?\*\*\*\s*(\w[\w ]*)', line)
         if m:
+            failed[m.group(1)] = (m.group(2), m.group(3).strip())
+        # ctest's summary: "	 17 - name (Failed)"
+        m = re.match(r'\s+(\d+) - (\S+) \((.+)\)\s*$', line)
+        if m and m.group(1) not in failed:
             failed[m.group(1)] = (m.group(2), m.group(3))
     for number, (name, kind) in failed.items():
         prefix = f'{number}: '
