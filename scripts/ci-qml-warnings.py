@@ -33,7 +33,27 @@ def main() -> int:
     for (path, row, message), count in seen.most_common():
         text = message.replace('%', '%25').replace('\r', '').replace('\n', ' ')
         print(f'::warning file={path},line={row}::{text} (x{count})')
+    report_failed_tests(Path(sys.argv[1]).read_text(encoding='utf-8', errors='replace').splitlines())
     return 0
+
+
+def report_failed_tests(lines: list[str]) -> None:
+    """The CI logs themselves cannot be fetched from where the keyboard is
+    developed, but annotations can: one error per failed test with the
+    lines QtTest prints for a failure (FAIL!, Actual, Expected, Loc) and the
+    last lines of its output."""
+    failed = {}
+    for line in lines:
+        m = re.search(r'Test\s+#(\d+): (\S+) \.+\s*\*+(Failed|Exception|Timeout|Not Run)', line)
+        if m:
+            failed[m.group(1)] = (m.group(2), m.group(3))
+    for number, (name, kind) in failed.items():
+        prefix = f'{number}: '
+        output = [l[len(prefix):] for l in lines if l.startswith(prefix)]
+        important = [l for l in output if re.search(r'FAIL!|Actual|Expected|Loc:|QFATAL|error|Error|failed|Segmentation|Aborted', l)]
+        text = '\n'.join(important[:20] + ['--- last lines ---'] + output[-15:])
+        text = text.replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+        print(f'::error title=Test {name} {kind}::{text}')
 
 
 if __name__ == '__main__':

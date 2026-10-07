@@ -30,6 +30,6 @@ jobs:
         run: |
           set -o pipefail
           ctest --test-dir build --output-on-failure -V 2>&1 | tee ctest.log
-      - name: QML warnings on this Qt version
+      - name: QML warnings and failed tests on this Qt version
         if: always()
         run: python3 scripts/ci-qml-warnings.py ctest.log
