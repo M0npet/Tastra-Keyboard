@@ -24,7 +24,7 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 14. Phone/number field: number pad.
 15. Emoji: search `улыб`/`lachen`, recent category; long-press comma opens emoji.
 16. Settings: theme System/Light/Dark/AMOLED, number row, compact layout,
-    symbol hints, auto-space, emoji row; About shows 1.0.0.
+    symbol hints, auto-space, emoji row; About shows the installed version.
 
 ## D. Languages and extras
 17. Globe: EN/DE/RU/UK switch instantly; first-letter suggestions per language.
