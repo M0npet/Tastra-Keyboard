@@ -1,12 +1,5 @@
 # Word pairs for next-word suggestions: previous word, next word, count.
 # Built by tools/build-bigrams.py from UD German GSD (CC BY-SA 4.0) and Common Voice sentences (CC0).
-a und 3
-a B 2
-a beginnen 2
-a in 2
-a mit 2
-a Nationalmannschaft 2
-a verläuft 2
 ab und 49
 ab dem 17
 ab in 10
@@ -242,7 +235,6 @@ abitur an 3
 abkommen mit 2
 abkürzung für 4
 abkürzung aus 2
-ablage P 2
 ablauf der 6
 ablauf einer 2
 ablaufen lassen 2
@@ -2415,7 +2407,6 @@ auto beim 2
 auto Company 2
 auto gerannt 2
 auto macht 2
-autobahn A 4
 autobahnen und 2
 automatisch an 2
 automatisch aus 2
@@ -2477,9 +2468,6 @@ axel Eduard 3
 axel Fischer 2
 axel hat 2
 axel Springer 2
-b in 2
-b oder 2
-b und 2
 bachelor in 2
 backen wir 2
 bad und 6
@@ -3602,7 +3590,6 @@ bis eben 2
 bis gestern 2
 bis Kriegsende 2
 bis kurz 2
-bis L 2
 bis Mai 2
 bis maximal 2
 bis neunten 2
@@ -4000,7 +3987,6 @@ bürgermeister ist 2
 bürgermeister und 2
 büro des 2
 büros haben 2
-c wird 2
 cambridge und 2
 campus der 2
 can Nachrichten 2
@@ -4087,7 +4073,6 @@ crazy world 2
 cup der 2
 cup in 2
 curt Sachs 2
-d Mark 2
 da ist 36
 da die 35
 da kann 26
@@ -5174,7 +5159,6 @@ das Zertifikat 3
 das zwischen 3
 das älteste 3
 das öffentliche 3
-das A 2
 das ab 2
 das Abkommen 2
 das allein 2
@@ -5213,7 +5197,6 @@ das Dilemma 2
 das du 2
 das durch 2
 das durchschnittliche 2
-das E 2
 das ebenfalls 2
 das echt 2
 das Eingreifen 2
@@ -5419,7 +5402,6 @@ das Viertel 2
 das visuelle 2
 das vorher 2
 das vorherige 2
-das w 2
 das Waschbecken 2
 das Web 2
 das Wechselgeld 2
@@ -6744,7 +6726,6 @@ den Traum 2
 den Trend 2
 den Trick 2
 den Truppen 2
-den U 2
 den Uhrzeigersinn 2
 den Umfragen 2
 den Umgang 2
@@ -7023,7 +7004,6 @@ der Mensch 12
 der Nase 12
 der Partei 12
 der zweite 12
-der A 11
 der Arzt 11
 der Autobahn 11
 der Band 11
@@ -7290,7 +7270,6 @@ der Hitze 5
 der immer 5
 der Innenstadt 5
 der italienischen 5
-der k 5
 der Kaiser 5
 der Kamera 5
 der kann 5
@@ -7503,7 +7482,6 @@ der Transport 4
 der Tunnel 4
 der Turm 4
 der Türkei 4
-der U 4
 der Ukraine 4
 der Umwelt 4
 der ursprünglichen 4
@@ -7558,7 +7536,6 @@ der Aufstieg 3
 der Ausgang 3
 der Ausstattung 3
 der Ausstellung 3
-der B 3
 der Beat 3
 der Beginn 3
 der benachbarten 3
@@ -7964,7 +7941,6 @@ der Bushaltestelle 2
 der Bär 2
 der bärtige 2
 der Bürger 2
-der C 2
 der Chemie 2
 der chinesischen 2
 der City 2
@@ -8133,7 +8109,6 @@ der Hänge 2
 der Hängematte 2
 der Höhle 2
 der Hütte 2
-der I 2
 der Ig 2
 der Igel 2
 der ihnen 2
@@ -8358,7 +8333,6 @@ der Römer 2
 der Rückbank 2
 der Rückkehr 2
 der Rückstoß 2
-der S 2
 der Saft 2
 der Sahara 2
 der Santa 2
@@ -8671,7 +8645,6 @@ des Innern 3
 des jungen 3
 des Komponisten 3
 des langjährigen 3
-des M 3
 des Modells 3
 des Mondes 3
 des osmanischen 3
@@ -8865,7 +8838,6 @@ deutschland aber 2
 deutschland als 2
 deutschland auf 2
 deutschland der 2
-deutschland e 2
 deutschland ein 2
 deutschland eine 2
 deutschland freigegeben 2
@@ -9229,7 +9201,6 @@ die damals 7
 die denn 7
 die Einführung 7
 die Einrichtung 7
-die F 7
 die Fläche 7
 die französische 7
 die Förderung 7
@@ -9427,7 +9398,6 @@ die Reichen 5
 die Reinigung 5
 die Richter 5
 die Römer 5
-die S 5
 die Sauna 5
 die Schulter 5
 die schwere 5
@@ -9463,7 +9433,6 @@ die älteste 5
 die Ärztin 5
 die äußere 5
 die übrigen 5
-die A 4
 die absolute 4
 die Abteilung 4
 die Adresse 4
@@ -9651,7 +9620,6 @@ die Taschen 4
 die Tatsache 4
 die teilweise 4
 die Tour 4
-die U 4
 die U-bahn 4
 die um 4
 die Veranstaltung 4
@@ -9695,7 +9663,6 @@ die Ausrichtung 3
 die Aussage 3
 die automatische 3
 die Autorin 3
-die B 3
 die Beantwortung 3
 die Bedingungen 3
 die Beeren 3
@@ -10387,7 +10354,6 @@ die Luftfeuchtigkeit 2
 die Länder 2
 die Löwen 2
 die Lügen 2
-die M 2
 die Mafia 2
 die mal 2
 die Mama 2
@@ -11774,9 +11740,6 @@ dürfte auch 2
 dürfte die 2
 dürfte es 2
 dürften sich 2
-e Mail 8
-e Gitarre 4
-e Mails 3
 e-mail schreiben 3
 e-mail an 2
 east Side 3
@@ -12730,7 +12693,6 @@ eine Bombe 2
 eine brauchbare 2
 eine Briefmarke 2
 eine bunte 2
-eine C 2
 eine Cd 2
 eine Dame 2
 eine Datenbank 2
@@ -15187,9 +15149,6 @@ extra bezahlen 2
 extra die 2
 extra für 2
 extrem schnell 3
-f F 4
-f Falling 2
-f über 2
 fabrik für 2
 fach ist 2
 faden durch 2
@@ -15646,7 +15605,6 @@ form eines 7
 form des 6
 form einer 5
 form und 2
-formel A 2
 formen von 6
 formen der 4
 formen den 2
@@ -16031,7 +15989,6 @@ fünf Euro 4
 fünf Kilometer 4
 fünf oder 3
 fünf Sternen 3
-fünf D 2
 fünf gegen 2
 fünf Grad 2
 fünf Kindern 2
@@ -16923,7 +16880,6 @@ genügend Wasser 2
 genügt eine 2
 georg von 3
 georg Friedrich 2
-george H 2
 george Harrison 2
 gepflogenheiten der 2
 geplant der 2
@@ -17791,7 +17747,6 @@ günstige Preise 2
 günstigen Preis 2
 günstiger als 4
 günter Grass 2
-h und 3
 haar an 2
 haar und 2
 haar zu 2
@@ -19097,8 +19052,6 @@ hübsch dich 2
 hübsch wie 2
 hübsches davon 2
 hügel und 2
-i Do 3
-i Ii 2
 ich habe 373
 ich bin 269
 ich nicht 152
@@ -20668,7 +20621,6 @@ in zahlreichen 3
 in Zeiten 3
 in Zusammenarbeit 3
 in zweiter 3
-in a 2
 in Abwesenheit 2
 in Albuquerque 2
 in Alufolie 2
@@ -23905,7 +23857,6 @@ ludwig Philipp 3
 ludwig von 3
 ludwig der 2
 ludwig Donau 2
-ludwig I 2
 ludwig van 2
 luft ist 6
 luft an 5
@@ -23999,22 +23950,6 @@ lösungen die 2
 lösungen für 2
 lügen als 2
 lügen lügen 2
-m hohe 5
-m und 5
-m hoch 4
-m in 4
-m über 4
-m lang 3
-m langen 3
-m am 2
-m die 2
-m große 2
-m Größe 2
-m hohen 2
-m Lagen 2
-m lange 2
-m vor 2
-m wird 2
 mac Os 2
 mach mal 10
 mach dir 7
@@ -25526,7 +25461,6 @@ mit welchem 6
 mit weniger 6
 mit zahlreichen 6
 mit allem 5
-mit F 5
 mit großer 5
 mit jedem 5
 mit Menschen 5
@@ -25593,12 +25527,10 @@ mit Speck 3
 mit Stäbchen 3
 mit um 3
 mit vollem 3
-mit W 3
 mit welcher 3
 mit zehn 3
 mit zusammen 3
 mit über 3
-mit A 2
 mit acht 2
 mit Android 2
 mit automatischer 2
@@ -26138,7 +26070,6 @@ müssten wir 4
 müssten die 3
 müssten noch 3
 mütter und 3
-n und 2
 na ja 32
 na gut 14
 na dann 11
@@ -28270,7 +28201,6 @@ ort zum 2
 orte mit 2
 orte sind 2
 ortes erstreckt 2
-os X 2
 ost und 5
 ost West 4
 ost nach 2
@@ -28285,11 +28215,9 @@ osten von 2
 osten zu 2
 ostern ist 2
 ostseite des 4
-oswald I 2
 otto von 6
 oxford und 2
 oxford wo 2
-p H 2
 paar Minuten 8
 paar Leute 5
 paar Tage 5
@@ -28399,7 +28327,6 @@ paul wollte 2
 pauline ist 2
 pech für 2
 pech haben 2
-per E 4
 per Hand 3
 per App 2
 per Dekret 2
@@ -28410,7 +28337,6 @@ perfekt organisiert 2
 perfekt sein 2
 perfekten Kompromiss 2
 periode der 2
-person B 2
 person des 2
 person einen 2
 person in 2
@@ -28748,7 +28674,6 @@ quelle für 2
 quer durch 4
 quer in 2
 quer zum 2
-r und 2
 rache und 2
 rad dann 2
 radio und 2
@@ -29015,7 +28940,6 @@ resultat einer 2
 rhein Sieg 2
 rhein und 2
 rhetorische Frage 3
-richard P 2
 richard Strauss 2
 richten Sie 4
 richter der 3
@@ -29176,10 +29100,6 @@ rückwärts fahren 2
 rückwärts gegen 2
 rückwärts in 2
 rührei mit 3
-s Bahn 7
-s College 3
-s und 3
-s Bay 2
 saal des 2
 saal und 2
 sache zu 5
@@ -33147,7 +33067,6 @@ thema ist 2
 thema zu 2
 themen der 2
 themen wie 2
-theodor W 2
 theologie an 2
 theorie und 4
 theorie nicht 2
@@ -33460,8 +33379,6 @@ türen nicht 2
 türen schließen 2
 türen und 2
 türkischen Wort 2
-u Boote 7
-u Boot 6
 ufer des 6
 ufer zu 4
 ufern des 2
@@ -33934,7 +33851,6 @@ und bilden 3
 und bitte 3
 und blieb 3
 und China 3
-und D 3
 und dafür 3
 und darum 3
 und darüber 3
@@ -34245,7 +34161,6 @@ und Juden 2
 und Jugendlichen 2
 und junge 2
 und Juni 2
-und K 2
 und kahl 2
 und Kanada 2
 und Karl 2
@@ -34318,7 +34233,6 @@ und nimmer 2
 und Not 2
 und Nutzung 2
 und nördlichen 2
-und O 2
 und Obelix 2
 und Offensive 2
 und Ohren 2
@@ -34787,7 +34701,6 @@ us Regierung 2
 usa und 4
 usa in 2
 usa wurde 2
-v und 2
 van Beethoven 2
 van der 2
 variante der 4
@@ -35115,7 +35028,6 @@ verständnis von 4
 verständnis für 3
 verständnis dass 2
 verstärkt gegen 3
-verstärkung K 2
 versuch der 3
 versuch es 3
 versuch ist 3
@@ -35438,8 +35350,6 @@ vikar in 2
 villa wurde 2
 virus keine 2
 visionen und 2
-vitamin C 2
-vitamin D 2
 voice gespendet 2
 voice zu 2
 volk der 3
@@ -35618,7 +35528,6 @@ von San 5
 von Thomas 5
 von wegen 5
 von wenigen 5
-von A 4
 von all 4
 von alten 4
 von dessen 4
@@ -35849,7 +35758,6 @@ von Studenten 2
 von Team 2
 von Theben 2
 von Tieren 2
-von u 2
 von Un 2
 von Unternehmen 2
 von Verletzungen 2
@@ -37311,7 +37219,6 @@ wie mit 5
 wie spät 5
 wie teuer 5
 wie tief 5
-wie z 5
 wie am 4
 wie bitte 4
 wie gesagt 4
@@ -38695,8 +38602,6 @@ wüssten wie 3
 wüssten was 2
 wüste der 2
 wüsten und 2
-x das 2
-x Strahlen 2
 yale University 3
 year gewählt 2
 yoga machen 2
@@ -39905,7 +39810,6 @@ zwei neue 3
 zwei Personen 3
 zwei Tage 3
 zwei verschiedenen 3
-zwei a 2
 zwei anderen 2
 zwei Arten 2
 zwei Bäumen 2

@@ -1691,6 +1691,11 @@ QStringList LocalLexicon::decodeGlidePathCandidates(const QVector<QPointF> &path
         // corners of a word ("the" passes between t, h and e rather than
         // over h), and a narrower limit dropped the word before scoring.
         if (worstLetter > 1.5) continue;
+        // Nor may the word's path be far longer than the finger's: a short
+        // slide from j to k is not "junk" (its keys all lie near the slide).
+        double idealLength = 0.0;
+        for (int i = 1; i < ideal.size(); ++i) idealLength += QLineF(ideal.at(i - 1), ideal.at(i)).length();
+        if (idealLength > 1.6 * length + keyWidth) continue;
         letters /= ideal.size();
         const QVector<QPointF> idealSampled = Glide::resample(ideal, Samples);
         double location = 0.0;

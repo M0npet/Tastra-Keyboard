@@ -189,6 +189,28 @@ private Q_SLOTS:
         QVERIFY2(russian >= 0.95, qPrintable(QString::number(russian) + QLatin1Char(' ') + misses.join(QLatin1Char(' '))));
     }
 
+    void aShortSlideIsNotALongWord()
+    {
+        // A slide from one key to its neighbour, as a sloppy tap can be: its
+        // keys lie near the slide, but a word whose path runs far longer
+        // ("jk" -> "junk", "ва" -> "вывеска") was not glided.
+        for (const QString &language : {QStringLiteral("en"), QStringLiteral("de"), QStringLiteral("ru"), QStringLiteral("uk")}) {
+            LocalLexicon lexicon;
+            useBundledLists(lexicon, language);
+            const QHash<QChar, QPointF> centres = centresFor(language);
+            const QStringList rows = Tastra::KeyboardModel::rowsForLanguage(language);
+            for (int r = 0; r < 3; ++r) {
+                for (int i = 0; i + 1 < rows.at(r).size(); ++i) {
+                    const QPointF a = centres.value(rows.at(r).at(i)), b = centres.value(rows.at(r).at(i + 1));
+                    QVector<QPointF> path;
+                    for (int step = 0; step <= 10; ++step) path.append(a + (b - a) * (step / 10.0));
+                    const QString decoded = lexicon.decodeGlidePath(path, centres, KeyWidth);
+                    QVERIFY2(decoded.size() <= 3, qPrintable(language + QLatin1Char(' ') + rows.at(r).mid(i, 2) + QStringLiteral(" -> ") + decoded));
+                }
+            }
+        }
+    }
+
     void nothingForATinyOrMissingPath()
     {
         LocalLexicon lexicon;

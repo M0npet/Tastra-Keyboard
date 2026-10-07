@@ -81,6 +81,9 @@ private Q_SLOTS:
         QCoreApplication::setOrganizationName(QStringLiteral("TastraTests"));
         QCoreApplication::setApplicationName(QStringLiteral("tst_lexicon"));
         QSettings().clear();
+        // No bundled word pairs unless a test asks for them: the data can
+        // change without moving unrelated expectations.
+        LocalLexicon::setBigramSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
     void init() { QSettings().clear(); }
@@ -545,6 +548,7 @@ private Q_SLOTS:
         LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
         LocalLexicon::setBlocklistSearchPaths({QStringLiteral(":/tastra/blocklist")});
         LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
+        LocalLexicon::setBigramSearchPaths({QStringLiteral(":/tastra/bigrams")});
         const struct { const char *language, *previous, *next; } expected[] = {
             {"en", "i", "have"}, {"en", "i", "am"}, {"en", "thank", "you"}, {"de", "ich", "bin"},
             {"de", "guten", "Tag"},                       // a German noun keeps its capital
@@ -566,6 +570,7 @@ private Q_SLOTS:
         lexicon.forgetWord(QStringLiteral("have"));
         QVERIFY(!lexicon.nextWords(QStringLiteral("i"), 3).contains(QStringLiteral("have")));
         QCOMPARE(lexicon.nextWords(QStringLiteral("i"), 3).size(), 3);
+        LocalLexicon::setBigramSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
     void germanNounTypedLowercaseIsOfferedNotForced()

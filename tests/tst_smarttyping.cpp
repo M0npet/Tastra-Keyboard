@@ -87,6 +87,8 @@ private Q_SLOTS:
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
         Tastra::LocalLexicon::setBlocklistSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
         Tastra::LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
+        // Bundled word pairs only where a test asks for them.
+        Tastra::LocalLexicon::setBigramSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
     void init() { QSettings().clear(); }
@@ -654,6 +656,7 @@ private Q_SLOTS:
         // Gboard: "thank" + Space offers "you"; tapping it types "you " and
         // the strip moves on to the word after it.
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        Tastra::LocalLexicon::setBigramSearchPaths({QStringLiteral(":/tastra/bigrams")});
         FakeBackend backend;
         Tastra::KeyboardController controller(backend);
         Tastra::TypingEngine engine(controller);
@@ -675,6 +678,86 @@ private Q_SLOTS:
         engine.space();
         QVERIFY2(engine.suggestions().isEmpty(), qPrintable(engine.suggestions().join(',')));
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setBigramSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
+    void theHeldCorrectionIsTheWordBeforeTheCursor()
+    {
+        // "so i" + Space: "I" is held with its space (Backspace could still
+        // restore "i"), and the strip predicts what follows "I", not "so".
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        Tastra::LocalLexicon::setBigramSearchPaths({QStringLiteral(":/tastra/bigrams")});
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        engine.setLearningEnabled(false);
+        engine.setLanguage(QStringLiteral("en"));
+        QVERIFY(engine.waitForDictionaryForTesting(10000));
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("so")) engine.typeLetter(QString(ch));
+        engine.space();
+        engine.typeLetter(QStringLiteral("i"));
+        engine.space();
+        QCOMPARE(backend.preedit, QStringLiteral("I "));
+        const QStringList strip = engine.suggestions();
+        QVERIFY2(strip.contains(QStringLiteral("have")) || strip.contains(QStringLiteral("am")), qPrintable(strip.join(',')));
+        QVERIFY2(!strip.contains(QStringLiteral("I")), qPrintable(strip.join(',')));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+        Tastra::LocalLexicon::setBigramSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
+    void undoingTheDoubleSpacePeriodKeepsTheSentenceGoing()
+    {
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("hello")) engine.typeLetter(QString(ch));
+        engine.space();
+        engine.space();
+        QCOMPARE(backend.preedit, QStringLiteral(". "));
+        QVERIFY(engine.previousWord().isEmpty());
+        engine.backspace();
+        QCOMPARE(backend.preedit, QStringLiteral(" "));
+        QCOMPARE(engine.previousWord(), QStringLiteral("hello"));
+    }
+
+    void apostrophesAndHyphensInsideAWordBelongToIt()
+    {
+        // LatinIME word connectors: "don't" is one word, typed with the
+        // apostrophe from the symbols page, and so is "кто-то".
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("don")) engine.typeLetter(QString(ch));
+        engine.typeText(QStringLiteral("'"));
+        engine.typeLetter(QStringLiteral("t"));
+        QCOMPARE(engine.currentWord(), QStringLiteral("don't"));
+        QCOMPARE(backend.preedit, QStringLiteral("don't"));
+        engine.space();
+        QCOMPARE(engine.previousWord(), QStringLiteral("don't"));
+        for (const QChar ch : QStringLiteral("dogs")) engine.typeLetter(QString(ch));
+        engine.typeText(QStringLiteral("'"));
+        engine.space();
+        QCOMPARE(engine.previousWord(), QStringLiteral("dogs"));        // left as typed, "dogs'"
+        QVERIFY2(backend.commits.join(QString()).endsWith(QStringLiteral("dogs'")), qPrintable(backend.commits.join('|')));
+        // A quote after a space is not part of a word.
+        engine.typeText(QStringLiteral("'"));
+        QVERIFY(engine.currentWord().isEmpty());
+        // From the application's text too.
+        for (const auto &[text, previous] : {std::pair{QStringLiteral("I don't "), QStringLiteral("don't")},
+                                            std::pair{QStringLiteral("Он кто-то "), QStringLiteral("кто-то")},
+                                            std::pair{QStringLiteral("say 'hi' "), QStringLiteral("hi")}}) {
+            FakeBackend other;
+            Tastra::KeyboardController otherController(other);
+            Tastra::TypingEngine fresh(otherController);
+            composing(other, fresh, text);
+            QCOMPARE(fresh.previousWord(), previous);
+        }
     }
 
     void compositionDoubleSpaceAndNextWord()
@@ -902,6 +985,13 @@ private Q_SLOTS:
         // (Upper-casing typed letters is the bridge's job; the engine got "o".)
         QCOMPARE(backend.commits.mid(1), QStringList({QStringLiteral("ok"), QStringLiteral(" and more ")}));
         QVERIFY(!engine.wantsAutoUppercase());
+        QCOMPARE(engine.previousWord(), QStringLiteral("more"));
+        // A sentence ending inside quotes, or with an ellipsis, ends it too.
+        engine.insertDictation(QStringLiteral("he said \"stop.\""));
+        QVERIFY(engine.wantsAutoUppercase());
+        QVERIFY(engine.previousWord().isEmpty());
+        engine.insertDictation(QStringLiteral("well…"));
+        QVERIFY(engine.previousWord().isEmpty());
     }
 
     void autoSpaceAfterPunctuationIsOptInLikeGboard()

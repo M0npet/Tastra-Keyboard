@@ -43,6 +43,22 @@ bool sameTextState(const QString &a, const QString &b)
     return a == b;
 }
 
+// LatinIME's word connectors: inside a word they belong to it ("don't",
+// "кто-то", "E-Mail").
+bool isWordConnector(QChar ch)
+{
+    return ch == QLatin1Char('\'') || ch == QLatin1Char('-') || ch == QChar(0x2019) || ch == QChar(0x02BC);
+}
+
+// "you," -> "you": the word as the lexicon keeps it.
+QString bareWord(const QString &text)
+{
+    qsizetype start = 0, end = text.size();
+    while (start < end && !text.at(start).isLetter()) ++start;
+    while (end > start && !text.at(end - 1).isLetter()) --end;
+    return text.mid(start, end - start).toLower();
+}
+
 }
 
 TypingEngine::TypingEngine(KeyboardController &controller)
@@ -108,8 +124,10 @@ bool TypingEngine::setPreeditLocal(const QString &text)
 QString TypingEngine::corrected(const QString &word) const
 {
     if (!m_autocorrectEnabled || word.isEmpty()) return word;
+    // "dogs'" or "Ost-" (as in "Ost- und Westeuropa"): left as typed.
+    if (isWordConnector(word.back())) return word;
     if (!m_noCorrectionFor.isEmpty() && word.compare(m_noCorrectionFor, Qt::CaseInsensitive) == 0) return word;
-    const QString correction = m_lexicon.bestCorrection(word, m_previousWord);
+    const QString correction = m_lexicon.bestCorrection(word, contextWord());
     if (correction.isEmpty()) return word;
     QString formatted = correction;
     if (word.front().isUpper()) formatted[0] = formatted.at(0).toUpper();
@@ -150,11 +168,14 @@ void TypingEngine::insertDictation(const QString &text)
     }
     const QString separator = hadWord ? QStringLiteral(" ") : QString();
     commitLocal(separator + phrase + QLatin1Char(' '));
-    const QChar last = phrase.back();
-    m_sentenceStart = last == QLatin1Char('.') || last == QLatin1Char('!') || last == QLatin1Char('?');
+    // The sentence ends at . ! ? or …, also inside closing quotes or brackets.
+    QString trimmed = phrase;
+    while (trimmed.size() > 1 && QStringLiteral("\"'»”’)]").contains(trimmed.back())) trimmed.chop(1);
+    const QChar last = trimmed.back();
+    m_sentenceStart = last == QLatin1Char('.') || last == QLatin1Char('!') || last == QLatin1Char('?') || last == QChar(0x2026);
     m_sentencePunctuationPending = false;
     const QStringList words = phrase.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-    m_previousWord = words.isEmpty() || m_sentenceStart ? QString() : words.last().toLower();
+    m_previousWord = words.isEmpty() || m_sentenceStart ? QString() : bareWord(words.last());
     m_currentWord.clear();
     m_lastActionWasSpace = false;
     m_spaceFromSuggestion = false;
@@ -213,6 +234,19 @@ QString TypingEngine::previousWord() const { return m_previousWord; }
 QStringList TypingEngine::suggestions() const { return m_suggestions; }
 QStringList TypingEngine::glideTrace() const { return m_glideTrace; }
 
+
+QString TypingEngine::contextWord() const
+{
+    // A corrected word held with its space (Backspace can still restore what
+    // was typed) is learned only when the next key comes, but it is already
+    // the word before the cursor: "so i" + Space predicts after "I".
+    if (m_pendingSpace && !m_pendingWord.isEmpty()) {
+        const QString last = bareWord(m_pendingWord.section(QLatin1Char(' '), -1));
+        if (!last.isEmpty()) return last;
+    }
+    return m_previousWord;
+}
+
 QString TypingEngine::formatForSentence(const QString &word) const
 {
     if (!m_autoCapitalizationEnabled || !m_autoCapitalizationAllowed || !m_sentenceStart || word.isEmpty()) return word;
@@ -268,6 +302,14 @@ void TypingEngine::typeLetter(const QString &text, QPointF touch)
 
 void TypingEngine::typeText(const QString &text)
 {
+    // An apostrophe or hyphen right after a letter of the word being typed
+    // continues the word, as LatinIME's word connectors do: "don't" is one
+    // word for suggestions and autocorrect, not "don" and "t".
+    if (text.size() == 1 && isWordConnector(text.front()) && !m_sensitiveContext && !m_pendingSpace
+        && m_wordAfterCursor.isEmpty() && !m_currentWord.isEmpty() && m_currentWord.back().isLetter()) {
+        typeLetter(text);
+        return;
+    }
     dropGlideAlternatives();
     m_wordAfterCursor.clear();
     m_lastWasDoublePeriod = false;
@@ -492,7 +534,7 @@ void TypingEngine::finalizeCurrentWord(bool updatePrevious)
         if (m_learningEnabled) m_lexicon.learnWordWithContext(finalized, previous);
         previous = finalized;
     }
-    if (updatePrevious && !words.isEmpty()) m_previousWord = previous;
+    if (updatePrevious && !words.isEmpty()) m_previousWord = bareWord(previous);
     m_currentWord.clear();
 }
 
@@ -581,6 +623,7 @@ void TypingEngine::space()
             m_lastSpaceMs = -1;               // no chained double space
             m_pendingSpaceAfterWord = false;
             m_sentenceStart = true;
+            m_wordBeforePeriod = m_previousWord;      // Backspace gives it back
             m_previousWord.clear();
             m_sentencePunctuationPending = false;
             m_lastActionWasSpace = false;
@@ -602,6 +645,7 @@ void TypingEngine::space()
             m_lastWasDoublePeriod = true;
             m_lastSpaceMs = -1;               // no chained double space
             m_sentenceStart = true;
+            m_wordBeforePeriod = m_previousWord;      // Backspace gives it back
             m_previousWord.clear();
             m_sentencePunctuationPending = false;
             m_lastActionWasSpace = false;
@@ -619,7 +663,7 @@ void TypingEngine::space()
     }
 
     if (m_autocorrectEnabled && !splittingWord) {
-        const QString correction = m_lexicon.bestCorrection(m_currentWord, m_previousWord);
+        const QString correction = m_lexicon.bestCorrection(m_currentWord, contextWord());
         if (!correction.isEmpty()) {
             QString formatted = correction;
             if (!m_currentWord.isEmpty() && m_currentWord.front().isUpper()) {
@@ -670,6 +714,7 @@ void TypingEngine::backspace()
         setPreeditLocal(QStringLiteral(" "));
         m_pendingSpaceAfterWord = false;
         m_sentenceStart = false;
+        m_previousWord = m_wordBeforePeriod;           // the sentence goes on
         m_lastActionWasSpace = false;
         refreshSuggestions();
         return;
@@ -678,6 +723,7 @@ void TypingEngine::backspace()
         m_lastWasDoublePeriod = false;
         if (replaceBeforeCursor(QStringLiteral(". "), QStringLiteral(" "), false)) {
             m_sentenceStart = false;
+            m_previousWord = m_wordBeforePeriod;       // the sentence goes on
             m_lastActionWasSpace = false;
             refreshSuggestions();
             return;
@@ -906,7 +952,7 @@ void TypingEngine::refreshSuggestions()
     if (!m_sensitiveContext && m_autocorrectEnabled && !m_currentWord.isEmpty() && m_wordAfterCursor.isEmpty()
         && (m_noCorrectionFor.isEmpty() || m_currentWord.compare(m_noCorrectionFor, Qt::CaseInsensitive) != 0)) {
         // Cheap preview per keystroke; Space runs the full Hunspell check.
-        QString target = m_lexicon.correctionPreview(m_currentWord, m_previousWord);
+        QString target = m_lexicon.correctionPreview(m_currentWord, contextWord());
         if (!target.isEmpty() && m_currentWord.front().isUpper()) target[0] = target.at(0).toUpper();
         if (!m_committedHead.isEmpty() && !target.startsWith(m_committedHead, Qt::CaseInsensitive)) target.clear();
         if (!target.isEmpty() && target != m_currentWord) m_autocorrectTarget = target;
@@ -918,7 +964,7 @@ void TypingEngine::refreshSuggestions()
     if (!m_currentWord.isEmpty()) {
         const bool midWord = !m_composing && !m_wordAfterCursor.isEmpty();
         const QString wholeWord = midWord ? m_currentWord + m_wordAfterCursor : m_currentWord;
-        m_suggestions = m_lexicon.suggestions(wholeWord, m_previousWord, 3);
+        m_suggestions = m_lexicon.suggestions(wholeWord, contextWord(), 3);
         // Letters that can still become a word are not "unknown"; otherwise
         // cheap lists first and Hunspell (slow on invalid long words) last.
         const bool stillAPrefix = std::any_of(m_suggestions.cbegin(), m_suggestions.cend(), [&](const QString &s) {
@@ -991,7 +1037,7 @@ void TypingEngine::refreshSuggestions()
         m_suggestions.clear();
         return;
     }
-    m_suggestions = m_lexicon.nextWords(m_previousWord, 3);
+    m_suggestions = m_lexicon.nextWords(contextWord(), 3);
 }
 
 void TypingEngine::resetComposition()
@@ -1091,13 +1137,20 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
     QString incomingPrevious;
     bool incomingSentenceStart = false;
     if (cursorByte == anchorByte) {
+        // A letter, or a connector between letters ("don't", "кто-то").
+        auto inWord = [&before](int i) {
+            const QChar ch = before.at(i);
+            if (ch.isLetter()) return true;
+            return isWordConnector(ch) && i > 0 && i + 1 < before.size() && before.at(i - 1).isLetter()
+                && before.at(i + 1).isLetter();
+        };
         int start = before.size();
-        while (start > 0 && before.at(start - 1).isLetter()) --start;
+        while (start > 0 && inWord(start - 1)) --start;
         trailing = before.mid(start);
         int prevEnd = start;
         while (prevEnd > 0 && !before.at(prevEnd - 1).isLetter()) --prevEnd;
         int prevStart = prevEnd;
-        while (prevStart > 0 && before.at(prevStart - 1).isLetter()) --prevStart;
+        while (prevStart > 0 && inWord(prevStart - 1)) --prevStart;
         incomingPrevious = before.mid(prevStart, prevEnd - prevStart).toLower();
         // Not across a sentence end or a line break.
         for (qsizetype i = prevEnd; i < start; ++i) {
@@ -1165,11 +1218,11 @@ QString TypingEngine::endGlidePath(const QVector<QPointF> &path, const QHash<QCh
                                    GlideCase glideCase)
 {
     if (m_sensitiveContext) { m_glideTrace.clear(); return {}; }
-    const QStringList readings = m_lexicon.decodeGlidePathCandidates(path, keyCentres, keyWidth, m_previousWord, 4);
+    const QStringList readings = m_lexicon.decodeGlidePathCandidates(path, keyCentres, keyWidth, contextWord(), 4);
     // No geometry (or no reading near the path): the key sequence decoder.
     if (readings.isEmpty()) return endGlide();
     m_glideTrace.clear();
-    const QString before = m_previousWord;
+    const QString before = contextWord();
     auto inCase = [glideCase](const QString &word) {
         if (glideCase == GlideCase::AllCaps) return word.toUpper();
         QString cased = word;
@@ -1263,12 +1316,12 @@ void TypingEngine::replaceGlidedWord(const QString &word)
 QString TypingEngine::endGlide()
 {
     if (m_sensitiveContext) { m_glideTrace.clear(); return {}; }
-    const QString decoded = m_lexicon.decodeGlide(m_glideTrace, m_previousWord);
+    const QString decoded = m_lexicon.decodeGlide(m_glideTrace, contextWord());
     m_glideTrace.clear();
     if (decoded.isEmpty()) return {};
 
     const QString formatted = formatForSentence(decoded);
-    const QString before = m_previousWord;
+    const QString before = contextWord();
     // Same flow as tapping a suggestion: commit the word, hold the automatic
     // space so a following Space confirms it instead of making ". ".
     chooseSuggestion(formatted);

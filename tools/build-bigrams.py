@@ -55,6 +55,9 @@ CREDITS = {
 # multiplying the pairs). Every tenth line is kept back for measuring.
 CV_SKIP = ('wiki', 'singleword', 'countries-and-cities', 'german-cities', 'europarl', 'ukrlib')
 MIN_COUNT = 2
+# Words of one letter (as the keyboard's lexicon knows them); other single
+# letters are initials and abbreviations cut at their dots ("z. B.").
+ONE_LETTER_WORDS = {'en': 'ai', 'de': '', 'ru': 'авикосуя', 'uk': 'авзійоуяє'}
 
 APOSTROPHES = str.maketrans({'’': "'", 'ʼ': "'", '‘': "'", '`': "'"})
 # Letters with inner apostrophes or hyphens ("don't", "кто-то", "м'ясо").
@@ -95,11 +98,13 @@ def cv_texts(directory):
 
 
 def sentences(text):
-    # Sentence ends inside a line break the pairs too.
-    yield from re.split(r'[.!?…]+', text.translate(APOSTROPHES))
+    # Sentence ends inside a line break the pairs too. Stress marks (U+0301,
+    # U+0300: "мя́со") are not letters of the word.
+    text = text.translate(APOSTROPHES).replace('\u0301', '').replace('\u0300', '')
+    yield from re.split(r'[.!?\u2026]+', text)
 
 
-def count_pairs(texts, known, pairs, capitals):
+def count_pairs(texts, known, pairs, capitals, one_letter):
     for text in texts:
         for sentence in sentences(text):
             previous = None
@@ -107,7 +112,7 @@ def count_pairs(texts, known, pairs, capitals):
                 if token in KEEPS_PAIR:
                     continue
                 word = token.lower()
-                if word not in known:
+                if word not in known or (len(word) == 1 and word not in one_letter):
                     previous = None
                     continue
                 if previous is not None:
@@ -129,7 +134,7 @@ def main():
             else:
                 directory = os.path.join(corpora, name)
                 texts = ud_texts(directory) if kind == 'ud' else uagec_texts(directory)
-            count_pairs(texts, known, pairs, capitals)
+            count_pairs(texts, known, pairs, capitals, ONE_LETTER_WORDS[language])
         kept = [(p, n) for p, n in pairs.items() if n >= MIN_COUNT]
         kept.sort(key=lambda item: (item[0][0], -item[1], item[0][1]))
         os.makedirs(os.path.join(data, 'bigrams'), exist_ok=True)

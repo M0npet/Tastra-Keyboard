@@ -106,6 +106,9 @@ public:
 
 private:
     QString formatForSentence(const QString &word) const;
+    // The word before the cursor for predictions and corrections: the
+    // previous word, or a corrected word still held with its space.
+    QString contextWord() const;
     // The other readings of the last glide, while nothing has happened since.
     bool glideAlternativesShown() const;
     void dropGlideAlternatives() { m_glideAlternatives.clear(); m_glidedWord.clear(); }
@@ -142,6 +145,7 @@ private:
     LocalLexicon m_lexicon;
     QString m_currentWord;
     QString m_previousWord;
+    QString m_wordBeforePeriod;          // restored when a double-space period is undone
     QStringList m_suggestions;
     QStringList m_glideTrace;
     QStringList m_glideAlternatives;   // Gboard: other readings of the last glide
