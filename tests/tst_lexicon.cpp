@@ -504,6 +504,22 @@ private Q_SLOTS:
         QCOMPARE(lexicon.bestCorrection(QStringLiteral("hoesr")), QStringLiteral("hoers"));
     }
 
+    void severalNeighbouringKeysInOneWord()
+    {
+        // LatinIME's proximity search: a sloppy tap can land on the next key
+        // more than once per word ("otjerd": j for h, d for s).
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("en"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("otjerd")), QStringLiteral("others"));
+        QVERIFY(lexicon.suggestions(QStringLiteral("otjerd"), QString(), 3).contains(QStringLiteral("others")));
+        // Two of three letters is too much ("rhw" is not "the").
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("rhw")).isEmpty());
+
+        LocalLexicon russian;
+        useLatinImeFixtures(russian, QStringLiteral("ru"));
+        QCOMPARE(russian.bestCorrection(QStringLiteral("приаеь")), QStringLiteral("привет"));
+    }
+
     void bundledUkrainianListHasNoRussianWords()
     {
         // Ukrainian subtitles are full of Russian; "что" and "как" were in

@@ -119,7 +119,7 @@ private:
     // LatinIME's error model: an omitted apostrophe ("dont") is an
     // intentional omission and nearly free, a base letter for its accented
     // form ("uber", "ueber", "strasse") almost free.
-    enum class Edit { Other, RepeatedLetter, Transposition, NeighbourKey, Apostrophe, Accent };
+    enum class Edit { Other, RepeatedLetter, Transposition, NeighbourKey, Apostrophe, Accent, NeighbourKeys };
     struct Candidate {
         QString word;
         int score = 0;
@@ -150,6 +150,10 @@ private:
     bool isUserWord(const QString &word) const;
     void persistUserWords();
     bool neighbours(QChar a, QChar b) const;
+    // Words of the frequency list that differ from the typed one only by
+    // two or more neighbouring keys (LatinIME's proximity search).
+    void addNeighbourKeyCandidates(const QString &typed, const QString &previousWord,
+                                   const QSet<QString> &seen, QList<Candidate> &result) const;
     void loadBlocklist();
     QString bigramKey(const QString &previousWord, const QString &word) const;
 
