@@ -491,6 +491,19 @@ private Q_SLOTS:
         QCOMPARE(lexicon.bestCorrection(QStringLiteral("првиет")), QStringLiteral("привет"));   // transposition still
     }
 
+    void aWordMissingFromTheFrequencyListIsRare()
+    {
+        // Hunspell knows "hoers", but the frequency list does not: it is
+        // rarer than the list's last word, so the swapped letters of "ohers"
+        // no longer outweigh the left-out "t" of a common word.
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("en"));
+        QVERIFY(lexicon.hasWord(QStringLiteral("hoers")));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("ohers")), QStringLiteral("others"));
+        // A swap into an unlisted word with no listed rival is still made.
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("hoesr")), QStringLiteral("hoers"));
+    }
+
     void wordsOfAnotherEnabledLanguageAreNotCorrected()
     {
         // Gboard's multilingual typing: with German enabled next to English,

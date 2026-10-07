@@ -1082,6 +1082,10 @@ QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString 
     const QStringList &variants = ordered;
     int hunspellBudget = 250;
     const bool capitalNouns = m_language == QStringLiteral("de");
+    const bool hasFrequencyList = m_data && !m_data->freq.empty();
+    auto rankedOrOwn = [this](const QString &v) {
+        return frequencyRank(v) > 0 || isCore(v) || isUserWord(v) || m_personalFrequency.value(v) > 0;
+    };
 
     QList<Candidate> result;
     for (const QString &v : variants) {
@@ -1113,6 +1117,13 @@ QList<LocalLexicon::Candidate> LocalLexicon::correctionCandidates(const QString 
             }
         }
         c.score = 800 + priorScore(v, previousWord) - qAbs(v.size() - typed.size()) * 8;
+        // A word the frequency list lacks is rarer than its last entry (its
+        // wordfreq rank is beyond 50 000), not as common: "ohers" is "others",
+        // not Hunspell's "hoers". Measured on seeded typos of frequent words
+        // and of wordfreq words outside the list (en, de, ru, uk): right
+        // 80.1 -> 82.3 %, wrong 4.5 -> 3.9 %; typos of the outside words,
+        // 3-15 % of what is typed, are corrected wrongly 2.4 -> 3.1 %.
+        if (hasFrequencyList && !rankedOrOwn(v)) c.score -= 70;
         if (c.edit == Edit::Apostrophe) c.score += 260;
         if (c.edit == Edit::Accent) c.score += 220;
         if (c.edit == Edit::Transposition) c.score += 150;
