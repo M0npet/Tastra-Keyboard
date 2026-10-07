@@ -1423,3 +1423,30 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   next word follows the second (RED: previous word was "and the").
   RED->GREEN wordsRunTogetherAreSplit (compound guard shown to fail without
   the rule), twoWordsRunTogetherAreSplitAndLearnedAsWords.
+
+## 2026-10-07 — 0.7.0 interface languages; words the dictionary lacks
+
+- Real-data probe of chat words (a few dozen per language typed as written)
+  found "окей" -> "коей", "naja" -> "Anja", "tja" -> "ja", "honour" ->
+  "honor", "omg" -> "mog". The frequency lists know these words but
+  Hunspell does not, so they were dropped at load. The first 20 000 of them
+  per list are now kept as hashes and handled like a word of another
+  enabled language (never offered, only an apostrophe/accent fix applies).
+  Threshold measured: 20 000 -> seeded typos right 81.72 -> 81.62 %, wrong
+  4.00 -> 3.88 %; 50 000 left 0.4 % more typos uncorrected (the lists' tail
+  holds subtitle typos). Unlisted 3-letter swaps are no longer confident
+  (no cost on the evals). RED->GREEN listedWordsHunspellLacksAreKept.
+  After the change the chat probe changes 0 of 73 English, 1 of 70 German
+  ("joa"), 2 of 74 Russian ("кек", "ваще": neighbour-key slang) and 1 of 72
+  Ukrainian words ("жесть").
+- German nouns typed lowercase ("haus") are left as typed with "Haus"
+  first in the strip; whether Gboard capitalizes them on Space could not be
+  confirmed from a reliable source, so the behaviour was not changed.
+- Interface languages: 78 texts in data/i18n/{de,ru,uk}.tsv, read by a
+  QTranslator subclass (no Qt Linguist tools needed). The language follows
+  QLocale::system().uiLanguages() (first of de/ru/uk/en), or the setting.
+  verify-static checks completeness and placeholders both ways. Overflow
+  check over all panels at 800 and 1280 px in four languages: no text wider
+  than its space; settings rendered and inspected in German and Russian.
+  The panel titles ("Settings", ...) were missed by the first text search
+  and found on the render.

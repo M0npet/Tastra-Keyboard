@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.6.9, in development**. The typing core is done and tested; the
+Status: **0.7.0, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
@@ -80,7 +80,8 @@ previous binary is kept for rolling back.
 - Clipboard: a chip offers what you just copied; history keeps items for an
   hour; long-press to pin an item for good.
 - Text-editing panel with arrows (including up/down), Home/End and paste.
-- Settings grouped like Gboard; System/Light/Dark/AMOLED themes.
+- Settings grouped like Gboard; System/Light/Dark/AMOLED themes. The interface
+  is in English, German, Russian and Ukrainian (follows the system language).
 
 ## Platform limits (KDE Plasma / KWin)
 
@@ -108,7 +109,7 @@ records sizes and decisions only, never text.
 
 ## Third-party data
 
-FrequencyWords (CC BY-SA 4.0), Unicode CLDR annotations (Unicode License V3),
+FrequencyWords and wordfreq (CC BY-SA 4.0), Unicode CLDR annotations (Unicode License V3),
 LDNOOBW word lists (CC BY 4.0), Hunspell dictionaries (system packages),
 LibreOffice uk_UA dictionary (MPL-1.1), optional whisper.cpp + ggml model
 (MIT). Details are in `data/*/ATTRIBUTION.md`, installed to

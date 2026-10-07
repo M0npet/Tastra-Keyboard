@@ -68,3 +68,6 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 44. Type fast and sloppily: `otjerd` + Space -> `others`; Russian `ппивеи` + Space -> `привет` (two keys off).
 45. `ofthe` + Space -> `of the`; `вобщем` -> `в общем`; `thisnis` -> `this is`; Backspace right after gives back what was typed. German `Haustür` typed as `haustür` is not split.
 46. Ukrainian layout: `ка` offers `казав`/`каже`…, never `как`; `зн` never offers `знаешь`.
+47. Settings → Interface language: with Plasma in German the button shows `System (Deutsch)` and the settings are German; tap it through English, Deutsch, Русский, Українська: the open panel changes at once; after a restart the choice is kept.
+48. Type `окей` (Russian), `naja` (German), `honour` (English) + Space: they stay; `thats` still becomes `that's`.
+

@@ -380,6 +380,10 @@ for path, token, why in (
     ('tools/drop-foreign-words.py', 'zipf_frequency', 'Russian words dropped from the Ukrainian list'),
     ('tests/tst_lexicon.cpp', 'bundledUkrainianListHasNoRussianWords', 'Ukrainian list test'),
     ('tests/tst_smarttyping.cpp', 'twoWordsRunTogetherAreSplitAndLearnedAsWords', 'split correction engine test'),
+    ('src/app/uitranslator.cpp', 'bool UiTranslator::loadLanguage', 'interface in de/ru/uk (0.7.0)'),
+    ('src/ui/SettingsPanel.qml', 'objectName: "uiLanguageButton"', 'interface language setting'),
+    ('tests/tst_qmlkeyboard.cpp', 'interfaceTextsFollowTheChosenLanguage', 'interface language UI test'),
+    ('src/core/locallexicon.cpp', 'bool LocalLexicon::listedButNotInDictionary', 'listed words Hunspell lacks are kept'),
 ):
     require(path, token, why)
 
@@ -455,4 +459,4 @@ if not wav.exists() or wav.read_bytes()[:4] != b'RIFF':
     print('STATIC VERIFY: FAILED')
     print(' - data/sounds/click.wav missing or not a WAV file')
     sys.exit(1)
-print('v0.6.9 markers present: several slipped keys, words run together, clean Ukrainian list, add word + shortcut in settings, emoji search on the keyboard, split glide test, glide backspace/shift, next-word setting, path-based glide typing + alternatives, emoticon tab, multilingual typing, Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')
+print('v0.7.0 markers present: interface languages, chat words kept, several slipped keys, words run together, clean Ukrainian list, add word + shortcut in settings, emoji search on the keyboard, split glide test, glide backspace/shift, next-word setting, path-based glide typing + alternatives, emoticon tab, multilingual typing, Tastra name + V3 Keyboard migration, memory release, hashed foreign lists, LatinIME apostrophes/accents/length-aware confidence, symbol pages, wrong layout, clipboard chip, long-press delay, up/down, skin tones, mid-word options, split layout, settings sections, language choice, clipboard pins, opaque panels, swap revert, re-correction, key sound, trail toggle, LatinIME caps, hide button, empty paragraph, panel grace, touch-aware correction, LatinIME double space, preview clamp, backspace repeat, live-test fixes, personal dictionary, stress-tested, latency-bounded, themes, about, license, slide gestures, auto-space, emoji row, proximity, Gboard strip/fields/shortcuts/trail, Gboard behaviours, offline voice, composition, echo handling, two-thumb input, undoable autocorrect, frequency ranking, localized emoji, compact layout; QML braces balanced.')

@@ -4,6 +4,14 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.0
+- The keyboard's own texts (settings, panels, hints) are in German, Russian
+  and Ukrainian too. Like Gboard they follow the system language; Settings →
+  Languages → Interface language picks another one.
+- Words the dictionary lacks but people type are no longer "corrected":
+  `окей`, `naja`, `tja`, `honour` stay as typed (`thats` still becomes
+  `that's`), and `omg` is no longer turned into `mog`.
+
 ## 0.6.9
 - Autocorrect fixes words with several slipped keys, as LatinIME's
   proximity search does ("otjerd" -> "others"): before, a word was only
