@@ -244,6 +244,9 @@ public:
     Q_INVOKABLE void tapText(const QString &text);
     Q_INVOKABLE void selectSuggestion(const QString &word);
     Q_INVOKABLE void shift();
+    // A Shift slide that ended on no letter: back to lowercase (not to Caps
+    // Lock, where a second Shift press would go).
+    Q_INVOKABLE void cancelOneShotShift();
     Q_INVOKABLE void toggleSymbols();
     Q_INVOKABLE void nextLanguage();
     Q_INVOKABLE void toggleSymbolPage();
@@ -376,6 +379,8 @@ Q_SIGNALS:
     void wordEntryChanged();
     void shortcutsChanged();
     void keyboardStateChanged();
+    // The input context went away: the UI ends every press and gesture.
+    void pressesCancelled();
     void toolbarStateChanged();
     void uiPreferencesChanged();
     void voiceChanged();

@@ -1658,3 +1658,31 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   now constant, the symbol rows share the space. The emoji row likewise
   appears at once (frequent emoji) instead of after the first emoji.
 
+## 2026-10-08 — 0.7.8 touch handling (fourth review)
+
+- A review drove the real Main.qml with QTest touch sequences (offscreen,
+  Qt 6.4): 10 confirmed bugs. Fixed: commit order on rolling presses (a new
+  press commits older plain taps, LatinIME PointerTracker
+  releaseAllPointersOlderThan; not for Shift, ?123, the symbol page key and
+  the globe); maximumTouchPoints 1 made MultiPointTouchArea ignore every
+  event while two fingers were on one key (now 5, the key follows one
+  pointId and a second finger commits the first one's tap); the hold timer
+  now ignores presses that became a gesture (consumeRelease) or drifted a
+  quarter key from the press point; glide start at 0.5 key widths (0.9
+  within 500 ms of a tap, after LatinIME's dynamic gesture threshold) instead
+  of 18 px, and an empty glide shorter than 1.2 keys types its start key
+  (the engine now commits the word being typed only when a glide gives a
+  word); the press scale (0.965 on the key, the touch area's parent) moved
+  releases near the edge outside: removed; touch areas reach half the gap,
+  releases count up to half a gap + 6 px outside; picker inserts only near
+  itself and ends the glide candidate first; TouchCancel resets the glide;
+  a bridge signal at deactivate and the window's hide end every press;
+  Shift slide starts half a gap + 10 px past the edge and undoes only the
+  one-shot it set (new cancelOneShotShift); space-bar cursor drag has a
+  dead zone of half a key; the language panel blocks touches.
+- The old two-thumb QML test sent a new touch sequence per step, which in
+  Qt 6.4 puts the stationary point at 0,0; rewritten as one sequence, it
+  fails on 0.7.7 ("l" before "a") and passes now. The review's probes:
+  all single-sequence ones pass; three multi-sequence ones remain as
+  harness artefacts.
+

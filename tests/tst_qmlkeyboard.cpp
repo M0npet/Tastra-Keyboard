@@ -206,12 +206,65 @@ private Q_SLOTS:
 
         static QPointingDevice *touch = QTest::createTouchDevice();
         // Fast two-thumb typing: the right thumb lands before the left lifts.
-        QTest::touchEvent(&view, touch).press(0, left);
-        QTest::touchEvent(&view, touch).stationary(0).press(1, right);
-        QTest::touchEvent(&view, touch).release(0, left).stationary(1);
-        QTest::touchEvent(&view, touch).release(1, right);
-
+        // One touch sequence (a new QTest::touchEvent per step would move the
+        // stationary point to 0,0).
+        auto seq = QTest::touchEvent(&view, touch, false);
+        seq.press(0, left).commit();
+        seq.stationary(0).press(1, right).commit();
+        seq.release(0, left).stationary(1).commit();
+        seq.release(1, right).commit();
         QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("a"), QStringLiteral("l")}));
+
+        // Rolling the other way (the right thumb lifts first): still the order
+        // of the presses, as LatinIME releases the older press on a new one.
+        backend.commits.clear();
+        seq.press(0, left).commit();
+        seq.stationary(0).press(1, right).commit();
+        seq.stationary(0).release(1, right).commit();
+        seq.release(0, left).commit();
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("a"), QStringLiteral("l")}));
+
+        // Two thumbs on the same key: two letters, and the key is free again.
+        backend.commits.clear();
+        const QPoint e = centreOf(QStringLiteral("e"));
+        seq.press(0, e - QPoint(10, 0)).commit();
+        seq.stationary(0).press(1, e + QPoint(10, 0)).commit();
+        seq.release(0, e - QPoint(10, 0)).stationary(1).commit();
+        seq.release(1, e + QPoint(10, 0)).commit();
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("e"), QStringLiteral("e")}));
+        QTest::qWait(bridge.longPressDelay() + 150);
+        QCOMPARE(backend.commits.size(), 2);                     // no long press afterwards
+
+        // A tap that rolls a little on its key is a tap, not a glide.
+        backend.commits.clear();
+        seq.press(0, left).commit();
+        seq.move(0, left + QPoint(22, 3)).commit();
+        seq.release(0, left + QPoint(22, 3)).commit();
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("a")}));
+
+        // A glide that starts slowly (the finger drifts off the press point
+        // and stays before going on) is not a long press on its first key.
+        backend.commits.clear();
+        const QPoint h = centreOf(QStringLiteral("h"));
+        seq.press(0, h).commit();
+        for (int i = 1; i <= 5; ++i) { seq.move(0, h + QPoint(i * 6, 0)).commit(); QTest::qWait(10); }
+        QTest::qWait(bridge.longPressDelay() + 100);
+        QVERIFY2(backend.commits.isEmpty(), qPrintable(backend.commits.join(',')));
+        const QList<QPoint> rest = {h + QPoint(30, 0), centreOf(QStringLiteral("e")), centreOf(QStringLiteral("l")), centreOf(QStringLiteral("o"))};
+        for (int i = 1; i < rest.size(); ++i)
+            for (int step = 1; step <= 6; ++step) seq.move(0, rest[i - 1] + (rest[i] - rest[i - 1]) * step / 6).commit();
+        seq.release(0, rest.last()).commit();
+        QTRY_VERIFY(!backend.commits.isEmpty());
+        QVERIFY2(backend.commits.first() != QStringLiteral("-") && backend.commits.first() != QStringLiteral("h"),
+                 qPrintable(backend.commits.join(',')));
+
+        // A tap a few pixels past the key's edge still types it.
+        backend.commits.clear();
+        QQuickItem *lKey = findText(view.rootObject(), QStringLiteral("l"))->parentItem();
+        const QPoint edge = lKey->mapToScene(QPointF(lKey->width() + 4, lKey->height() / 2)).toPoint();
+        seq.press(0, lKey->mapToScene(QPointF(lKey->width() - 3, lKey->height() / 2)).toPoint()).commit();
+        seq.release(0, edge).commit();
+        QTRY_COMPARE(backend.commits, QStringList({QStringLiteral("l")}));
     }
 
     void singleFingerGlideAndLongPressStillWork()

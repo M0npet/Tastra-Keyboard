@@ -1243,7 +1243,8 @@ void TypingEngine::beginGlide(const QString &key)
 {
     dropGlideAlternatives();
     if (m_sensitiveContext) return;
-    commitComposition();
+    // The word being typed is committed only once the glide gives a word: a
+    // tap that rolled into a short stroke goes on typing it.
     m_glideTrace.clear();
     glideThrough(key);
 }
@@ -1259,10 +1260,13 @@ QString TypingEngine::endGlidePath(const QVector<QPointF> &path, const QHash<QCh
                                    GlideCase glideCase)
 {
     if (m_sensitiveContext) { m_glideTrace.clear(); return {}; }
-    const QStringList readings = m_lexicon.decodeGlidePathCandidates(path, keyCentres, keyWidth, contextWord(), 4);
+    // A word still being typed ends where the glide begins.
+    const QString context = m_composing && !m_currentWord.isEmpty() ? bareWord(m_currentWord) : contextWord();
+    const QStringList readings = m_lexicon.decodeGlidePathCandidates(path, keyCentres, keyWidth, context, 4);
     // No geometry (or no reading near the path): the key sequence decoder.
     if (readings.isEmpty()) return endGlide();
     m_glideTrace.clear();
+    commitComposition();
     const QString before = contextWord();
     auto inCase = [glideCase](const QString &word) {
         if (glideCase == GlideCase::AllCaps) return word.toUpper();
@@ -1357,9 +1361,11 @@ void TypingEngine::replaceGlidedWord(const QString &word)
 QString TypingEngine::endGlide()
 {
     if (m_sensitiveContext) { m_glideTrace.clear(); return {}; }
-    const QString decoded = m_lexicon.decodeGlide(m_glideTrace, contextWord());
+    const QString context = m_composing && !m_currentWord.isEmpty() ? bareWord(m_currentWord) : contextWord();
+    const QString decoded = m_lexicon.decodeGlide(m_glideTrace, context);
     m_glideTrace.clear();
     if (decoded.isEmpty()) return {};
+    commitComposition();
 
     const QString formatted = formatForSentence(decoded);
     const QString before = contextWord();

@@ -117,6 +117,61 @@ Rectangle {
         glideLastValue = ""
     }
 
+    function glidePathLength() {
+        var length = 0
+        for (var i = 1; i < glidePath.length; ++i) {
+            var dx = glidePath[i].x - glidePath[i - 1].x, dy = glidePath[i].y - glidePath[i - 1].y
+            length += Math.sqrt(dx * dx + dy * dy)
+        }
+        return length
+    }
+
+    // Drops a glide that has not started (a tap was taken from its key).
+    function abortGlideCandidate(item) {
+        if (item !== glideStartItem || glideActive) return
+        glideStartItem = null
+        glideLastValue = ""
+        glidePath = []
+    }
+
+    // LatinIME PointerTracker: a new press releases the older presses that
+    // are still plain taps, so letters typed with two thumbs keep the order
+    // in which they were pressed ("press a, press l, lift l, lift a" is "al").
+    property var heldKeys: []
+    function trackHeldKey(key, down) {
+        var i = heldKeys.indexOf(key)
+        if (down && i < 0) heldKeys.push(key)
+        if (!down && i >= 0) heldKeys.splice(i, 1)
+    }
+    function rollOver(pressedKey) {
+        var keys = heldKeys.slice()
+        for (var i = 0; i < keys.length; ++i) if (keys[i] !== pressedKey) keys[i].commitHeldTap()
+    }
+
+    // The input context went away (or the panel is hidden) with fingers
+    // down: no key may stay pressed, repeat or finish a gesture later.
+    function cancelAllPresses() {
+        var keys = heldKeys.slice()
+        for (var i = 0; i < keys.length; ++i) keys[i].cancelPress()
+        heldKeys = []
+        glideStartItem = null
+        glideActive = false
+        glideLastValue = ""
+        glidePath = []
+        glidePoints = []
+        glideTrail.requestPaint()
+    }
+
+    Connections {
+        target: keyboardBridge
+        function onPressesCancelled() { root.cancelAllPresses() }
+    }
+    // Hidden (the hide button, KWin) with a finger down: same.
+    Connections {
+        target: root.Window.window
+        function onVisibleChanged() { if (!root.Window.window.visible) root.cancelAllPresses() }
+    }
+
     // Finds the character key under a point in root coordinates.
     function keyAt(x, y) {
         var item = keyboardRows
@@ -226,14 +281,24 @@ Rectangle {
         }
     }
 
+    // When the last key was tapped (ms), for the glide start threshold.
+    property real lastTapMs: 0
+    // A glide starts after the finger moved half a key (a whole one right
+    // after typing, as LatinIME's dynamic gesture threshold): a tap that
+    // rolls a little on the key stays a tap.
+    function glideStartDistance(item) {
+        var recent = Date.now() - lastTapMs < 500
+        return Math.max(18, item.width * (recent ? 0.9 : 0.5))
+    }
+
     function updateGlideCandidate(item, x, y) {
         // Only the finger that started the candidate can turn it into a glide
         // (its key keeps the touch grab and reports every move).
-        if (!glideStartItem || item !== glideStartItem || !keyboardBridge.glideEnabled) return
+        if (!glideStartItem || item !== glideStartItem || !keyboardBridge.glideEnabled || item.consumeRelease && !glideActive) return
         var p = item.mapToItem(root, x, y)
         var dx = p.x - glideStartX
         var dy = p.y - glideStartY
-        if (!glideActive && Math.sqrt(dx * dx + dy * dy) > 18) {
+        if (!glideActive && Math.sqrt(dx * dx + dy * dy) > glideStartDistance(item)) {
             glideActive = true
             glideStartItem.consumeRelease = true
             item.consumeRelease = true
@@ -266,7 +331,9 @@ Rectangle {
             item.consumeRelease = true
             // The path decides (LatinIME-style); the key sequence is the fallback.
             var geometry = letterKeyGeometry()
-            keyboardBridge.endGlidePath(glidePath, geometry.centres, geometry.keyWidth)
+            var word = keyboardBridge.endGlidePath(glidePath, geometry.centres, geometry.keyWidth)
+            // Nothing read from a short stroke: it was a tap that rolled.
+            if (word.length === 0 && glidePathLength() < geometry.keyWidth * 1.2) item.triggered()
         }
         glidePath = []
         glideStartItem = null
@@ -310,6 +377,9 @@ Rectangle {
         property bool consumeRelease: false
         property bool glideEligible: false
         property string glideValue: ""
+        // Released by a later press (see root.rollOver); not Shift, ?123 or
+        // the globe, whose slides and long presses need the finger.
+        property bool rollover: true
         // LatinIME: Space, Backspace and Return have their own sound.
         property string sound: ""
 
@@ -321,6 +391,25 @@ Rectangle {
         signal pressCancelled()
         signal alternateChosen(string text)
 
+        // A later press takes this key's tap now (LatinIME releases older
+        // pointers), unless it is held, choosing or already a gesture.
+        function commitHeldTap() {
+            if (!mouse.pressed || mouse.held || key.choosing || key.consumeRelease || !key.rollover) return
+            root.abortGlideCandidate(key)
+            holdTimer.stop()
+            key.consumeRelease = true
+            key.triggered()
+        }
+        function cancelPress() {
+            if (!mouse.pressed && !key.choosing) return
+            mouse.pressed = false
+            mouse.held = false
+            mouse.pointId = -1
+            key.choosing = false
+            key.consumeRelease = true
+            holdTimer.stop()
+            key.pressCancelled()
+        }
         function choiceCellWidth() { return Math.max(key.width * 0.86, 44) }
         // The picker starts at the key's left edge, clamped inside the keyboard.
         function choiceOriginX() {
@@ -345,12 +434,6 @@ Rectangle {
             : (accent
                 ? root.accentColor
                 : (special ? root.specialKeyColor : root.keyColor))
-
-        scale: mouse.pressed ? 0.965 : 1.0
-
-        Behavior on scale {
-            NumberAnimation { duration: 45 }
-        }
 
         Text {
             anchors.centerIn: parent
@@ -450,26 +533,48 @@ Rectangle {
             }
         }
 
-        // One touch point per key: overlapping two-thumb taps land on
-        // different keys and are handled independently (MouseArea only ever
-        // sees the first touch). Mouse input keeps working (mouseEnabled).
+        // One finger per key at a time: overlapping two-thumb taps land on
+        // different keys and are handled independently; a second finger on
+        // the same key takes over after committing the first one's tap.
+        // The area reaches into half of the gap around the key, so no touch
+        // between keys is lost. Mouse input keeps working (mouseEnabled).
         MultiPointTouchArea {
             id: mouse
             anchors.fill: parent
+            anchors.margins: -root.keyGap / 2
             mouseEnabled: true
-            maximumTouchPoints: 1
+            maximumTouchPoints: 5
+            property int pointId: -1
             property bool held: false
             property bool pressed: false
             property real lastX: 0
             property real lastY: 0
 
-            function inside(x, y) { return x >= 0 && y >= 0 && x <= width && y <= height }
+            // Key coordinates of a touch point of this area.
+            function keyX(point) { return point.x + mouse.x }
+            function keyY(point) { return point.y + mouse.y }
+            function tracked(points) {
+                for (var i = 0; i < points.length; ++i) if (points[i].pointId === pointId) return points[i]
+                return null
+            }
+            // A release a little outside the key (a rolling thumb) still counts.
+            function inside(x, y) {
+                var m = root.keyGap / 2 + 6
+                return x >= -m && y >= -m && x <= key.width + m && y <= key.height + m
+            }
 
             Timer {
                 id: holdTimer
                 interval: keyboardBridge.longPressDelay
                 onTriggered: {
-                    if (mouse.pressed && key.longPressEnabled && mouse.inside(mouse.lastX, mouse.lastY)) {
+                    // Not once the press became a glide, a cursor drag or a
+                    // swipe-delete (they set consumeRelease).
+                    // And not when the finger has wandered off the press point:
+                    // that is a glide starting slowly, not a long press.
+                    const slop = key.width * 0.25
+                    const moved = Math.abs(mouse.lastX - key.pressX) > slop || Math.abs(mouse.lastY - key.pressY) > slop
+                    if (mouse.pressed && key.longPressEnabled && !key.consumeRelease && !moved && mouse.inside(mouse.lastX, mouse.lastY)) {
+                        root.abortGlideCandidate(key)
                         mouse.held = true
                         if (key.alternates.length > 1) {
                             key.choiceIndex = 0
@@ -482,22 +587,28 @@ Rectangle {
             }
 
             onPressed: (touchPoints) => {
-                const point = touchPoints[0]
+                const point = touchPoints[touchPoints.length - 1]
+                root.rollOver(key)
+                if (pressed) key.commitHeldTap()          // a second finger on this key
+                pointId = point.pointId
                 pressed = true
                 held = false
-                lastX = point.x
-                lastY = point.y
-                key.pressX = point.x
-                key.pressY = point.y
+                key.choosing = false
+                lastX = keyX(point)
+                lastY = keyY(point)
+                key.pressX = lastX
+                key.pressY = lastY
                 keyboardBridge.keyFeedback(key.sound) // Gboard "Sound on keypress"
                 key.consumeRelease = false
+                root.trackHeldKey(key, true)
                 holdTimer.restart()
-                key.pressStarted(point.x, point.y)
+                key.pressStarted(lastX, lastY)
             }
             onUpdated: (touchPoints) => {
-                if (!pressed || touchPoints.length === 0) return
-                lastX = touchPoints[0].x
-                lastY = touchPoints[0].y
+                const point = tracked(touchPoints)
+                if (!pressed || !point) return
+                lastX = keyX(point)
+                lastY = keyY(point)
                 if (key.choosing) {
                     key.updateChoice(lastX)
                     return
@@ -505,25 +616,39 @@ Rectangle {
                 key.pointerMoved(lastX, lastY)
             }
             onReleased: (touchPoints) => {
-                if (!pressed) return
-                const point = touchPoints.length > 0 ? touchPoints[0] : null
-                const x = point ? point.x : lastX
-                const y = point ? point.y : lastY
+                const point = tracked(touchPoints)
+                if (!pressed || (touchPoints.length > 0 && !point)) return   // another finger
+                const x = point ? keyX(point) : lastX
+                const y = point ? keyY(point) : lastY
                 pressed = false
+                pointId = -1
                 holdTimer.stop()
+                root.trackHeldKey(key, false)
                 if (key.choosing) {
                     key.choosing = false
-                    key.alternateChosen(key.alternates[key.choiceIndex])
+                    key.pressEnded(x, y)
+                    // Only when the finger lifts on (or near) the picker.
+                    const allowance = key.height * 0.6
+                    const left = key.choiceOriginX() - allowance
+                    const right = key.choiceOriginX() + key.choiceCellWidth() * key.alternates.length + allowance
+                    if (x >= left && x <= right && y >= choicePicker.y - allowance && y <= key.height + allowance)
+                        key.alternateChosen(key.alternates[key.choiceIndex])
                     return
                 }
                 key.pressEnded(x, y)
                 if (inside(x, y) && !held && !key.consumeRelease) {
+                    root.lastTapMs = Date.now()
                     key.triggered()
                 }
             }
             onCanceled: (touchPoints) => {
+                if (tracked(touchPoints) === null && touchPoints.length > 0) return
+                root.trackHeldKey(key, false)
+                root.abortGlideCandidate(key)
+                if (root.glideStartItem === key) root.cancelAllPresses()   // a glide in progress
                 pressed = false
                 held = false
+                pointId = -1
                 key.choosing = false
                 holdTimer.stop()
                 key.pressCancelled()
@@ -978,6 +1103,8 @@ Rectangle {
         id: languageChooserPanel
         z: 150
         visible: keyboardBridge.activePanel === "language"
+        // Touches on the panel never reach the keys underneath.
+        MouseArea { anchors.fill: parent; z: -1; onPressed: (mouse) => mouse.accepted = true }
 
         width: Math.min(420, Math.max(330, root.contentWidth * 0.30))
         height: (root.portrait ? 50 : 44)
@@ -1269,14 +1396,22 @@ Rectangle {
                 iconSource: keyboardBridge.capsLock
                     ? "qrc:/tastra/icons/shift-lock.svg"
                     : "qrc:/tastra/icons/shift.svg"
+                rollover: false
                 // Gboard: touch Shift and slide onto a letter for one capital.
+                // The slide starts a little past the key's edge, so a tap that
+                // wobbles over it stays a Shift tap.
                 property bool sliding: false
-                onPressStarted: (x, y) => { sliding = false }
+                property bool slideTurnedShiftOn: false
+                onPressStarted: (x, y) => { sliding = false; slideTurnedShiftOn = false }
                 onPointerMoved: (x, y) => {
-                    if (!sliding && (x < 0 || x > width || y < 0 || y > height)) {
+                    var m = root.keyGap / 2 + 10
+                    if (!sliding && (x < -m || x > width + m || y < -m || y > height + m)) {
                         sliding = true
                         consumeRelease = true
-                        if (!keyboardBridge.uppercase) keyboardBridge.shift()
+                        if (!keyboardBridge.uppercase) {
+                            keyboardBridge.shift()
+                            slideTurnedShiftOn = true
+                        }
                     }
                 }
                 onPressEnded: (x, y) => {
@@ -1285,7 +1420,11 @@ Rectangle {
                     var p = mapToItem(root, x, y)
                     var target = root.keyAt(p.x, p.y)
                     if (target && target.glideValue && target.glideValue.length > 0) keyboardBridge.tapLetter(target.glideValue)
-                    else if (keyboardBridge.uppercase && !keyboardBridge.capsLock) keyboardBridge.shift()
+                    else if (slideTurnedShiftOn) keyboardBridge.cancelOneShotShift()    // slid to nothing
+                }
+                onPressCancelled: {
+                    if (sliding && slideTurnedShiftOn) keyboardBridge.cancelOneShotShift()
+                    sliding = false
                 }
                 onTriggered: keyboardBridge.shift()
             }
@@ -1293,6 +1432,7 @@ Rectangle {
             Key {
                 // Symbols layer: switch between "?123" and "=\<" (Gboard).
                 objectName: "symbolPageKey"
+                rollover: false
                 visible: keyboardBridge.symbolsActive
                 preferredWidth: root.baseKeyWidth * 1.25
                 special: true
@@ -1399,6 +1539,7 @@ Rectangle {
 
             Key {
                 objectName: "symbolsKey"
+                rollover: false
                 preferredWidth: root.baseKeyWidth * 1.35
                 special: true
                 popupEnabled: false
@@ -1438,6 +1579,7 @@ Rectangle {
 
             Key {
                 id: globeKey
+                rollover: false
                 preferredWidth: root.baseKeyWidth
                 label: "🌐"
                 popupEnabled: false
@@ -1462,7 +1604,14 @@ Rectangle {
                     cursorStep = 0
                 }
                 onPointerMoved: (x, y) => {
-                    var nextStep = Math.round((x - dragStartX) / Math.max(24, width * 0.08))
+                    // A dead zone of half a key first, so a rolling thumb types
+                    // its space; then one cursor step per step width.
+                    var dx = x - dragStartX
+                    var deadZone = root.baseKeyWidth * 0.5
+                    var stepWidth = Math.max(24, width * 0.08)
+                    var nextStep = Math.abs(dx) < deadZone ? 0
+                        : (dx > 0 ? 1 : -1) * (1 + Math.floor((Math.abs(dx) - deadZone) / stepWidth))
+                    if (cursorStep === 0 && nextStep === 0) return
                     var delta = nextStep - cursorStep
                     if (delta !== 0) {
                         consumeRelease = true

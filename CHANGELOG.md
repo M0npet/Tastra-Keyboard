@@ -4,6 +4,26 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.8
+Touch handling, after a review with simulated two-thumb typing:
+- Fast two-thumb typing keeps the letters in the order they were pressed,
+  also when the second thumb lifts first (as Gboard/LatinIME do).
+- Two fingers on the same key give two letters (double space too), and the
+  key no longer stays pressed, opens its long-press picker or keeps deleting.
+- A tap that rolls a little on its key is a tap, not an empty glide; a glide
+  starts after half a key (a whole one right after typing), and a short
+  stroke that gives no word types its first letter.
+- Taps on a key's edge, a few pixels past it, or in the gap between keys
+  are no longer lost.
+- A long press no longer fires in the middle of a glide, a cursor drag on
+  the space bar or a swipe-delete; a long-press picker inserts only when the
+  finger lifts on or near it.
+- A Shift slide that ends on no letter no longer turns on Caps Lock; a
+  small roll on the space bar types the space instead of moving the cursor.
+- Hiding the keyboard or leaving the field mid-gesture ends every press:
+  no backspace repeat, glide or stuck key afterwards.
+- Taps on the language list no longer reach the keys underneath.
+
 ## 0.7.7
 - No more ghost text: after `Hello.` (or Return in claude.ai) a tap in the
   text or a window switch could type the last word a second time, because

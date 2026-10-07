@@ -977,6 +977,13 @@ void KeyboardUiBridge::selectSuggestion(const QString &word)
     Q_EMIT suggestionsChanged();
 }
 
+void KeyboardUiBridge::cancelOneShotShift()
+{
+    if (!m_model.uppercase() || m_model.capsLock()) return;
+    m_model.consumeShiftAfterLetter();
+    Q_EMIT keyboardStateChanged();
+}
+
 void KeyboardUiBridge::shift()
 {
     m_model.pressShift();
@@ -1514,6 +1521,7 @@ void KeyboardUiBridge::clearLearnedWords()
 void KeyboardUiBridge::deactivateInputContext()
 {
     m_typingEngine.rememberCompositionBeforeDeactivation();
+    Q_EMIT pressesCancelled();          // no key repeats or glides into nothing
     resetInputContext();
 }
 
