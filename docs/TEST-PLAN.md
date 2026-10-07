@@ -81,3 +81,4 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 54. Text-editing panel: Undo and Redo in Kate and Firefox undo and redo the last edit; in a password field they are hidden.
 55. Glide fast with rounded corners, without stopping on the letters: `the`, `world`, `people`, `привет`, `дякую` come out right; when a word misses, it is in the strip.
 56. Settings → Sound on keypress On: letters click, Space, Backspace and Return each sound different; Volume on keypress (15 / 35 / 60 / 100 %) changes the loudness, each tap plays the new volume. German `guten` + Space offers `Tag` and `Morgen` with capitals.
+57. Type `don`, the apostrophe from the symbols page (the keyboard returns to letters), `t` + Space: `don't` stays one word, and the strip predicts after it (`know`, `want`…). Type `so i` + Space: `I`, and the strip offers words after `I` (`have`, `am`), not `I` again.

@@ -1577,3 +1577,24 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   _RETURN, _SPACEBAR and _STANDARD; tools/make-click-wav.py generates four
   sounds (letter click byte-identical), volume 15/35/60/100 %.
 
+## 2026-10-07 — 0.7.5 fixes from an independent review
+
+- A separate agent reviewed the 0.7.3-0.7.4 diff with probes against the
+  library. Confirmed and fixed: (1) a correction held with its space left
+  the previous word stale: predictions after "so i" + Space came from "so"
+  and offered "I" again, and glide contexts used it (contextWord()); (2)
+  undoing a double-space period lost the previous word (now kept in
+  m_wordBeforePeriod); (3) the 1.5 key-width glide limit let short slides
+  read as long words ("jk" -> "junk", "ва" -> "вывеска"): a word's ideal
+  path may be at most 1.6x the finger's plus one key (human-like grid
+  87.44 -> 87.36 %; 2.0x kept some junk without Hunspell, e.g. "ро" ->
+  "ролло"); (4) dictation ending in a closing quote or "…" did not end the
+  sentence.
+- Also taken from the review: apostrophes and hyphens between letters are
+  word connectors (LatinIME config_word_connectors), typed or read from the
+  application; the pair builder drops stress marks and single letters that
+  are not words; tests load the bundled pairs only where they ask for them.
+- Left as is: German capitals from the bundled pairs also apply to a pair
+  the user typed in lowercase ("haben sie" shows "Sie"); learned pairs keep
+  no case.
+

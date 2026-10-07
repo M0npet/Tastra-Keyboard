@@ -4,6 +4,18 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.5
+- `don't`, `it's`, `кто-то` typed with the apostrophe or hyphen from the
+  symbols page stay one word for suggestions and autocorrect (LatinIME's word
+  connectors); a word ending in one (`dogs'`) is left as typed.
+- After an autocorrection (`so i` + Space -> `so I`) the strip predicts the
+  word after the corrected one, and no longer offers it a second time.
+- Backspace right after a double-space period keeps the sentence going: the
+  next word is predicted and learned after the previous one again.
+- A short slide from one key to its neighbour no longer turns into a long
+  word ("jk" -> "junk").
+- Dictation ending with a quote or an ellipsis ends the sentence.
+
 ## 0.7.4
 - Better next-word suggestions for everyday writing: the word pairs now also
   come from Common Voice's sentences (CC0). German suggestions went from
