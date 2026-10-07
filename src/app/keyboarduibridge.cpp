@@ -603,6 +603,20 @@ bool KeyboardUiBridge::autoSpaceAfterPunctuation() const { return m_autoSpaceAft
 bool KeyboardUiBridge::emojiRow() const { return m_emojiRow; }
 QStringList KeyboardUiBridge::recentEmojis() const { return m_emojiCatalog.glyphs(QStringLiteral("Recent")).mid(0, 10); }
 
+QStringList KeyboardUiBridge::emojiRowEmojis() const
+{
+    QStringList row = recentEmojis();
+    static const QStringList frequent = {
+        QStringLiteral("😂"), QStringLiteral("❤️"), QStringLiteral("👍"), QStringLiteral("😊"), QStringLiteral("🙏"),
+        QStringLiteral("😭"), QStringLiteral("😍"), QStringLiteral("🔥"), QStringLiteral("😅"), QStringLiteral("👌"),
+    };
+    for (const QString &emoji : frequent) {
+        if (row.size() >= 10) break;
+        if (!row.contains(emoji)) row.append(emoji);
+    }
+    return row;
+}
+
 void KeyboardUiBridge::setAutoSpaceAfterPunctuation(bool enabled)
 {
     if (m_autoSpaceAfterPunctuation == enabled) return;

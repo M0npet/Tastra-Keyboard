@@ -132,6 +132,33 @@ private Q_SLOTS:
         QCOMPARE(context.lastSerial, quint32(7));
     }
 
+    void aCommitClearsTheTextKWinWouldCommitAgain()
+    {
+        // KWin keeps the commit argument of the last preedit_string and
+        // commits it on a touch in the text window, a hardware key or a focus
+        // change; a commit_string does not clear it. "hello" composed, then
+        // "hello." committed: the pending "hello" must go, or a tap in the
+        // field types it again.
+        Tastra::KWin::KWinInputMethodV1Backend backend;
+        FakeInputMethodV1Context context;
+        backend.setContext(&context);
+        backend.commitText(QStringLiteral("plain"));
+        QVERIFY(context.preedits.isEmpty());              // nothing pending: nothing extra
+        QVERIFY(backend.setPreedit(QStringLiteral("hello")));
+        backend.commitText(QStringLiteral("hello."));
+        QCOMPARE(context.preedits.size(), 2);
+        QCOMPARE(context.preedits.last(), qMakePair(QString(), QString()));
+        QCOMPARE(context.order.mid(context.order.size() - 2), QStringList({QStringLiteral("cursor"), QStringLiteral("string")}));
+        QCOMPARE(context.cursors.last(), 0);
+        backend.commitText(QStringLiteral(" "));
+        QCOMPARE(context.preedits.size(), 2);             // already cleared
+        // Clearing the preedit ourselves clears it too.
+        QVERIFY(backend.setPreedit(QStringLiteral("x")));
+        QVERIFY(backend.setPreedit(QString()));
+        backend.commitText(QStringLiteral("y"));
+        QCOMPARE(context.preedits.size(), 4);
+    }
+
     void commitUsesLatestSerial()
     {
         Tastra::KWin::KWinInputMethodV1Backend backend;

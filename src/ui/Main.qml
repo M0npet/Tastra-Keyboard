@@ -55,8 +55,16 @@ Rectangle {
     // Gboard shows a number pad in number/phone fields.
     readonly property bool numpadShown: keyboardBridge.inputPurpose === "number" || keyboardBridge.inputPurpose === "phone"
     readonly property bool numberRowShown: keyboardBridge.numberRow && !keyboardBridge.symbolsActive && !numpadShown
-    readonly property bool emojiRowShown: keyboardBridge.emojiRow && keyboardBridge.recentEmojis.length > 0 && !numpadShown
-    height: toolbarHeight + metrics.panelHeight + (numberRowShown ? keyHeight + keyGap : 0)
+    // Gboard: the fast-access row is there as soon as it is switched on
+    // (frequent emoji until some were used).
+    readonly property bool emojiRowShown: keyboardBridge.emojiRow && !numpadShown
+    // The keyboard keeps its height between letters and ?123: the symbol
+    // rows share the number row's space (taller keys), so the panel edge
+    // never moves under a finger and the application is not laid out again.
+    readonly property bool numberRowSpace: keyboardBridge.numberRow && !numpadShown
+    readonly property real layerKeyHeight: numberRowSpace && !numberRowShown
+        ? keyHeight + (keyHeight + keyGap) / (emojiRowShown ? 5 : 4) : keyHeight
+    height: toolbarHeight + metrics.panelHeight + (numberRowSpace ? keyHeight + keyGap : 0)
             + (emojiRowShown ? keyHeight + keyGap : 0)
     color: backgroundColor
 
@@ -327,7 +335,7 @@ Rectangle {
         }
 
         width: preferredWidth
-        height: root.keyHeight
+        height: root.layerKeyHeight
         radius: root.metrics.keyRadius
         border.width: keyboardBridge.keyBorders ? 1 : 0
         border.color: root.borderColor
@@ -1116,7 +1124,7 @@ Rectangle {
             visible: root.emojiRowShown
             spacing: root.keyGap
             Repeater {
-                model: keyboardBridge.recentEmojis
+                model: keyboardBridge.emojiRowEmojis
                 delegate: Key {
                     required property string modelData
                     objectName: "emojiRowKey_" + modelData

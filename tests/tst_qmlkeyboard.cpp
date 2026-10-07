@@ -393,6 +393,16 @@ private Q_SLOTS:
         QTest::qWait(100);                                                    // Row polish
         QTest::mouseClick(&view, Qt::LeftButton, {}, centre(findNamed(view.rootObject(), QStringLiteral("numberKey_7"))));
         QTRY_COMPARE(backend.commits.last(), QStringLiteral("7"));
+        // ?123 keeps the height (the panel edge must not move under a
+        // finger): the symbol rows take the number row's space.
+        const qreal withNumbers = view.rootObject()->height();
+        const qreal letterKey = findNamed(view.rootObject(), QStringLiteral("symbolsKey"))->height();
+        bridge.toggleSymbols();
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("numberKey_7")) || !findNamed(view.rootObject(), QStringLiteral("numberKey_7"))->isVisible());
+        QCOMPARE(view.rootObject()->height(), withNumbers);
+        QVERIFY(findNamed(view.rootObject(), QStringLiteral("symbolsKey"))->height() > letterKey);
+        bridge.toggleSymbols();
+        QTRY_COMPARE(findNamed(view.rootObject(), QStringLiteral("symbolsKey"))->height(), letterKey);
 
         // 4. Long-press a suggestion removes it (and does not insert it).
         bridge.setNumberRow(false);
@@ -490,9 +500,11 @@ private Q_SLOTS:
         QTRY_COMPARE(backend.commits.last(), QStringLiteral("5"));
         QTRY_VERIFY(!bridge.symbolsActive());
 
-        // 3. Emoji fast-access row.
-        bridge.insertEmoji(QStringLiteral("😀"));
+        // 3. Emoji fast-access row: frequent emoji until some were used.
         bridge.setEmojiRow(true);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("emojiRowKey_👍")));
+        QCOMPARE(bridge.emojiRowEmojis().size(), 10);
+        bridge.insertEmoji(QStringLiteral("😀"));
         QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("emojiRowKey_😀")));
         QTest::qWait(100);
         backend.commits.clear();                 // insertEmoji above committed one already

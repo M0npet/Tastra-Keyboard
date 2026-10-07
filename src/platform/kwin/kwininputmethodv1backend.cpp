@@ -27,6 +27,7 @@ quint32 monotonicMilliseconds()
 void KWinInputMethodV1Backend::setContext(InputMethodV1Context *context)
 {
     m_context = context;
+    m_kwinPendingCommit.clear();                 // KWin drops it with the old context
 }
 
 void KWinInputMethodV1Backend::setLatestSerial(quint32 serial)
@@ -62,6 +63,17 @@ void KWinInputMethodV1Backend::commitText(const QString &text)
         if (pair) ++i;
     }
     if (start < text.size() || text.isEmpty()) m_context->commitString(m_latestSerial, text.mid(start));
+    // KWin (inputmethod.cpp) keeps the commit argument of the last
+    // preedit_string and commits it itself when the user touches the text
+    // window, presses a hardware key or focus moves; a commit_string does not
+    // clear it. Without this, "hello" + "." and a tap in the text typed
+    // "hello" a second time.
+    if (!m_kwinPendingCommit.isEmpty()) {
+        qCDebug(lcKWinBackend) << "preedit_string utf8 bytes 0 (clears KWin's pending commit)";
+        m_context->preeditCursor(0);
+        m_context->preeditString(m_latestSerial, QString(), QString());
+        m_kwinPendingCommit.clear();
+    }
 }
 
 bool KWinInputMethodV1Backend::deleteBeforeCursor(const QString &text)
@@ -102,6 +114,7 @@ bool KWinInputMethodV1Backend::setPreedit(const QString &text)
     qCDebug(lcKWinBackend) << "preedit_string utf8 bytes" << text.toUtf8().size();
     m_context->preeditCursor(static_cast<qint32>(text.toUtf8().size()));
     m_context->preeditString(m_latestSerial, text, text);
+    m_kwinPendingCommit = text;
     return true;
 }
 

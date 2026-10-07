@@ -81,6 +81,7 @@ class KeyboardUiBridge final : public QObject
     // Gboard "Emoji fast-access row": recent emoji above the keys.
     Q_PROPERTY(bool emojiRow READ emojiRow WRITE setEmojiRow NOTIFY uiPreferencesChanged)
     Q_PROPERTY(QStringList recentEmojis READ recentEmojis NOTIFY emojiChanged)
+    Q_PROPERTY(QStringList emojiRowEmojis READ emojiRowEmojis NOTIFY emojiChanged)
     Q_PROPERTY(bool emojiSearchActive READ emojiSearchActive NOTIFY emojiSearchChanged)
     Q_PROPERTY(QString emojiSearchText READ emojiSearchText NOTIFY emojiSearchChanged)
     Q_PROPERTY(QStringList emojiSearchResults READ emojiSearchResults NOTIFY emojiSearchChanged)
@@ -175,6 +176,8 @@ public:
     bool autoSpaceAfterPunctuation() const;
     bool emojiRow() const;
     QStringList recentEmojis() const;
+    // The fast-access row: recent emoji, filled up with frequent ones.
+    QStringList emojiRowEmojis() const;
     bool symbolHints() const;
     bool numberRow() const;
     bool blockOffensive() const;

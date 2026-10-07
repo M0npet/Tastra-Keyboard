@@ -4,6 +4,7 @@
 
 #include "core/inputmethodbackend.h"
 
+#include <QString>
 #include <QtGlobal>
 
 namespace Tastra::KWin
@@ -51,6 +52,10 @@ private:
     void sendKeySym(quint32 sym);
     InputMethodV1Context *m_context = nullptr;
     quint32 m_latestSerial = 0;
+    // The commit argument of our last preedit_string: KWin keeps it and
+    // commits it itself on a touch in the text window, a hardware key or a
+    // focus change, until the next preedit_string replaces it.
+    QString m_kwinPendingCommit;
 };
 
 }
