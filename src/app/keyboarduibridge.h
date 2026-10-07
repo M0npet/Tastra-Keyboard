@@ -363,6 +363,9 @@ public:
     Q_INVOKABLE void clearLearnedWords();
 
     void resetInputContext();
+    // The text input was switched off: remember a word still being composed
+    // (TypingEngine::rememberCompositionBeforeDeactivation), then reset.
+    void deactivateInputContext();
     void setSurroundingText(const QString &text, int cursorByte, int anchorByte);
     void setContentType(quint32 hint, quint32 purpose);
     void resetCompositionFromClient();

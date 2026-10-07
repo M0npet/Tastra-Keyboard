@@ -4,6 +4,7 @@
 #include "capsmode.h"
 
 #include <algorithm>
+#include <utility>
 #include "keyboardcontroller.h"
 
 #include <QElapsedTimer>
@@ -212,7 +213,7 @@ bool TypingEngine::doubleSpacePeriodEnabled() const { return m_doubleSpacePeriod
 bool TypingEngine::wantsAutoUppercase() const
 {
     if (m_sensitiveContext || !m_autoCapitalizationEnabled || !m_autoCapitalizationAllowed
-        || !m_currentWord.isEmpty()) {
+        || !m_currentWord.isEmpty() || lostWordResumes()) {
         return false;
     }
     if (!m_surroundingSupported) return m_sentenceStart;   // text before the cursor unknown
@@ -255,8 +256,36 @@ QString TypingEngine::formatForSentence(const QString &word) const
     return result;
 }
 
+bool TypingEngine::lostWordResumes() const
+{
+    // See rememberCompositionBeforeDeactivation: nothing typed since, the
+    // client's text is known again and does not hold the word (or holds just
+    // its committed first letter, where it was).
+    if (m_lostWord.isEmpty() || !m_surroundingSupported || m_composing || m_pendingSpace
+        || !m_wordAfterCursor.isEmpty() || m_lastLocalOpMs >= m_lostAtMs) {
+        return false;
+    }
+    constexpr qint64 BounceMs = 2000;
+    if ((m_clock ? m_clock() : monotonicMs()) - m_lostAtMs > BounceMs) return false;
+    if (m_model.endsWith(m_lostWord)) return false;                // the client kept it
+    // A committed first letter stays in the text even when the client
+    // reports an older text after switching back on (GTK's cache).
+    return m_currentWord.isEmpty() || (!m_lostHead.isEmpty() && m_currentWord == m_lostHead);
+}
+
 void TypingEngine::typeLetter(const QString &text, QPointF touch)
 {
+    if (lostWordResumes()) {
+        // The client threw the composed word away when its text input went
+        // off and on: it is composed again, and this letter continues it.
+        qCDebug(lcEngine) << "word dropped by the client on deactivation -> composing again," << m_lostWord.size() << "letters";
+        m_currentWord = m_lostWord;
+        m_committedHead = m_lostHead;
+        m_composing = true;
+        m_touchOffsets.clear();
+    }
+    m_lostWord.clear();
+    m_lostHead.clear();
     dropGlideAlternatives();
     const qsizetype wordBefore = m_currentWord.size();
     m_lastWasDoublePeriod = false;
@@ -1070,6 +1099,17 @@ void TypingEngine::resetInputContext()
     resetComposition();
 }
 
+void TypingEngine::rememberCompositionBeforeDeactivation()
+{
+    m_lostWord.clear();
+    m_lostHead.clear();
+    if (m_sensitiveContext || !m_composing || m_currentWord.isEmpty()) return;
+    m_lostWord = m_currentWord;
+    m_lostHead = m_committedHead;
+    m_lostAtMs = m_clock ? m_clock() : monotonicMs();
+    qCDebug(lcEngine) << "deactivated while composing" << m_currentWord.size() << "letters";
+}
+
 void TypingEngine::setSensitiveContext(bool sensitive)
 {
     if (m_sensitiveContext == sensitive) return;
@@ -1096,6 +1136,7 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
         qCDebug(lcEngine) << "echo bytes" << bounded << "ignored while composing";
         return false;
     }
+
 
     if (cursorByte == anchorByte) {
         // Any state this keyboard produced recently (including states with

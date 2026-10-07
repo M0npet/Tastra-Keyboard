@@ -4,6 +4,18 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.7
+- No more ghost text: after `Hello.` (or Return in claude.ai) a tap in the
+  text or a window switch could type the last word a second time, because
+  KWin kept the keyboard's unfinished word and committed it again.
+- When Firefox switches its text input off and on for a moment (it does in
+  rich editors such as claude.ai's), the word being typed is no longer lost,
+  and the next letter no longer starts a new, capitalised word. This is the
+  most likely cause of "the second letter replaces the first".
+- With the number row on, ?123 keeps the keyboard's height (the symbol keys
+  get taller), so the keyboard's edge does not move under the finger. The
+  emoji fast-access row shows frequent emoji until some were used.
+
 ## 0.7.6
 - Undo, Redo and Select all in the text-editing panel follow your keyboard
   layout (Plasma 6.5+): with a German layout Undo was sent as Ctrl+Y.

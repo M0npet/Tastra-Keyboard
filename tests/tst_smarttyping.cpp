@@ -760,6 +760,72 @@ private Q_SLOTS:
         }
     }
 
+    void aWordTheClientDroppedWhenItsInputBouncedComesBack()
+    {
+        // Firefox switches its text input off and on again when some field
+        // attributes change; GTK 3 throws the preedit away and KWin (no touch,
+        // no focus change) does not commit it. Typing "hel", bounce, "lo"
+        // gave "lo" alone, and at a sentence start "Lo": "the second letter
+        // replaces the first". The next letter continues the word instead.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        qint64 now = 1000;
+        engine.setClockForTesting([&now] { return now; });
+        composing(backend, engine, QStringLiteral("Ok. "));
+        for (const QChar ch : QStringLiteral("Hel")) engine.typeLetter(QString(ch));
+        QCOMPARE(backend.preedit, QStringLiteral("Hel"));
+        now += 50;
+        engine.rememberCompositionBeforeDeactivation();
+        engine.resetInputContext();                       // deactivate
+        backend.preedit.clear();                          // GTK dropped it
+        now += 40;
+        engine.resetInputContext();                       // activate again
+        echo(engine, QStringLiteral("Ok. "));
+        engine.resetComposition();                        // KWin's reset after activation
+        echo(engine, QStringLiteral("Ok. "));
+        now += 300;
+        QVERIFY(!engine.wantsAutoUppercase());            // "l", not "L": the word goes on
+        for (const QChar ch : QStringLiteral("lo")) engine.typeLetter(QString(ch));
+        QCOMPARE(backend.preedit, QStringLiteral("Hello"));
+        QCOMPARE(engine.currentWord(), QStringLiteral("Hello"));
+        engine.space();
+        QVERIFY2(backend.commits.join(QString()).endsWith(QStringLiteral("Hello")), qPrintable(backend.commits.join('|')));
+
+        // A client that kept the word: nothing is typed twice.
+        FakeBackend keeps;
+        Tastra::KeyboardController keepsController(keeps);
+        Tastra::TypingEngine kept(keepsController);
+        kept.setClockForTesting([&now] { return now; });
+        composing(keeps, kept, QStringLiteral("Ok "));
+        for (const QChar ch : QStringLiteral("hel")) kept.typeLetter(QString(ch));
+        kept.rememberCompositionBeforeDeactivation();
+        kept.resetInputContext();
+        kept.resetInputContext();
+        now += 300;
+        echo(kept, QStringLiteral("Ok hel"));
+        keeps.preedit.clear();
+        kept.typeLetter(QStringLiteral("l"));
+        QVERIFY2(!keeps.commits.join(QString()).contains(QStringLiteral("hell")) && keeps.preedit != QStringLiteral("hell"),
+                 qPrintable(keeps.commits.join('|') + QLatin1Char('/') + keeps.preedit));
+
+        // Something typed in between, or much later: nothing comes back.
+        FakeBackend late;
+        Tastra::KeyboardController lateController(late);
+        Tastra::TypingEngine slow(lateController);
+        slow.setClockForTesting([&now] { return now; });
+        composing(late, slow, QStringLiteral("Ok "));
+        for (const QChar ch : QStringLiteral("hel")) slow.typeLetter(QString(ch));
+        slow.rememberCompositionBeforeDeactivation();
+        slow.resetInputContext();
+        now += 5000;
+        slow.resetInputContext();
+        echo(slow, QStringLiteral("Other field "));
+        late.preedit.clear();
+        slow.typeLetter(QStringLiteral("x"));
+        QCOMPARE(late.preedit, QStringLiteral("x"));
+    }
+
     void compositionDoubleSpaceAndNextWord()
     {
         FakeBackend backend;

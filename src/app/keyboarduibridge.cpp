@@ -1511,6 +1511,12 @@ void KeyboardUiBridge::clearLearnedWords()
     Q_EMIT suggestionsChanged();
 }
 
+void KeyboardUiBridge::deactivateInputContext()
+{
+    m_typingEngine.rememberCompositionBeforeDeactivation();
+    resetInputContext();
+}
+
 void KeyboardUiBridge::resetInputContext()
 {
     cancelInlineFields();

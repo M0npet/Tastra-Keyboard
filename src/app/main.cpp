@@ -135,7 +135,8 @@ int main(int argc, char **argv)
         [&panel, &bridge](bool active) {
             // Every activation is a new client context (text-input version,
             // surrounding-text support, content type); never inherit the old one.
-            bridge.resetInputContext();
+            if (active) bridge.resetInputContext();
+            else bridge.deactivateInputContext();
             panel.setActive(active);
         });
 

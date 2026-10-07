@@ -71,6 +71,13 @@ public:
     void chooseSuggestion(const QString &word);
     void resetComposition();
     void resetInputContext();
+    // Called when the text input is switched off. If a word was still being
+    // composed, KWin did not commit it (it does on a touch or focus change,
+    // and resets us first), so the client may throw it away: GTK 3 does when
+    // Firefox switches its text input off and on again. The first surrounding
+    // text after the next activation (within a short time) puts it back as a
+    // preedit when the client did not keep it.
+    void rememberCompositionBeforeDeactivation();
     // Commits whatever is held in the preedit as-is (before cursor moves,
     // paste, language switch). resetComposition() instead drops it.
     void commitComposition();
@@ -109,6 +116,7 @@ private:
     // The word before the cursor for predictions and corrections: the
     // previous word, or a corrected word still held with its space.
     QString contextWord() const;
+    bool lostWordResumes() const;
     // The other readings of the last glide, while nothing has happened since.
     bool glideAlternativesShown() const;
     void dropGlideAlternatives() { m_glideAlternatives.clear(); m_glidedWord.clear(); }
@@ -146,6 +154,9 @@ private:
     QString m_currentWord;
     QString m_previousWord;
     QString m_wordBeforePeriod;          // restored when a double-space period is undone
+    QString m_lostWord;                  // composed when the text input was switched off
+    QString m_lostHead;                  // its first letter, if that was committed
+    qint64 m_lostAtMs = 0;
     QStringList m_suggestions;
     QStringList m_glideTrace;
     QStringList m_glideAlternatives;   // Gboard: other readings of the last glide

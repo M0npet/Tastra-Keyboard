@@ -1621,3 +1621,40 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   while a toolkit may report a trimmed one; data control "finished" leaves
   the last text (KWin does not send it in practice).
 
+## 2026-10-07 — 0.7.7 the input-method path against KWin, GTK 3 and Firefox
+
+- Third independent review, with a simulator that drives the real
+  TypingEngine and KWin backend against a model of KWin master
+  (inputmethod.cpp, textinput_v3.cpp), GTK 3 imwayland.c and Firefox
+  IMContextWrapper.cpp (all read from source). Plain typing in an empty
+  claude.ai composer is right in the model; every failure needs a
+  client-side event between letters.
+- Fixed (checked in KWin's source myself): KWin's InputMethod keeps the
+  commit argument of the last preedit_string (m_pendingText) and commits it
+  in commitPendingText on a touch in the active window (input.cpp touchDown
+  filter), a hardware key without keyboard grab, or before the keyboard
+  focus changes; commitString does not clear it. After every commit the
+  backend now sends preedit_string("", "") when its last preedit was not
+  empty. Simulator: "hello." + window switch gave "hello.hello", "Hello" +
+  Return (claude.ai sends) + window switch left "ello"; both right now.
+- Fixed: Firefox disables and re-enables its text input without a focus
+  change when field attributes change (IMContextWrapper.cpp, "bounce");
+  GTK 3 drops the preedit on disable, and KWin, deactivating the input
+  method, clears its pending text without committing it. The engine
+  remembers a word still composed at deactivate (KWin resets us before
+  deactivating when it commits the word itself, so a live composition at
+  deactivate means nobody kept it) and composes it again on the next letter
+  if, within 2 s and nothing typed since, the client's text does not hold
+  it; auto-capitals are held back meanwhile. Simulator: "h" | bounce | "i"
+  gave "I" (pre-1.2.1 shape, the reported symptom), "hi" | bounce | "s"
+  gave "Hs", a stale cache after the bounce "HIs"; all "His" now.
+- Not fixed: a suggestion tap on a word that was not composed and not yet
+  confirmed by the client goes out as BackSpace keys + commit, which GTK
+  applies in the wrong order (simulator "HelpHelpful"); Firefox ending a
+  composition itself without a KWin reset (a script on the page) makes KWin
+  re-send our preedit. Both need the device to see whether they happen.
+- Focus loss (B): nothing in our code moves focus; the panel height changed
+  with ?123 when the number row was on (the edge moved under the finger):
+  now constant, the symbol rows share the space. The emoji row likewise
+  appears at once (frequent emoji) instead of after the first emoji.
+
