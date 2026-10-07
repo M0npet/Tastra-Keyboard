@@ -4,6 +4,19 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.6
+- Undo, Redo and Select all in the text-editing panel follow your keyboard
+  layout (Plasma 6.5+): with a German layout Undo was sent as Ctrl+Y.
+- Pasting a long text no longer closes the keyboard; it goes out in pieces.
+- Passwords copied from a password manager (KeePassXC and others) are not
+  kept in the clipboard history and not shown on the chip; Paste still works.
+- Paste never inserts the previously copied text while the new one is still
+  coming.
+- The text-editing panel fits the keyboard when the tablet is upright.
+- In terminals the panel only copies (Ctrl+Shift+C): Ctrl+C or Ctrl+Z would
+  interrupt the running program. Copy and Cut are enabled only when the
+  application reports a selection.
+
 ## 0.7.5
 - `don't`, `it's`, `кто-то` typed with the apostrophe or hyphen from the
   symbols page stay one word for suggestions and autocorrect (LatinIME's word

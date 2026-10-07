@@ -1598,3 +1598,26 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   the user typed in lowercase ("haben sie" shows "Sie"); learned pairs keep
   no case.
 
+## 2026-10-07 — 0.7.6 fixes from a review of the clipboard and editing code
+
+- Second independent review (0.7.0-0.7.3), with probes: the test
+  compositor, xkbcommon keymaps (us/de/fr: evdev KEY_Z is "y" on de, KEY_A
+  "q" on fr), the real QML at 800x1280, 1200x1920, 1280x800.
+- Fixed: shortcuts as keysyms when KWin offers fake input 6 (KWin commit
+  a8aa9184, 2025-09-18: keycodeFromKeysym in the current layout, modifiers
+  kept); commit_string split at 3000 bytes between characters (sandbox
+  libwayland 1.22 aborted the client on a 4 KiB message); data control
+  clears the old text when a new selection is read, swaps sources without an
+  empty selection (test compositor counts empty selections), bounds writes
+  to 0.5 s with a non-blocking pipe; x-kde-passwordManagerHint makes the
+  text sensitive (no history, no chip, dots in the panel); previews of 300
+  characters (4 MB chip layout measured at 1.4 s); editing panel rows from
+  the panel height (portrait 3 rows x 5 columns instead of 5 x 3 that ran
+  off the panel); Copy/Cut need a reported selection when the application
+  reports text; terminal purpose: Copy = Ctrl+Shift+C, nothing else.
+- Also: the translator is removed from QCoreApplication while reloading;
+  platform objects are detached on aboutToQuit.
+- Not changed: the fallback Cut (no fake input) deletes the whole selection
+  while a toolkit may report a trimmed one; data control "finished" leaves
+  the last text (KWin does not send it in practice).
+
