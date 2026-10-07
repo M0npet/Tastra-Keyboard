@@ -977,7 +977,9 @@ private Q_SLOTS:
         QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("selectButton")));
         QQuickItem *select = findNamed(view.rootObject(), QStringLiteral("selectButton"));
         QQuickItem *selectAll = findNamed(view.rootObject(), QStringLiteral("selectAllButton"));
-        QVERIFY(copy->isEnabled());                                          // the app copies its own selection
+        QVERIFY(!copy->isEnabled());                                         // the app reports nothing selected
+        bridge.setSurroundingText(QStringLiteral("Hello "), 5, 0);           // "Hello" selected
+        QTRY_VERIFY(copy->isEnabled());                                      // the app copies its own selection
         QTest::qWait(50);                                                    // the grid lays the new buttons out
         const QPointF selectAt = select->mapToScene(QPointF(select->width() / 2, select->height() / 2));
         QVERIFY2(selectAt.y() < view.height() && selectAt.y() > 0, qPrintable(QString::number(selectAt.y()) + QLatin1Char('/') + QString::number(view.height())));

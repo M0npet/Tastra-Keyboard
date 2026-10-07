@@ -102,10 +102,12 @@ class FakeClipboard final : public Tastra::SystemClipboard
 {
 public:
     QString text() const override { return m_text; }
-    void setText(const QString &text) override { m_text = text; ++sets; Q_EMIT changed(); }
+    bool isSensitive() const override { return sensitive; }
+    void setText(const QString &text) override { m_text = text; sensitive = false; ++sets; Q_EMIT changed(); }
     void clear() override { m_text.clear(); Q_EMIT changed(); }
-    void copiedElsewhere(const QString &text) { m_text = text; Q_EMIT changed(); }
+    void copiedElsewhere(const QString &text, bool secret = false) { m_text = text; sensitive = secret; Q_EMIT changed(); }
     int sets = 0;
+    bool sensitive = false;
 
 private:
     QString m_text;
@@ -180,6 +182,73 @@ private Q_SLOTS:
         QVERIFY(bridge.clipboardHistory().contains(QStringLiteral("from Firefox")));
         QCOMPARE(bridge.clipboardSuggestion(), QStringLiteral("from Firefox"));
         bridge.setSystemClipboard(nullptr);                         // back to QClipboard
+    }
+
+    void passwordsFromAPasswordManagerAreNeitherKeptNorShown()
+    {
+        // KeePassXC & co. mark secrets (x-kde-passwordManagerHint): Paste
+        // still inserts them, but no history entry, no chip, no visible text.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        FakeClipboard clipboard;
+        bridge.setSystemClipboard(&clipboard);
+        clipboard.copiedElsewhere(QStringLiteral("s3cret-pass"), true);
+        QVERIFY(bridge.hasClipboardText());
+        QVERIFY(!bridge.clipboardHistory().contains(QStringLiteral("s3cret-pass")));
+        QVERIFY(bridge.clipboardSuggestion().isEmpty());
+        QVERIFY(!bridge.clipboardPreview().contains(QStringLiteral("s3cret")));
+        bridge.pasteClipboard();
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("s3cret-pass"));
+
+        // A long text: the chip and the panel show its start only.
+        const QString page = QString(QStringLiteral("0123456789")).repeated(100000);
+        clipboard.copiedElsewhere(page);
+        QVERIFY(bridge.clipboardPreview().size() <= 300);
+        QCOMPARE(bridge.property("clipboardSuggestion").toString().size(), 300);
+        QCOMPARE(bridge.clipboardSuggestion(), page);                // what a tap pastes
+    }
+
+    void terminalsGetTheirOwnShortcutsAndCutNeedsASelection()
+    {
+        using namespace Tastra::EvdevKey;
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        FakeClipboard clipboard;
+        bridge.setSystemClipboard(&clipboard);
+        FakeChords chords;
+        bridge.setKeyChordSender(&chords);
+        // An application that reports its text: Copy and Cut follow its
+        // selection (Cut with nothing selected cuts a line in some editors).
+        bridge.setSurroundingText(QStringLiteral("Hello world"), 5, 5);
+        QVERIFY(!bridge.canCopy() && !bridge.canCut());
+        bridge.cutSelection();
+        QVERIFY(chords.sent.isEmpty());
+        bridge.setSurroundingText(QStringLiteral("Hello world"), 0, 5);
+        QVERIFY(bridge.canCopy() && bridge.canCut());
+        bridge.resetInputContext();
+        QVERIFY(bridge.canCopy());                                   // nothing reported yet
+
+        // A terminal (content purpose 12): Ctrl+C would interrupt the
+        // program, Ctrl+Z suspend it; Copy is Ctrl+Shift+C, nothing else.
+        bridge.setContentType(0, 12);
+        QVERIFY(!bridge.canSelect() && !bridge.canCut());
+        QVERIFY(bridge.canCopy());
+        bridge.copySelection();
+        QCOMPARE(chords.sent.last(), (QPair<QList<int>, int>({LeftCtrl, LeftShift}, C)));
+        const qsizetype sent = chords.sent.size();
+        bridge.cutSelection();
+        bridge.undo();
+        bridge.redo();
+        bridge.selectAll();
+        bridge.toggleSelectMode();
+        QCOMPARE(chords.sent.size(), sent);
+        QVERIFY(!bridge.selectMode());
+        bridge.setContentType(0, 0);
+        QVERIFY(bridge.canSelect());
     }
 
     void selectSelectAllCopyAndCutAsShortcuts()

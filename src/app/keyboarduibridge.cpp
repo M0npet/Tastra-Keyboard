@@ -123,7 +123,8 @@ void KeyboardUiBridge::setSystemClipboard(SystemClipboard *clipboard)
     captureClipboard();
     connect(m_clipboard, &SystemClipboard::changed, this, [this]() {
         captureClipboard();
-        m_freshClipboard = clipboardText().trimmed();
+        // A password manager's secret is pasted on request only.
+        m_freshClipboard = m_clipboard->isSensitive() ? QString() : clipboardText().trimmed();
         m_freshClipboardMs = QDateTime::currentMSecsSinceEpoch();
         Q_EMIT clipboardChanged();
         Q_EMIT suggestionsChanged();
@@ -770,13 +771,11 @@ void KeyboardUiBridge::cycleUiLanguage()
 
 void KeyboardUiBridge::applyUiLanguage()
 {
-    if (!m_translator) {
-        m_translator = new UiTranslator(this);          // removes itself when destroyed
-        QCoreApplication::installTranslator(m_translator);
-    }
-    m_translator->loadLanguage(UiTranslator::resolve(m_uiLanguage));
-    // Re-install so QCoreApplication sends LanguageChange to everyone.
+    if (!m_translator) m_translator = new UiTranslator(this);   // removes itself when destroyed
+    // Out of QCoreApplication while its table changes (the voice thread may
+    // translate meanwhile); installing it again sends LanguageChange.
     QCoreApplication::removeTranslator(m_translator);
+    m_translator->loadLanguage(UiTranslator::resolve(m_uiLanguage));
     QCoreApplication::installTranslator(m_translator);
     if (m_qmlEngine) m_qmlEngine->retranslate();
     Q_EMIT uiLanguageChanged();
@@ -829,6 +828,22 @@ QString KeyboardUiBridge::clipboardText() const
 {
     return m_clipboard ? m_clipboard->text() : QString();
 }
+
+namespace
+{
+constexpr qsizetype PreviewLength = 300;
+}
+
+QString KeyboardUiBridge::clipboardPreview() const
+{
+    if (!m_clipboard || m_clipboard->text().isEmpty()) return {};
+    if (m_clipboard->isSensitive()) return QString(8, QChar(0x2022));
+    return m_clipboard->text().left(PreviewLength);
+}
+
+bool KeyboardUiBridge::hasClipboardText() const { return m_clipboard && !m_clipboard->text().isEmpty(); }
+
+QString KeyboardUiBridge::clipboardSuggestionPreview() const { return clipboardSuggestion().left(PreviewLength); }
 
 QStringList KeyboardUiBridge::clipboardHistory() const { return m_clipboardHistory.items(); }
 bool KeyboardUiBridge::isClipboardPinned(const QString &text) const { return m_clipboardHistory.isPinned(text); }
@@ -1231,6 +1246,7 @@ QString KeyboardUiBridge::endGlidePath(const QVariantList &points, const QVarian
 
 void KeyboardUiBridge::captureClipboard()
 {
+    if (m_clipboard && m_clipboard->isSensitive()) return;   // never kept
     m_clipboardHistory.capture(clipboardText());
 }
 
@@ -1291,13 +1307,13 @@ void KeyboardUiBridge::setSelectMode(bool on)
 
 void KeyboardUiBridge::toggleSelectMode()
 {
-    if (!m_chords) return;
+    if (!canSelect()) return;
     setSelectMode(!m_selectMode);
 }
 
 void KeyboardUiBridge::selectAll()
 {
-    if (!m_chords) return;
+    if (!canSelect()) return;
     settleForShortcut();
     m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::A);
     typingStateDidChange();
@@ -1305,7 +1321,7 @@ void KeyboardUiBridge::selectAll()
 
 void KeyboardUiBridge::undo()
 {
-    if (!m_chords || m_secureInput) return;
+    if (!canSelect() || m_secureInput) return;
     settleForShortcut();
     m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::Z);
     typingStateDidChange();
@@ -1313,7 +1329,7 @@ void KeyboardUiBridge::undo()
 
 void KeyboardUiBridge::redo()
 {
-    if (!m_chords || m_secureInput) return;
+    if (!canSelect() || m_secureInput) return;
     settleForShortcut();
     m_chords->send({EvdevKey::LeftCtrl, EvdevKey::LeftShift}, EvdevKey::Z);
     typingStateDidChange();
@@ -1328,7 +1344,9 @@ void KeyboardUiBridge::copySelection()
     if (m_secureInput) return;
     if (m_chords) {
         settleForShortcut();
-        m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::C);
+        // Ctrl+C would interrupt the program running in a terminal.
+        if (m_terminal) m_chords->send({EvdevKey::LeftCtrl, EvdevKey::LeftShift}, EvdevKey::C);
+        else m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::C);
         return;
     }
     if (m_selectedText.isEmpty() || !m_clipboard) return;
@@ -1337,7 +1355,7 @@ void KeyboardUiBridge::copySelection()
 
 void KeyboardUiBridge::cutSelection()
 {
-    if (m_secureInput) return;
+    if (!canCut()) return;
     if (m_chords) {
         settleForShortcut();
         m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::X);
@@ -1496,8 +1514,10 @@ void KeyboardUiBridge::resetInputContext()
         m_secureInput = false;
         Q_EMIT inputContextChanged();
     }
-    if (!m_selectedText.isEmpty()) {
+    if (!m_selectedText.isEmpty() || m_surroundingKnown || m_terminal) {
         m_selectedText.clear();
+        m_surroundingKnown = false;
+        m_terminal = false;
         Q_EMIT selectionChanged();
     }
     setSelectMode(false);
@@ -1514,8 +1534,11 @@ void KeyboardUiBridge::setSurroundingText(const QString &text, int cursorByte, i
     const int from = qBound(0, qMin(cursorByte, anchorByte), int(utf8.size()));
     const int to = qBound(0, qMax(cursorByte, anchorByte), int(utf8.size()));
     const QString selected = cursorByte >= 0 && anchorByte >= 0 ? QString::fromUtf8(utf8.mid(from, to - from)) : QString();
-    if (selected != m_selectedText) {
+    // The application reports its selection: Copy and Cut follow it.
+    const bool known = cursorByte >= 0 && anchorByte >= 0;
+    if (selected != m_selectedText || known != m_surroundingKnown) {
         m_selectedText = selected;
+        m_surroundingKnown = known;
         Q_EMIT selectionChanged();
     }
     const bool uppercaseBefore = uppercase();
@@ -1547,6 +1570,10 @@ void KeyboardUiBridge::setContentType(quint32 hint, quint32 purpose)
         : QStringLiteral("text");
     const bool purposeChanged = purposeName != m_inputPurpose;
     m_inputPurpose = purposeName;
+    if (m_terminal != (purpose == Terminal)) {
+        m_terminal = purpose == Terminal;
+        Q_EMIT selectionChanged();
+    }
 
     const bool uppercaseBefore = uppercase();
     m_typingEngine.setSensitiveContext(secure || restricted);

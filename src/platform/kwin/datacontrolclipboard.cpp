@@ -3,6 +3,7 @@
 #include "datacontrolclipboard.h"
 #include "waylanddisplay.h"
 
+#include <QElapsedTimer>
 #include <QLoggingCategory>
 #include <QSocketNotifier>
 #include <QTimer>
@@ -27,6 +28,7 @@ namespace
 
 // In order of preference (what Qt and GTK offer for text).
 const char *const TextMimes[] = {"text/plain;charset=utf-8", "UTF8_STRING", "text/plain", "TEXT", "STRING"};
+const char *const PasswordManagerHint = "x-kde-passwordManagerHint";
 constexpr qsizetype MaxClipboardBytes = 4 * 1024 * 1024;
 constexpr int ReadTimeoutMs = 3000;
 
@@ -35,13 +37,19 @@ void seatName(void *, wl_seat *, const char *) {}
 const wl_seat_listener seatListener = {seatCapabilities, seatName};
 
 // Writes all of `data` to the reader's pipe; a stuck reader cannot hold the
-// keyboard for more than a second per chunk.
+// keyboard for more than half a second in all (the pipe is made
+// non-blocking, so a write never waits for the reader to drain it).
 void writeAll(int fd, const QByteArray &data)
 {
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+    QElapsedTimer clock;
+    clock.start();
     qsizetype done = 0;
     while (done < data.size()) {
+        const qint64 left = 500 - clock.elapsed();
+        if (left <= 0) break;
         pollfd pfd{fd, POLLOUT, 0};
-        if (poll(&pfd, 1, 1000) <= 0) break;
+        if (poll(&pfd, 1, int(left)) <= 0) break;
         const ssize_t n = ::write(fd, data.constData() + done, size_t(data.size() - done));
         if (n < 0) {
             if (errno == EINTR || errno == EAGAIN) continue;
@@ -172,6 +180,7 @@ void DataControlClipboard::takeSelection(ext_data_control_offer_v1 *offer)
     stopReading();
     if (m_selection && m_selection != offer && m_offers.remove(m_selection)) ext_data_control_offer_v1_destroy(m_selection);
     m_selection = offer;
+    m_sensitive = false;
     if (!offer) {
         setTextFromOffer(QString());
         return;
@@ -181,6 +190,7 @@ void DataControlClipboard::takeSelection(ext_data_control_offer_v1 *offer)
         setTextFromOffer(QString::fromUtf8(m_sourceData));
         return;
     }
+    m_sensitive = mimes.contains(QLatin1String(PasswordManagerHint));
     const char *chosen = nullptr;
     for (const char *mime : TextMimes) {
         if (mimes.contains(QLatin1String(mime))) {
@@ -192,6 +202,9 @@ void DataControlClipboard::takeSelection(ext_data_control_offer_v1 *offer)
         setTextFromOffer(QString());
         return;
     }
+    // Until the new text has arrived the old one is gone: Paste must not
+    // insert what was copied before (nor after a failed read).
+    if (!m_text.isEmpty()) setTextFromOffer(QString());
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) != 0) return;
     // Only our end is non-blocking: the writer gets its own end as it is.
@@ -262,14 +275,18 @@ void DataControlClipboard::setTextFromOffer(const QString &text)
 void DataControlClipboard::setText(const QString &text)
 {
     if (!m_manager || !m_device) return;
-    if (m_source) ext_data_control_source_v1_destroy(m_source);
+    // The new source replaces the old one in one step: destroying the old
+    // one first would empty the clipboard for everyone in between.
+    ext_data_control_source_v1 *previous = m_source;
     m_sourceData = text.toUtf8();
     m_source = ext_data_control_manager_v1_create_data_source(m_manager);
     ext_data_control_source_v1_add_listener(m_source, &sourceListener, this);
     ext_data_control_source_v1_offer(m_source, m_ownMime.constData());
     for (const char *mime : TextMimes) ext_data_control_source_v1_offer(m_source, mime);
     ext_data_control_device_v1_set_selection(m_device, m_source);
+    if (previous) ext_data_control_source_v1_destroy(previous);
     wl_display_flush(m_display);
+    m_sensitive = false;
     m_text = text;                         // the selection event confirms it
 }
 

@@ -92,6 +92,9 @@ previous binary is kept for rolling back.
   text-editing panel sends Select (Shift+arrows), Select all, Copy and Cut as
   keyboard input through KDE's fake-input protocol (the one KDE Connect uses).
   Where that protocol is missing, Copy and Cut work on text selected by touch.
+  Plasma 6.5 and newer take the shortcuts as key symbols, so they follow your
+  layout; older KWin gets US key positions (with QWERTZ, Undo would arrive as
+  Ctrl+Y). In terminals only Copy is sent (as Ctrl+Shift+C).
 - The clipboard is read and set through KWin's data-control protocol (as
   Klipper does), because KWin offers the regular Wayland clipboard only to the
   focused window, which an on-screen keyboard never is. Needs Plasma 6.4 or

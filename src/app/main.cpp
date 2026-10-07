@@ -78,6 +78,12 @@ int main(int argc, char **argv)
     const auto keyChords = Tastra::KWin::FakeInputKeyChords::createForApplication();
     if (keyChords) bridge.setKeyChordSender(keyChords.get());
 #endif
+    // The platform objects above go before the view and the bridge: let go
+    // of them first, so nothing reads a destroyed clipboard on the way out.
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &bridge, [&bridge]() {
+        bridge.setKeyChordSender(nullptr);
+        bridge.setSystemClipboard(nullptr);
+    });
     view.setSource(QUrl(QStringLiteral("qrc:/tastra/Main.qml")));
 
     if (view.status() == QQuickView::Error) {

@@ -68,6 +68,70 @@ private:
     QTimer m_timer;
 };
 
+// Another application's clipboard, written by hand: offers the given types
+// and answers a read with `answer` (or never, when `answers` is false).
+class RawSource
+{
+public:
+    RawSource(wl_display *display, const std::vector<std::string> &mimes, const QByteArray &answer, bool answers = true)
+        : m_display(display), m_answer(answer), m_answers(answers)
+    {
+        m_registry = wl_display_get_registry(display);
+        static const wl_registry_listener listener = {
+            [](void *data, wl_registry *r, uint32_t name, const char *interface, uint32_t) {
+                auto *self = static_cast<RawSource *>(data);
+                if (std::string(interface) == ext_data_control_manager_v1_interface.name)
+                    self->m_manager = static_cast<ext_data_control_manager_v1 *>(wl_registry_bind(r, name, &ext_data_control_manager_v1_interface, 1));
+                if (std::string(interface) == wl_seat_interface.name)
+                    self->m_seat = static_cast<wl_seat *>(wl_registry_bind(r, name, &wl_seat_interface, 1));
+            },
+            [](void *, wl_registry *, uint32_t) {}};
+        wl_registry_add_listener(m_registry, &listener, this);
+        wl_display_roundtrip(display);
+        m_device = ext_data_control_manager_v1_get_data_device(m_manager, m_seat);
+        m_source = ext_data_control_manager_v1_create_data_source(m_manager);
+        static const ext_data_control_source_v1_listener sourceListener = {
+            [](void *data, ext_data_control_source_v1 *, const char *, int32_t fd) {
+                auto *self = static_cast<RawSource *>(data);
+                if (self->m_answers) {
+                    if (::write(fd, self->m_answer.constData(), size_t(self->m_answer.size())) < 0) {}
+                    ::close(fd);
+                } else {
+                    self->m_heldFds.push_back(fd);     // a reader that never gets an answer
+                }
+            },
+            [](void *, ext_data_control_source_v1 *) {}};
+        ext_data_control_source_v1_add_listener(m_source, &sourceListener, this);
+        for (const std::string &mime : mimes) ext_data_control_source_v1_offer(m_source, mime.c_str());
+    }
+    ~RawSource()
+    {
+        for (int fd : m_heldFds) ::close(fd);
+        ext_data_control_source_v1_destroy(m_source);
+        ext_data_control_device_v1_destroy(m_device);
+        ext_data_control_manager_v1_destroy(m_manager);
+        wl_seat_destroy(m_seat);
+        wl_registry_destroy(m_registry);
+        wl_display_flush(m_display);
+    }
+    void copy()
+    {
+        ext_data_control_device_v1_set_selection(m_device, m_source);
+        wl_display_flush(m_display);
+    }
+
+private:
+    wl_display *m_display;
+    QByteArray m_answer;
+    bool m_answers;
+    std::vector<int> m_heldFds;
+    wl_registry *m_registry = nullptr;
+    ext_data_control_manager_v1 *m_manager = nullptr;
+    wl_seat *m_seat = nullptr;
+    ext_data_control_device_v1 *m_device = nullptr;
+    ext_data_control_source_v1 *m_source = nullptr;
+};
+
 }
 
 class DataControlClipboardTest : public QObject
@@ -167,11 +231,83 @@ private Q_SLOTS:
         wl_display_flush(display);
     }
 
+    void copyingAgainNeverEmptiesTheClipboard()
+    {
+        // The new source replaces the old one in one step (destroying the old
+        // one first emptied the clipboard for everyone in between).
+        FakeCompositor compositor;
+        Connection appConnection(compositor.socketName()), keyboardConnection(compositor.socketName());
+        auto app = Tastra::KWin::DataControlClipboard::create(appConnection.display());
+        auto keyboard = Tastra::KWin::DataControlClipboard::create(keyboardConnection.display());
+        QVERIFY(app && keyboard);
+        keyboard->setText(QStringLiteral("A"));
+        QTRY_COMPARE(app->text(), QStringLiteral("A"));
+        const int emptyBefore = compositor.emptySelectionsSent();
+        keyboard->setText(QStringLiteral("B"));
+        QTRY_COMPARE(app->text(), QStringLiteral("B"));
+        QCOMPARE(compositor.emptySelectionsSent(), emptyBefore);
+    }
+
+    void aPasswordIsMarkedSensitive()
+    {
+        // KeePassXC marks secrets with x-kde-passwordManagerHint (Klipper
+        // keeps them out of its history): the keyboard reads the text for
+        // Paste but flags it.
+        FakeCompositor compositor;
+        Connection appConnection(compositor.socketName()), keyboardConnection(compositor.socketName());
+        auto keyboard = Tastra::KWin::DataControlClipboard::create(keyboardConnection.display());
+        QVERIFY(keyboard);
+        RawSource secret(appConnection.display(), {"text/plain;charset=utf-8", "x-kde-passwordManagerHint"}, "s3cret");
+        secret.copy();
+        QTRY_COMPARE(keyboard->text(), QStringLiteral("s3cret"));
+        QVERIFY(keyboard->isSensitive());
+        RawSource plain(appConnection.display(), {"text/plain;charset=utf-8"}, "hello");
+        plain.copy();
+        QTRY_COMPARE(keyboard->text(), QStringLiteral("hello"));
+        QVERIFY(!keyboard->isSensitive());
+    }
+
+    void theOldTextIsGoneWhileTheNewOneIsRead()
+    {
+        // Paste must not insert what was copied before when the new text is
+        // slow to come or never comes.
+        FakeCompositor compositor;
+        Connection appConnection(compositor.socketName()), keyboardConnection(compositor.socketName());
+        auto app = Tastra::KWin::DataControlClipboard::create(appConnection.display());
+        auto keyboard = Tastra::KWin::DataControlClipboard::create(keyboardConnection.display());
+        QVERIFY(app && keyboard);
+        app->setText(QStringLiteral("old text"));
+        QTRY_COMPARE(keyboard->text(), QStringLiteral("old text"));
+        RawSource stuck(appConnection.display(), {"text/plain;charset=utf-8"}, QByteArray(), false);
+        stuck.copy();
+        QTRY_VERIFY_WITH_TIMEOUT(keyboard->text().isEmpty(), 1000);    // well before the 3 s read timeout
+    }
+
+    void editingShortcutsGoThroughFakeInputAsKeysyms()
+    {
+        // KWin 6.5+: keysyms, which KWin looks up in the user's layout, so
+        // Ctrl+Z stays Undo with a German layout (Z is evdev KEY_Y there).
+        FakeCompositor compositor;
+        Connection connection(compositor.socketName());
+        auto chords = Tastra::KWin::FakeInputKeyChords::create(connection.display());
+        QVERIFY(chords);
+        chords->send({Tastra::EvdevKey::LeftCtrl}, Tastra::EvdevKey::Z);
+        chords->send({Tastra::EvdevKey::LeftCtrl, Tastra::EvdevKey::LeftShift}, Tastra::EvdevKey::Z);
+        chords->send({Tastra::EvdevKey::LeftShift}, Tastra::EvdevKey::Left);
+        using Key = std::pair<uint32_t, bool>;
+        const std::vector<Key> expected = {{0xffe3, true}, {0x7a, true}, {0x7a, false}, {0xffe3, false},
+                                           {0xffe3, true}, {0xffe1, true}, {0x7a, true}, {0x7a, false}, {0xffe1, false}, {0xffe3, false},
+                                           {0xffe1, true}, {0xff51, true}, {0xff51, false}, {0xffe1, false}};
+        QTRY_VERIFY(compositor.fakeKeysyms() == expected);
+        QVERIFY(compositor.fakeKeys().empty());
+        QVERIFY(compositor.fakeInputAuthenticated());
+    }
+
     void editingShortcutsGoThroughFakeInput()
     {
-        // Ctrl+A as KDE Connect sends keys: modifier down, key down and up,
-        // modifier up, after authenticating.
-        FakeCompositor compositor;
+        // Older KWin (version 5): key codes, as KDE Connect sends keys:
+        // modifier down, key down and up, modifier up, after authenticating.
+        FakeCompositor compositor(true, 5);
         Connection connection(compositor.socketName());
         auto chords = Tastra::KWin::FakeInputKeyChords::create(connection.display());
         QVERIFY(chords);

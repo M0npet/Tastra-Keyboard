@@ -16,7 +16,10 @@ public:
         ++commitCount;
         lastSerial = serial;
         lastText = text;
+        if (keepAll) allText.append(text);
     }
+    bool keepAll = false;
+    QStringList allText;
 
     void keySym(
         quint32 serial,
@@ -141,6 +144,29 @@ private Q_SLOTS:
         QCOMPARE(context.commitCount, 1);
         QCOMPARE(context.lastSerial, quint32(42));
         QCOMPARE(context.lastText, QStringLiteral("a"));
+    }
+
+    void aLongPasteIsCommittedInPieces()
+    {
+        // libwayland (before 1.23) disconnects a client whose message is over
+        // 4096 bytes; a pasted page must not take the keyboard down.
+        Tastra::KWin::KWinInputMethodV1Backend backend;
+        FakeInputMethodV1Context context;
+        backend.setContext(&context);
+        QString text;
+        for (int i = 0; i < 1500; ++i) text += QStringLiteral("aä€😀");   // 1, 2, 3 and 4 UTF-8 bytes
+        context.keepAll = true;
+        backend.commitText(text);
+        QVERIFY(context.commitCount > 1);
+        QCOMPARE(context.allText.join(QString()), text);
+        for (const QString &piece : std::as_const(context.allText)) {
+            QVERIFY(piece.toUtf8().size() <= 3000);
+            QVERIFY(!piece.front().isLowSurrogate() && !piece.back().isHighSurrogate());
+        }
+        context.allText.clear();
+        context.commitCount = 0;
+        backend.commitText(QStringLiteral("short"));
+        QCOMPARE(context.commitCount, 1);
     }
 
     void commitWithoutContextIsIgnored()

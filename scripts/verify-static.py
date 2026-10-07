@@ -111,7 +111,7 @@ for token in (
     'onLongPressed: keyboardBridge.openLanguagePanel()',
     'keyboardBridge.alternateForKey(modelData)',
     'keyboardBridge.tapAlternateText(alternates[0])',
-    'keyboardBridge.clipboardText',
+    'keyboardBridge.hasClipboardText',
     'keyboardBridge.emojiSearch',
     'keyboardBridge.suggestions',
     'keyboardBridge.selectSuggestion',

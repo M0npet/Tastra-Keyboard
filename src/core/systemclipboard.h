@@ -19,6 +19,10 @@ public:
     using QObject::QObject;
 
     virtual QString text() const = 0;
+    // A password manager's secret (KeePassXC and others mark it with the
+    // x-kde-passwordManagerHint type, which Klipper honours): pasted on
+    // request, but never kept in history or shown.
+    virtual bool isSensitive() const { return false; }
     // Owns the clipboard with `text` (Copy/Cut in the text-editing panel).
     virtual void setText(const QString &text) = 0;
     virtual void clear() = 0;

@@ -42,7 +42,26 @@ void KWinInputMethodV1Backend::commitText(const QString &text)
 
     // Trace lengths only: typed text never reaches the log.
     qCDebug(lcKWinBackend) << "commit_string serial" << m_latestSerial << "utf8 bytes" << text.toUtf8().size();
-    m_context->commitString(m_latestSerial, text);
+    // A Wayland message is limited (libwayland before 1.23: 4096 bytes, any
+    // version: 64 KiB), and a client that sends a larger one is disconnected:
+    // a pasted page goes out in pieces of at most MaxCommitBytes, cut between
+    // characters. The application joins them; a deletion sent before applies
+    // with the first.
+    constexpr qsizetype MaxCommitBytes = 3000;
+    qsizetype start = 0, bytes = 0;
+    for (qsizetype i = 0; i < text.size(); ++i) {
+        const QChar ch = text.at(i);
+        const bool pair = ch.isHighSurrogate() && i + 1 < text.size() && text.at(i + 1).isLowSurrogate();
+        const qsizetype size = pair ? 4 : ch.unicode() < 0x80 ? 1 : ch.unicode() < 0x800 ? 2 : 3;
+        if (bytes + size > MaxCommitBytes) {
+            m_context->commitString(m_latestSerial, text.mid(start, i - start));
+            start = i;
+            bytes = 0;
+        }
+        bytes += size;
+        if (pair) ++i;
+    }
+    if (start < text.size() || text.isEmpty()) m_context->commitString(m_latestSerial, text.mid(start));
 }
 
 bool KWinInputMethodV1Backend::deleteBeforeCursor(const QString &text)

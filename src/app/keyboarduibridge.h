@@ -57,7 +57,9 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool typedWordUnknown READ typedWordUnknown NOTIFY suggestionsChanged)
     Q_PROPERTY(QString saveWordCandidate READ saveWordCandidate NOTIFY suggestionsChanged)
     // Gboard: just-copied text offered for pasting (one minute, idle strip).
-    Q_PROPERTY(QString clipboardSuggestion READ clipboardSuggestion NOTIFY suggestionsChanged)
+    // What the chip shows of the just-copied text (the start of it; a long
+    // text would take the layout seconds). Tapping it pastes all of it.
+    Q_PROPERTY(QString clipboardSuggestion READ clipboardSuggestionPreview NOTIFY suggestionsChanged)
     Q_PROPERTY(QStringList userWords READ userWords NOTIFY userWordsChanged)
     // "text", "email", "url", "number" or "phone" — drives Gboard-like layouts.
     Q_PROPERTY(QString inputPurpose READ inputPurpose NOTIFY inputContextChanged)
@@ -112,11 +114,14 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool clipboardHistoryEnabled READ clipboardHistoryEnabled WRITE setClipboardHistoryEnabled NOTIFY clipboardChanged)
 
     Q_PROPERTY(QString clipboardText READ clipboardText NOTIFY clipboardChanged)
+    Q_PROPERTY(QString clipboardPreview READ clipboardPreview NOTIFY clipboardChanged)
+    Q_PROPERTY(bool hasClipboardText READ hasClipboardText NOTIFY clipboardChanged)
     // Text selected in the application (for Copy / Cut).
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY selectionChanged)
     // Copy / Cut possible: a reported selection, or the editing shortcuts
     // (KWin fake input) to let the application copy its own selection.
     Q_PROPERTY(bool canCopy READ canCopy NOTIFY selectionChanged)
+    Q_PROPERTY(bool canCut READ canCut NOTIFY selectionChanged)
     // Gboard's Select: the arrow keys extend the selection (Shift+arrows).
     Q_PROPERTY(bool canSelect READ canSelect NOTIFY selectionChanged)
     Q_PROPERTY(bool selectMode READ selectMode NOTIFY selectionChanged)
@@ -152,6 +157,7 @@ public:
     bool typedWordUnknown() const;
     QString saveWordCandidate() const;
     QString clipboardSuggestion() const;
+    QString clipboardSuggestionPreview() const;
     Q_INVOKABLE void pasteClipboardSuggestion();
     QStringList userWords() const;
     QString inputPurpose() const;
@@ -197,6 +203,9 @@ public:
     bool clipboardHistoryEnabled() const;
 
     QString clipboardText() const;
+    // The start of the clipboard text for display; dots for a password.
+    QString clipboardPreview() const;
+    bool hasClipboardText() const;
     QStringList clipboardHistory() const;
     QStringList emojiItems() const;
     QStringList emojiCategories() const;
@@ -274,8 +283,13 @@ public:
     Q_INVOKABLE void redo();
     Q_INVOKABLE void toggleSelectMode();
     bool hasSelection() const { return !m_selectedText.isEmpty() && !m_secureInput; }
-    bool canCopy() const { return !m_secureInput && (!m_selectedText.isEmpty() || m_chords); }
-    bool canSelect() const { return m_chords != nullptr; }
+    // With the editing shortcuts Copy and Cut work on the application's own
+    // selection; an application that reports its text says whether there is
+    // one (Cut with nothing selected cuts the line in some editors).
+    bool canCopy() const { return !m_secureInput && (!m_selectedText.isEmpty() || (m_chords && !m_surroundingKnown)); }
+    // Not in terminals: Ctrl+X, Ctrl+A, Ctrl+Z mean something else there.
+    bool canCut() const { return canCopy() && !m_terminal; }
+    bool canSelect() const { return m_chords != nullptr && !m_terminal; }
     bool selectMode() const { return m_selectMode && m_chords; }
     // Sends editing shortcuts as keyboard input (KWin fake input). Not owned.
     void setKeyChordSender(class KeyChordSender *sender);
@@ -435,6 +449,8 @@ private:
     class SystemClipboard *m_clipboard = nullptr;
     class QtSystemClipboard *m_qtClipboard = nullptr;
     QString m_selectedText;
+    bool m_surroundingKnown = false;   // the application reports text and selection
+    bool m_terminal = false;           // content purpose terminal
     class KeyChordSender *m_chords = nullptr;
     bool m_selectMode = false;
     // Finishes the word being typed before a shortcut acts on the text.

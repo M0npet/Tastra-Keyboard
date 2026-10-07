@@ -6,10 +6,21 @@ import QtQuick.Window
 
 Grid {
     id: editGrid
-    // As many columns as fit the panel (at most 3 upright, 6 across).
+    // All buttons on the panel: as many rows as its height takes, then as
+    // many columns as the buttons need (narrower buttons when upright).
     readonly property real availableWidth: parent && parent.parent ? parent.parent.width - 4 * root.keyGap : 0
-    readonly property real buttonWidth: root.portrait ? 150 : 124
-    columns: Math.max(2, Math.min(root.portrait ? 3 : 6, Math.floor((availableWidth + spacing) / (buttonWidth + spacing))))
+    readonly property real availableHeight: parent && parent.parent ? parent.parent.height : 0
+    readonly property real buttonHeight: root.portrait ? 52 : 44
+    readonly property real preferredWidth: root.portrait ? 150 : 124
+    readonly property int shownButtons: {
+        var n = 0
+        for (var i = 0; i < children.length; ++i) if (children[i].visible) ++n
+        return n
+    }
+    readonly property int rowsThatFit: Math.max(1, Math.floor((availableHeight + spacing) / (buttonHeight + spacing)))
+    readonly property int columnsThatFit: Math.max(2, Math.min(6, Math.floor((availableWidth + spacing) / (preferredWidth + spacing))))
+    columns: Math.max(columnsThatFit, Math.ceil(shownButtons / rowsThatFit))
+    readonly property real buttonWidth: Math.max(80, Math.min(preferredWidth, (availableWidth - (columns - 1) * spacing) / columns))
     spacing: root.keyGap * 2
 
     PanelButton {
@@ -72,14 +83,14 @@ Grid {
         objectName: "cutButton"
         width: editGrid.buttonWidth
         label: qsTr("Cut")
-        enabled: keyboardBridge.canCopy
+        enabled: keyboardBridge.canCut
         onTriggered: keyboardBridge.cutSelection()
     }
     PanelButton {
         objectName: "pasteButton"
         width: editGrid.buttonWidth
         label: qsTr("Paste")
-        enabled: keyboardBridge.clipboardText.length > 0
+        enabled: keyboardBridge.hasClipboardText
         onTriggered: keyboardBridge.pasteClipboard()
     }
     PanelButton {

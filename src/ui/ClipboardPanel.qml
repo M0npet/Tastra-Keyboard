@@ -20,10 +20,10 @@ Column {
         Text {
             anchors.fill: parent
             anchors.margins: 10
-            text: keyboardBridge.clipboardText.length > 0
-                ? keyboardBridge.clipboardText
+            text: keyboardBridge.hasClipboardText
+                ? keyboardBridge.clipboardPreview
                 : qsTr("Clipboard is empty")
-            color: keyboardBridge.clipboardText.length > 0 ? root.textColor : root.secondaryTextColor
+            color: keyboardBridge.hasClipboardText ? root.textColor : root.secondaryTextColor
             font.pixelSize: root.portrait ? 15 : 13
             wrapMode: Text.Wrap
             elide: Text.ElideRight
@@ -40,7 +40,7 @@ Column {
             width: root.portrait ? 120 : 108
             label: qsTr("Paste")
             accent: true
-            enabled: keyboardBridge.clipboardText.length > 0
+            enabled: keyboardBridge.hasClipboardText
             onTriggered: keyboardBridge.pasteClipboard()
         }
         PanelButton {

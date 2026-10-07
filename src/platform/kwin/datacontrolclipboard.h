@@ -46,6 +46,7 @@ public:
     ~DataControlClipboard() override;
 
     QString text() const override { return m_text; }
+    bool isSensitive() const override { return m_sensitive; }
     void setText(const QString &text) override;
     void clear() override;
 
@@ -84,6 +85,7 @@ private:
     QTimer *m_readTimeout = nullptr;
     QByteArray m_readBuffer;
     QString m_text;
+    bool m_sensitive = false;
 };
 
 }
