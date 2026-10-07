@@ -232,12 +232,19 @@ private Q_SLOTS:
         bridge.selectAll();
         QVERIFY(bridge.currentWord().isEmpty());
 
+        // Undo / Redo as the application's shortcuts.
+        bridge.undo();
+        bridge.redo();
+        QCOMPARE(chords.sent.at(chords.sent.size() - 2), (QPair<QList<int>, int>({LeftCtrl}, Z)));
+        QCOMPARE(chords.sent.last(), (QPair<QList<int>, int>({LeftCtrl, LeftShift}, Z)));
+
         // Never in password fields.
         const int before = chords.sent.size();
         bridge.setContentType(0, 8);
         QVERIFY(!bridge.canCopy());
         bridge.copySelection();
         bridge.cutSelection();
+        bridge.undo();
         QCOMPARE(chords.sent.size(), before);
         bridge.setContentType(0, 0);
         bridge.setKeyChordSender(nullptr);

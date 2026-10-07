@@ -268,6 +268,9 @@ public:
     Q_INVOKABLE void copySelection();
     Q_INVOKABLE void cutSelection();
     Q_INVOKABLE void selectAll();
+    // Ctrl+Z / Ctrl+Shift+Z in the application (with the editing shortcuts).
+    Q_INVOKABLE void undo();
+    Q_INVOKABLE void redo();
     Q_INVOKABLE void toggleSelectMode();
     bool hasSelection() const { return !m_selectedText.isEmpty() && !m_secureInput; }
     bool canCopy() const { return !m_secureInput && (!m_selectedText.isEmpty() || m_chords); }

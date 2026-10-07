@@ -83,6 +83,20 @@ Grid {
         onTriggered: keyboardBridge.pasteClipboard()
     }
     PanelButton {
+        objectName: "undoButton"
+        visible: keyboardBridge.canSelect
+        width: editGrid.buttonWidth
+        label: "↶ " + qsTr("Undo")
+        onTriggered: keyboardBridge.undo()
+    }
+    PanelButton {
+        objectName: "redoButton"
+        visible: keyboardBridge.canSelect
+        width: editGrid.buttonWidth
+        label: "↷ " + qsTr("Redo")
+        onTriggered: keyboardBridge.redo()
+    }
+    PanelButton {
         width: editGrid.buttonWidth
         label: qsTr("Delete")
         onTriggered: keyboardBridge.deleteForward()

@@ -1285,6 +1285,22 @@ void KeyboardUiBridge::selectAll()
     typingStateDidChange();
 }
 
+void KeyboardUiBridge::undo()
+{
+    if (!m_chords || m_secureInput) return;
+    settleForShortcut();
+    m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::Z);
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::redo()
+{
+    if (!m_chords || m_secureInput) return;
+    settleForShortcut();
+    m_chords->send({EvdevKey::LeftCtrl, EvdevKey::LeftShift}, EvdevKey::Z);
+    typingStateDidChange();
+}
+
 void KeyboardUiBridge::copySelection()
 {
     // Gboard's Copy. With the editing shortcuts the application copies its
