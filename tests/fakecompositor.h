@@ -8,6 +8,7 @@
 #include <wayland-server.h>
 
 #include "ext-data-control-v1-server-protocol.h"
+#include "xdg-shell-server-protocol.h"
 
 #include <algorithm>
 #include <string>
@@ -26,6 +27,10 @@ public:
         m_display = wl_display_create();
         m_socket = wl_display_add_socket_auto(m_display);
         wl_global_create(m_display, &wl_seat_interface, 5, this, bindSeat);
+        // What Qt's Wayland platform needs to start (Qt 6.11 refuses to run
+        // without a shell); no window is ever made.
+        wl_global_create(m_display, &wl_compositor_interface, 4, this, bindCompositor);
+        wl_global_create(m_display, &xdg_wm_base_interface, 1, this, bindShell);
         if (withDataControl) wl_global_create(m_display, &ext_data_control_manager_v1_interface, 1, this, bindManager);
         m_thread = std::thread([this] { wl_display_run(m_display); });
     }
@@ -52,6 +57,48 @@ private:
         wl_resource *seat = wl_resource_create(client, &wl_seat_interface, int(version), id);
         wl_resource_set_implementation(seat, &seatImpl, nullptr, nullptr);
         wl_seat_send_capabilities(seat, 0);
+    }
+
+    static void bindCompositor(wl_client *client, void *, uint32_t version, uint32_t id)
+    {
+        static const struct wl_surface_interface surfaceImpl = {
+            [](wl_client *, wl_resource *r) { wl_resource_destroy(r); },
+            [](wl_client *, wl_resource *, wl_resource *, int32_t, int32_t) {},
+            [](wl_client *, wl_resource *, int32_t, int32_t, int32_t, int32_t) {},
+            [](wl_client *c, wl_resource *r, uint32_t callback) {
+                wl_resource_create(c, &wl_callback_interface, 1, callback);
+                (void)r;
+            },
+            [](wl_client *, wl_resource *, wl_resource *) {}, [](wl_client *, wl_resource *, wl_resource *) {},
+            [](wl_client *, wl_resource *) {}, [](wl_client *, wl_resource *, int32_t) {},
+            [](wl_client *, wl_resource *, int32_t) {}, [](wl_client *, wl_resource *, int32_t, int32_t, int32_t, int32_t) {},
+            [](wl_client *, wl_resource *, int32_t, int32_t) {}};
+        static const struct wl_region_interface regionImpl = {
+            [](wl_client *, wl_resource *r) { wl_resource_destroy(r); },
+            [](wl_client *, wl_resource *, int32_t, int32_t, int32_t, int32_t) {},
+            [](wl_client *, wl_resource *, int32_t, int32_t, int32_t, int32_t) {}};
+        static const struct wl_compositor_interface compositorImpl = {
+            [](wl_client *c, wl_resource *r, uint32_t id) {
+                wl_resource *surface = wl_resource_create(c, &wl_surface_interface, wl_resource_get_version(r), id);
+                wl_resource_set_implementation(surface, &surfaceImpl, nullptr, nullptr);
+            },
+            [](wl_client *c, wl_resource *, uint32_t id) {
+                wl_resource *region = wl_resource_create(c, &wl_region_interface, 1, id);
+                wl_resource_set_implementation(region, &regionImpl, nullptr, nullptr);
+            }};
+        wl_resource *compositor = wl_resource_create(client, &wl_compositor_interface, int(version), id);
+        wl_resource_set_implementation(compositor, &compositorImpl, nullptr, nullptr);
+    }
+
+    static void bindShell(wl_client *client, void *, uint32_t version, uint32_t id)
+    {
+        static const struct xdg_wm_base_interface shellImpl = {
+            [](wl_client *, wl_resource *r) { wl_resource_destroy(r); },
+            [](wl_client *, wl_resource *, uint32_t) {},
+            [](wl_client *, wl_resource *, uint32_t, wl_resource *) {},
+            [](wl_client *, wl_resource *, uint32_t) {}};
+        wl_resource *shell = wl_resource_create(client, &xdg_wm_base_interface, int(version), id);
+        wl_resource_set_implementation(shell, &shellImpl, nullptr, nullptr);
     }
 
     static void bindManager(wl_client *client, void *data, uint32_t version, uint32_t id)

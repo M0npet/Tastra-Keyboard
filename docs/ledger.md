@@ -1483,3 +1483,11 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   BackSpace (no modifier needed). Selecting from the keyboard stays
   impossible (Shift is replaced by KWin). Never in password fields. Bridge
   and UI tests.
+- CI (Qt 6.11) aborted tst_datacontrolqtdisplay without output; the CI now
+  annotates failed tests with their output (logs cannot be fetched from the
+  sandbox). Reproduced with Qt 6.11.2 libraries from PySide6 6.11.2: Qt's
+  Wayland platform refuses to start without a shell ("Loading shell
+  integration failed"), unlike the sandbox's Qt 6.4. The test compositor now
+  offers stub wl_compositor and xdg_wm_base globals. With the Qt 6.11.2
+  libraries the keyboard's path (DataControlClipboard on Qt's display) reads
+  another client's text and owns the clipboard.

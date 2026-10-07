@@ -152,15 +152,32 @@ endif()
 message(STATUS "Clipboard through ext-data-control-v1: ${TASTRA_DATA_CONTROL}")
 pkg_check_modules(WAYLAND_SERVER IMPORTED_TARGET wayland-server)
 if(BUILD_TESTING AND TASTRA_DATA_CONTROL AND WAYLAND_SERVER_FOUND)
+    # The test compositor also offers xdg_wm_base (Qt's Wayland platform
+    # needs a shell to start).
+    set(XDG_SHELL_PROTOCOL "${WAYLAND_PROTOCOLS_DATADIR}/stable/xdg-shell/xdg-shell.xml")
+    add_custom_command(
+        OUTPUT "${DATA_CONTROL_GENERATED}/xdg-shell-server-protocol.h"
+        COMMAND "${WAYLAND_SCANNER}" server-header "${XDG_SHELL_PROTOCOL}" "${DATA_CONTROL_GENERATED}/xdg-shell-server-protocol.h"
+        DEPENDS "${XDG_SHELL_PROTOCOL}" VERBATIM)
+    add_custom_command(
+        OUTPUT "${DATA_CONTROL_GENERATED}/xdg-shell-protocol.c"
+        COMMAND "${WAYLAND_SCANNER}" private-code "${XDG_SHELL_PROTOCOL}" "${DATA_CONTROL_GENERATED}/xdg-shell-protocol.c"
+        DEPENDS "${XDG_SHELL_PROTOCOL}" VERBATIM)
+    add_library(tastra-test-compositor STATIC
+        "${DATA_CONTROL_GENERATED}/xdg-shell-protocol.c"
+        "${DATA_CONTROL_GENERATED}/xdg-shell-server-protocol.h")
+    target_include_directories(tastra-test-compositor PUBLIC "${DATA_CONTROL_GENERATED}" ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    target_link_libraries(tastra-test-compositor PUBLIC PkgConfig::WAYLAND_SERVER tastra-data-control-protocol Threads::Threads)
+
     add_executable(tst_datacontrolclipboard tests/tst_datacontrolclipboard.cpp)
-    target_link_libraries(tst_datacontrolclipboard PRIVATE tastra-data-control tastra-data-control-protocol PkgConfig::WAYLAND_SERVER Qt6::Test Threads::Threads)
+    target_link_libraries(tst_datacontrolclipboard PRIVATE tastra-data-control tastra-test-compositor Qt6::Test)
     add_test(NAME datacontrolclipboard COMMAND tst_datacontrolclipboard)
     set_tests_properties(datacontrolclipboard PROPERTIES ENVIRONMENT "XDG_RUNTIME_DIR=${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
     file(CHMOD "${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime" DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
     # The same through Qt's Wayland platform plugin (needs qt6-wayland).
     add_executable(tst_datacontrolqtdisplay tests/tst_datacontrolqtdisplay.cpp)
-    target_link_libraries(tst_datacontrolqtdisplay PRIVATE tastra-data-control tastra-data-control-protocol PkgConfig::WAYLAND_SERVER Qt6::Test Qt6::Gui Threads::Threads)
+    target_link_libraries(tst_datacontrolqtdisplay PRIVATE tastra-data-control tastra-test-compositor Qt6::Test Qt6::Gui)
     add_test(NAME datacontrolqtdisplay COMMAND tst_datacontrolqtdisplay)
     set_tests_properties(datacontrolqtdisplay PROPERTIES ENVIRONMENT "XDG_RUNTIME_DIR=${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
 endif()
