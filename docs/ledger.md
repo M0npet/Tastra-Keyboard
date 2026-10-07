@@ -1551,3 +1551,29 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   period, Return, or the application's text across `.!?…` or a line
   break), as LatinIME's beginning-of-sentence context.
 
+## 2026-10-07 — 0.7.4 Common Voice pairs, German capitals, key sounds
+
+- Common Voice (github.com/common-voice/common-voice, server/data, CC0 per
+  its LICENSE): sentence collector and contributors' sets per language.
+  Held out every tenth line (and the UD/UA-GEC test parts as before). Next
+  word among three, UD/UA-GEC test and Common Voice held-out:
+  UD-only pairs en 22.1/16.5, de 13.7/9.9, ru 15.4/14.0, uk 16.6/10.2;
+  with all of Common Voice except Wikipedia: 22.4/22.0, 16.8/16.3,
+  15.8/22.5, 16.2/13.7 (de 211 248 pairs, uk 113 107); without German
+  Europarl (3.7 M words of parliament) and Ukrainian ukrlib (older prose):
+  de 15.3/17.2 with 40 263 pairs, uk 16.9/12.6 with 38 626. Taken without
+  them. Capping German at 60 000 / 100 000 pairs of the larger set cost
+  2.0 / 1.0 points.
+- Glides with the previous word 89.7 -> 90.0 % (no context 88.4), autocorrect
+  76.8 % right, 0.70 % wrong (no context 76.5 / 0.65), clean words never
+  changed (36 296).
+- Pairs stored as hash + 16-bit count; memory against 0.7.2: en +2.6,
+  de +1.2, ru +3.9, uk +0.5 MB.
+- German capital per pair: "das Unternehmen" / "wir unternehmen" (Hunspell
+  accepts the lowercase verb, so the dictionary alone shows "unternehmen").
+  Russian/Ukrainian capitals left to the dictionary: "спасибо Вам" was the
+  corpus' polite style, not a name.
+- Key sounds: LatinIME AudioAndHapticFeedbackManager plays FX_KEYPRESS_DELETE,
+  _RETURN, _SPACEBAR and _STANDARD; tools/make-click-wav.py generates four
+  sounds (letter click byte-identical), volume 15/35/60/100 %.
+

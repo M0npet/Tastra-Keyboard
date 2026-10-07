@@ -4,6 +4,15 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.4
+- Better next-word suggestions for everyday writing: the word pairs now also
+  come from Common Voice's sentences (CC0). German suggestions went from
+  10-14 % to 15-17 % right among three, Russian from 14-15 % to 16-23 %.
+- German nouns are suggested with their capital ("guten Tag", "das
+  Unternehmen").
+- Space, Backspace and Return have their own key sounds, as in Gboard, and
+  Settings has "Volume on keypress".
+
 ## 0.7.3
 - Next-word suggestions from the first word on, as in Gboard: after
   `thank` the strip offers `you`, after `ich` `bin` and `habe`. The keyboard
