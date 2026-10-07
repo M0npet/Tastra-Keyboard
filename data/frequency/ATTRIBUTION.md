@@ -19,3 +19,9 @@ includes SUBTLEX word lists by Marc Brysbaert et al.
 available data), Google Books Ngrams (http://books.google.com/ngrams),
 OpenSubtitles 2018 via OPUS, Wikipedia, ParaCrawl and the Leeds Internet
 Corpus.
+
+Russian words were dropped from the Ukrainian list with
+`tools/drop-foreign-words.py` (15 503 of 50 771 words, e.g. "что", "как",
+"конечно"): words the Russian Hunspell dictionary accepts and either the
+Ukrainian one rejects or wordfreq finds at least ten times more common in
+Russian, and words with ы, э, ъ or ё.

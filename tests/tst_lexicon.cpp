@@ -504,6 +504,22 @@ private Q_SLOTS:
         QCOMPARE(lexicon.bestCorrection(QStringLiteral("hoesr")), QStringLiteral("hoers"));
     }
 
+    void bundledUkrainianListHasNoRussianWords()
+    {
+        // Ukrainian subtitles are full of Russian; "что" and "как" were in
+        // the top 40 of the list and were offered while typing Ukrainian
+        // (tools/drop-foreign-words.py).
+        QFile file(QStringLiteral(":/tastra/frequency/uk.txt"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QStringList words = QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        const QSet<QString> list(words.cbegin(), words.cend());
+        for (const char *russian : {"что", "как", "это", "только", "конечно", "меня", "мне", "спасибо", "хорошо", "сейчас"})
+            QVERIFY2(!list.contains(QString::fromUtf8(russian)), russian);
+        for (const char *ukrainian : {"що", "як", "це", "тільки", "звичайно", "мене", "мені", "дякую", "добре", "зараз", "п'ять"})
+            QVERIFY2(list.contains(QString::fromUtf8(ukrainian)), ukrainian);
+        QVERIFY(words.indexOf(QStringLiteral("як")) < 30);
+    }
+
     void wordsOfAnotherEnabledLanguageAreNotCorrected()
     {
         // Gboard's multilingual typing: with German enabled next to English,
