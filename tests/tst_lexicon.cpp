@@ -547,6 +547,7 @@ private Q_SLOTS:
         LocalLexicon::setUserDictionaryFile(QStringLiteral(TASTRA_TEST_DATA "/empty/none.txt"));
         const struct { const char *language, *previous, *next; } expected[] = {
             {"en", "i", "have"}, {"en", "i", "am"}, {"en", "thank", "you"}, {"de", "ich", "bin"},
+            {"de", "guten", "Tag"},                       // a German noun keeps its capital
             {"ru", "я", "не"}, {"ru", "потому", "что"}, {"uk", "я", "не"}, {"uk", "тому", "що"},
         };
         for (const auto &e : expected) {

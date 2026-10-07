@@ -408,7 +408,7 @@ Flickable {
             color: root.secondaryTextColor
             font.pixelSize: root.portrait ? 14 : 12
             text: qsTr("Tastra %1 · GPL-3.0-or-later · works offline").arg(keyboardBridge.version) + "\n"
-                + qsTr("Data: FrequencyWords, wordfreq and Universal Dependencies treebanks (CC BY-SA 4.0), UA-GEC (CC BY 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).") + "\n"
+                + qsTr("Data: FrequencyWords, wordfreq and Universal Dependencies treebanks (CC BY-SA 4.0), UA-GEC (CC BY 4.0), Common Voice sentences (CC0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).") + "\n"
                 + qsTr("Full texts: %1").arg("~/.local/share/doc/tastra")
         }
     }
