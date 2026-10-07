@@ -113,6 +113,12 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QString clipboardText READ clipboardText NOTIFY clipboardChanged)
     // Text selected in the application (for Copy / Cut).
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY selectionChanged)
+    // Copy / Cut possible: a reported selection, or the editing shortcuts
+    // (KWin fake input) to let the application copy its own selection.
+    Q_PROPERTY(bool canCopy READ canCopy NOTIFY selectionChanged)
+    // Gboard's Select: the arrow keys extend the selection (Shift+arrows).
+    Q_PROPERTY(bool canSelect READ canSelect NOTIFY selectionChanged)
+    Q_PROPERTY(bool selectMode READ selectMode NOTIFY selectionChanged)
     Q_PROPERTY(QStringList clipboardHistory READ clipboardHistory NOTIFY clipboardChanged)
     Q_PROPERTY(QStringList emojiItems READ emojiItems CONSTANT)
     Q_PROPERTY(QStringList emojiCategories READ emojiCategories NOTIFY emojiChanged)
@@ -261,7 +267,14 @@ public:
     Q_INVOKABLE void pasteClipboard();
     Q_INVOKABLE void copySelection();
     Q_INVOKABLE void cutSelection();
+    Q_INVOKABLE void selectAll();
+    Q_INVOKABLE void toggleSelectMode();
     bool hasSelection() const { return !m_selectedText.isEmpty() && !m_secureInput; }
+    bool canCopy() const { return !m_secureInput && (!m_selectedText.isEmpty() || m_chords); }
+    bool canSelect() const { return m_chords != nullptr; }
+    bool selectMode() const { return m_selectMode && m_chords; }
+    // Sends editing shortcuts as keyboard input (KWin fake input). Not owned.
+    void setKeyChordSender(class KeyChordSender *sender);
     // The clipboard the keyboard reads and owns: KWin's data control in the
     // app; null restores QClipboard. Not owned.
     void setSystemClipboard(class SystemClipboard *clipboard);
@@ -412,6 +425,11 @@ private:
     class SystemClipboard *m_clipboard = nullptr;
     class QtSystemClipboard *m_qtClipboard = nullptr;
     QString m_selectedText;
+    class KeyChordSender *m_chords = nullptr;
+    bool m_selectMode = false;
+    // Finishes the word being typed before a shortcut acts on the text.
+    void settleForShortcut();
+    void setSelectMode(bool on);
 };
 
 }

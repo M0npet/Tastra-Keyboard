@@ -3,6 +3,7 @@
 #include "keyboarduibridge.h"
 #include "uitranslator.h"
 #include "qtsystemclipboard.h"
+#include "core/keychords.h"
 
 #include <QQmlEngine>
 
@@ -976,6 +977,7 @@ void KeyboardUiBridge::setLanguage(const QString &code)
 void KeyboardUiBridge::activateToolbarAction(const QString &id)
 {
     cancelInlineFields();
+    setSelectMode(false);
     if (m_toolbarModel.activate(id, m_panelManager)) {
         if (id == QStringLiteral("clipboard")) Q_EMIT clipboardChanged();
         Q_EMIT toolbarStateChanged();
@@ -990,6 +992,7 @@ void KeyboardUiBridge::openLanguagePanel()
 
 void KeyboardUiBridge::closePanel()
 {
+    setSelectMode(false);
     if (m_panelManager.closePanel()) Q_EMIT toolbarStateChanged();
 }
 
@@ -1036,6 +1039,12 @@ void KeyboardUiBridge::deleteForward()
 
 void KeyboardUiBridge::moveUp()
 {
+    if (selectMode()) {                              // Shift+Up: extend the selection
+        settleForShortcut();
+        m_chords->send({EvdevKey::LeftShift}, EvdevKey::Up);
+        typingStateDidChange();
+        return;
+    }
     m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveUp();
@@ -1044,6 +1053,12 @@ void KeyboardUiBridge::moveUp()
 
 void KeyboardUiBridge::moveDown()
 {
+    if (selectMode()) {                              // Shift+Down: extend the selection
+        settleForShortcut();
+        m_chords->send({EvdevKey::LeftShift}, EvdevKey::Down);
+        typingStateDidChange();
+        return;
+    }
     m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveDown();
@@ -1063,6 +1078,12 @@ void KeyboardUiBridge::cycleLongPressDelay()
 
 void KeyboardUiBridge::moveLeft()
 {
+    if (selectMode()) {                              // Shift+Left: extend the selection
+        settleForShortcut();
+        m_chords->send({EvdevKey::LeftShift}, EvdevKey::Left);
+        typingStateDidChange();
+        return;
+    }
     m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveLeft();
@@ -1071,6 +1092,12 @@ void KeyboardUiBridge::moveLeft()
 
 void KeyboardUiBridge::moveRight()
 {
+    if (selectMode()) {                              // Shift+Right: extend the selection
+        settleForShortcut();
+        m_chords->send({EvdevKey::LeftShift}, EvdevKey::Right);
+        typingStateDidChange();
+        return;
+    }
     m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveRight();
@@ -1090,6 +1117,12 @@ void KeyboardUiBridge::moveCursor(int delta)
 
 void KeyboardUiBridge::moveHome()
 {
+    if (selectMode()) {                              // Shift+Home: extend the selection
+        settleForShortcut();
+        m_chords->send({EvdevKey::LeftShift}, EvdevKey::Home);
+        typingStateDidChange();
+        return;
+    }
     m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveHome();
@@ -1098,6 +1131,12 @@ void KeyboardUiBridge::moveHome()
 
 void KeyboardUiBridge::moveEnd()
 {
+    if (selectMode()) {                              // Shift+End: extend the selection
+        settleForShortcut();
+        m_chords->send({EvdevKey::LeftShift}, EvdevKey::End);
+        typingStateDidChange();
+        return;
+    }
     m_typingEngine.commitComposition();
     m_typingEngine.resetComposition();
     m_controller.moveEnd();
@@ -1212,18 +1251,67 @@ void KeyboardUiBridge::clearClipboard()
     Q_EMIT clipboardChanged();
 }
 
+void KeyboardUiBridge::setKeyChordSender(KeyChordSender *sender)
+{
+    m_chords = sender;
+    Q_EMIT selectionChanged();
+}
+
+void KeyboardUiBridge::settleForShortcut()
+{
+    cancelInlineFields();
+    m_typingEngine.commitComposition();
+    m_typingEngine.resetComposition();
+}
+
+void KeyboardUiBridge::setSelectMode(bool on)
+{
+    if (m_selectMode == on) return;
+    m_selectMode = on;
+    Q_EMIT selectionChanged();
+}
+
+void KeyboardUiBridge::toggleSelectMode()
+{
+    if (!m_chords) return;
+    setSelectMode(!m_selectMode);
+}
+
+void KeyboardUiBridge::selectAll()
+{
+    if (!m_chords) return;
+    settleForShortcut();
+    m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::A);
+    typingStateDidChange();
+}
+
 void KeyboardUiBridge::copySelection()
 {
-    // Gboard's Copy: the text the user selected in the application (by
-    // touch). KWin passes the selection with the surrounding text; Ctrl+C
-    // cannot be sent (KWin replaces an input method's modifiers).
-    if (m_selectedText.isEmpty() || m_secureInput || !m_clipboard) return;
+    // Gboard's Copy. With the editing shortcuts the application copies its
+    // own selection (Ctrl+C; the clipboard then reports it); otherwise the
+    // selection KWin passes with the surrounding text is put on the
+    // clipboard directly.
+    if (m_secureInput) return;
+    if (m_chords) {
+        settleForShortcut();
+        m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::C);
+        return;
+    }
+    if (m_selectedText.isEmpty() || !m_clipboard) return;
     m_clipboard->setText(m_selectedText);
 }
 
 void KeyboardUiBridge::cutSelection()
 {
-    if (m_selectedText.isEmpty() || m_secureInput || !m_clipboard) return;
+    if (m_secureInput) return;
+    if (m_chords) {
+        settleForShortcut();
+        m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::X);
+        setSelectMode(false);
+        typingStateDidChange();
+        return;
+    }
+    if (m_selectedText.isEmpty() || !m_clipboard) return;
     m_clipboard->setText(m_selectedText);
     m_controller.backspace();                       // deletes the selection
     m_selectedText.clear();
@@ -1378,6 +1466,7 @@ void KeyboardUiBridge::resetInputContext()
         m_selectedText.clear();
         Q_EMIT selectionChanged();
     }
+    setSelectMode(false);
     m_panelManager.returnToTyping();
     Q_EMIT keyboardStateChanged();
     Q_EMIT suggestionsChanged();

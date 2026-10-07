@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "datacontrolclipboard.h"
+#include "waylanddisplay.h"
 
-#include <QGuiApplication>
 #include <QLoggingCategory>
 #include <QSocketNotifier>
 #include <QTimer>
-#include <qpa/qplatformnativeinterface.h>
 
 #include <wayland-client.h>
 
@@ -83,12 +82,7 @@ std::unique_ptr<DataControlClipboard> DataControlClipboard::create(wl_display *d
 
 std::unique_ptr<DataControlClipboard> DataControlClipboard::createForApplication()
 {
-    if (!qobject_cast<QGuiApplication *>(QCoreApplication::instance())) return nullptr;
-    if (!QGuiApplication::platformName().startsWith(QLatin1String("wayland"))) return nullptr;
-    QPlatformNativeInterface *native = QGuiApplication::platformNativeInterface();
-    if (!native) return nullptr;
-    auto *display = static_cast<wl_display *>(native->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
-    return create(display);
+    return create(applicationWaylandDisplay());
 }
 
 bool DataControlClipboard::bind()

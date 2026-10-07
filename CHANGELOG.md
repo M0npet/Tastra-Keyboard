@@ -4,6 +4,14 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.2
+- Text-editing panel like Gboard's: Select (the arrows, Home and End then
+  extend the selection) and Select all, and Copy / Cut act on whatever the
+  application has selected. KWin drops the modifiers of an input method's
+  own keys, so these go as keyboard shortcuts through KDE's fake-input
+  protocol, the one KDE Connect uses.
+- The panel's buttons wrap to the panel's width instead of running past it.
+
 ## 0.7.1
 - The clipboard works under KWin: history, the "just copied" chip and Paste
   now see what other applications copy. KWin offers the regular Wayland

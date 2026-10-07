@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     Tastra
-    VERSION 0.7.1
+    VERSION 0.7.2
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -111,43 +111,58 @@ target_link_libraries(tastra-platform-kwin
         Qt6::WaylandClientPrivate
 )
 
-# The clipboard through ext-data-control-v1 (wayland-protocols >= 1.39; KWin
-# since Plasma 6.4). Without it the keyboard falls back to QClipboard.
+# KWin extras outside the input-method protocol, used when the compositor
+# offers them: the clipboard through ext-data-control-v1 (wayland-protocols
+# >= 1.39; KWin since Plasma 6.4) and the editing shortcuts through KDE's
+# fake-input protocol (vendored in protocols/). Without them the keyboard
+# falls back to QClipboard and offers Copy/Cut only for reported selections.
 pkg_check_modules(WAYLAND_CLIENT IMPORTED_TARGET wayland-client)
 pkg_get_variable(WAYLAND_SCANNER wayland-scanner wayland_scanner)
 set(EXT_DATA_CONTROL_PROTOCOL "${WAYLAND_PROTOCOLS_DATADIR}/staging/ext-data-control/ext-data-control-v1.xml")
-set(TASTRA_DATA_CONTROL OFF)
-if(EXISTS "${EXT_DATA_CONTROL_PROTOCOL}" AND WAYLAND_SCANNER AND WAYLAND_CLIENT_FOUND)
-    set(TASTRA_DATA_CONTROL ON)
-    set(DATA_CONTROL_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/protocols")
-    file(MAKE_DIRECTORY "${DATA_CONTROL_GENERATED}")
+set(FAKE_INPUT_PROTOCOL "${CMAKE_CURRENT_SOURCE_DIR}/protocols/fake-input.xml")
+set(WAYLAND_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/protocols")
+file(MAKE_DIRECTORY "${WAYLAND_GENERATED}")
+function(tastra_wayland_protocol xml base)
     foreach(kind client-header server-header private-code)
         if(kind STREQUAL "client-header")
-            set(out "${DATA_CONTROL_GENERATED}/ext-data-control-v1-client-protocol.h")
+            set(out "${WAYLAND_GENERATED}/${base}-client-protocol.h")
         elseif(kind STREQUAL "server-header")
-            set(out "${DATA_CONTROL_GENERATED}/ext-data-control-v1-server-protocol.h")
+            set(out "${WAYLAND_GENERATED}/${base}-server-protocol.h")
         else()
-            set(out "${DATA_CONTROL_GENERATED}/ext-data-control-v1-protocol.c")
+            set(out "${WAYLAND_GENERATED}/${base}-protocol.c")
         endif()
-        add_custom_command(
-            OUTPUT "${out}"
-            COMMAND "${WAYLAND_SCANNER}" ${kind} "${EXT_DATA_CONTROL_PROTOCOL}" "${out}"
-            DEPENDS "${EXT_DATA_CONTROL_PROTOCOL}"
-            VERBATIM)
+        add_custom_command(OUTPUT "${out}"
+            COMMAND "${WAYLAND_SCANNER}" ${kind} "${xml}" "${out}"
+            DEPENDS "${xml}" VERBATIM)
     endforeach()
-    add_library(tastra-data-control-protocol STATIC
-        "${DATA_CONTROL_GENERATED}/ext-data-control-v1-protocol.c"
-        "${DATA_CONTROL_GENERATED}/ext-data-control-v1-client-protocol.h"
-        "${DATA_CONTROL_GENERATED}/ext-data-control-v1-server-protocol.h")
-    set_target_properties(tastra-data-control-protocol PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_include_directories(tastra-data-control-protocol PUBLIC "${DATA_CONTROL_GENERATED}")
-    target_link_libraries(tastra-data-control-protocol PUBLIC PkgConfig::WAYLAND_CLIENT)
-    add_library(tastra-data-control STATIC src/platform/kwin/datacontrolclipboard.cpp)
-    target_include_directories(tastra-data-control PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_compile_definitions(tastra-data-control PUBLIC TASTRA_DATA_CONTROL=1)
-    target_link_libraries(tastra-data-control
+endfunction()
+set(TASTRA_DATA_CONTROL OFF)
+if(WAYLAND_SCANNER AND WAYLAND_CLIENT_FOUND)
+    set(EXTRA_PROTOCOL_SOURCES)
+    set(EXTRA_SOURCES src/platform/kwin/waylanddisplay.cpp src/platform/kwin/fakeinputkeychords.cpp)
+    tastra_wayland_protocol("${FAKE_INPUT_PROTOCOL}" fake-input)
+    list(APPEND EXTRA_PROTOCOL_SOURCES "${WAYLAND_GENERATED}/fake-input-protocol.c"
+        "${WAYLAND_GENERATED}/fake-input-client-protocol.h" "${WAYLAND_GENERATED}/fake-input-server-protocol.h")
+    if(EXISTS "${EXT_DATA_CONTROL_PROTOCOL}")
+        set(TASTRA_DATA_CONTROL ON)
+        tastra_wayland_protocol("${EXT_DATA_CONTROL_PROTOCOL}" ext-data-control-v1)
+        list(APPEND EXTRA_PROTOCOL_SOURCES "${WAYLAND_GENERATED}/ext-data-control-v1-protocol.c"
+            "${WAYLAND_GENERATED}/ext-data-control-v1-client-protocol.h" "${WAYLAND_GENERATED}/ext-data-control-v1-server-protocol.h")
+        list(APPEND EXTRA_SOURCES src/platform/kwin/datacontrolclipboard.cpp)
+    endif()
+    add_library(tastra-wayland-protocols STATIC ${EXTRA_PROTOCOL_SOURCES})
+    set_target_properties(tastra-wayland-protocols PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_include_directories(tastra-wayland-protocols PUBLIC "${WAYLAND_GENERATED}")
+    target_link_libraries(tastra-wayland-protocols PUBLIC PkgConfig::WAYLAND_CLIENT)
+    add_library(tastra-wayland-extras STATIC ${EXTRA_SOURCES})
+    target_include_directories(tastra-wayland-extras PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(tastra-wayland-extras PUBLIC TASTRA_WAYLAND_EXTRAS=1)
+    if(TASTRA_DATA_CONTROL)
+        target_compile_definitions(tastra-wayland-extras PUBLIC TASTRA_DATA_CONTROL=1)
+    endif()
+    target_link_libraries(tastra-wayland-extras
         PUBLIC tastra-core Qt6::Gui
-        PRIVATE tastra-data-control-protocol Qt6::GuiPrivate)
+        PRIVATE tastra-wayland-protocols Qt6::GuiPrivate)
 endif()
 message(STATUS "Clipboard through ext-data-control-v1: ${TASTRA_DATA_CONTROL}")
 pkg_check_modules(WAYLAND_SERVER IMPORTED_TARGET wayland-server)
@@ -156,28 +171,28 @@ if(BUILD_TESTING AND TASTRA_DATA_CONTROL AND WAYLAND_SERVER_FOUND)
     # needs a shell to start).
     set(XDG_SHELL_PROTOCOL "${WAYLAND_PROTOCOLS_DATADIR}/stable/xdg-shell/xdg-shell.xml")
     add_custom_command(
-        OUTPUT "${DATA_CONTROL_GENERATED}/xdg-shell-server-protocol.h"
-        COMMAND "${WAYLAND_SCANNER}" server-header "${XDG_SHELL_PROTOCOL}" "${DATA_CONTROL_GENERATED}/xdg-shell-server-protocol.h"
+        OUTPUT "${WAYLAND_GENERATED}/xdg-shell-server-protocol.h"
+        COMMAND "${WAYLAND_SCANNER}" server-header "${XDG_SHELL_PROTOCOL}" "${WAYLAND_GENERATED}/xdg-shell-server-protocol.h"
         DEPENDS "${XDG_SHELL_PROTOCOL}" VERBATIM)
     add_custom_command(
-        OUTPUT "${DATA_CONTROL_GENERATED}/xdg-shell-protocol.c"
-        COMMAND "${WAYLAND_SCANNER}" private-code "${XDG_SHELL_PROTOCOL}" "${DATA_CONTROL_GENERATED}/xdg-shell-protocol.c"
+        OUTPUT "${WAYLAND_GENERATED}/xdg-shell-protocol.c"
+        COMMAND "${WAYLAND_SCANNER}" private-code "${XDG_SHELL_PROTOCOL}" "${WAYLAND_GENERATED}/xdg-shell-protocol.c"
         DEPENDS "${XDG_SHELL_PROTOCOL}" VERBATIM)
     add_library(tastra-test-compositor STATIC
-        "${DATA_CONTROL_GENERATED}/xdg-shell-protocol.c"
-        "${DATA_CONTROL_GENERATED}/xdg-shell-server-protocol.h")
-    target_include_directories(tastra-test-compositor PUBLIC "${DATA_CONTROL_GENERATED}" ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-    target_link_libraries(tastra-test-compositor PUBLIC PkgConfig::WAYLAND_SERVER tastra-data-control-protocol Threads::Threads)
+        "${WAYLAND_GENERATED}/xdg-shell-protocol.c"
+        "${WAYLAND_GENERATED}/xdg-shell-server-protocol.h")
+    target_include_directories(tastra-test-compositor PUBLIC "${WAYLAND_GENERATED}" ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    target_link_libraries(tastra-test-compositor PUBLIC PkgConfig::WAYLAND_SERVER tastra-wayland-protocols Threads::Threads)
 
     add_executable(tst_datacontrolclipboard tests/tst_datacontrolclipboard.cpp)
-    target_link_libraries(tst_datacontrolclipboard PRIVATE tastra-data-control tastra-test-compositor Qt6::Test)
+    target_link_libraries(tst_datacontrolclipboard PRIVATE tastra-wayland-extras tastra-test-compositor Qt6::Test)
     add_test(NAME datacontrolclipboard COMMAND tst_datacontrolclipboard)
     set_tests_properties(datacontrolclipboard PROPERTIES ENVIRONMENT "XDG_RUNTIME_DIR=${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
     file(CHMOD "${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime" DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
     # The same through Qt's Wayland platform plugin (needs qt6-wayland).
     add_executable(tst_datacontrolqtdisplay tests/tst_datacontrolqtdisplay.cpp)
-    target_link_libraries(tst_datacontrolqtdisplay PRIVATE tastra-data-control tastra-test-compositor Qt6::Test Qt6::Gui)
+    target_link_libraries(tst_datacontrolqtdisplay PRIVATE tastra-wayland-extras tastra-test-compositor Qt6::Test Qt6::Gui)
     add_test(NAME datacontrolqtdisplay COMMAND tst_datacontrolqtdisplay)
     set_tests_properties(datacontrolqtdisplay PROPERTIES ENVIRONMENT "XDG_RUNTIME_DIR=${CMAKE_CURRENT_BINARY_DIR}/xdg-runtime")
 endif()
@@ -217,7 +232,7 @@ target_link_libraries(tastra
     PRIVATE
         tastra-app
         tastra-platform-kwin
-        $<$<BOOL:${TASTRA_DATA_CONTROL}>:tastra-data-control>
+        $<TARGET_NAME_IF_EXISTS:tastra-wayland-extras>
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick

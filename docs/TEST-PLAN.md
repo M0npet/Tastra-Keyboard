@@ -72,4 +72,5 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 48. Type `окей` (Russian), `naja` (German), `honour` (English) + Space: they stay; `thats` still becomes `that's`.
 49. Copy text in Firefox (Ctrl+C or the context menu), open the keyboard: the chip offers it, the clipboard panel lists it, Paste inserts it. (Before 0.7.1 the keyboard could not see the clipboard at all under KWin.)
 50. Select a word by touch in a text field, open the text-editing panel: Copy and Cut are enabled; Copy, then paste elsewhere with Ctrl+V on a hardware keyboard or the panel's Paste: the word arrives; Cut removes it from the field. In a password field Copy/Cut stay disabled.
+51. Text-editing panel in Firefox and Kate: Select all selects the whole field; Select (button lights up), then ← → Home End extend the selection; Copy, then Paste elsewhere inserts it; Cut removes it. The keyboard stays open throughout.
 

@@ -129,6 +129,7 @@ install -m644 "$SRC/COPYING" "$SRC/README.md" "$SRC/CHANGELOG.md" "$DOC_DIR/"
 for attribution in "$SRC"/data/*/ATTRIBUTION.md; do
     install -m644 "$attribution" "$DOC_DIR/ATTRIBUTION-$(basename "$(dirname "$attribution")").md"
 done
+install -m644 "$SRC/protocols/README.md" "$DOC_DIR/ATTRIBUTION-protocols.md"
 
 # The old name: KWin may restart the keyboard with the old command until the
 # next login, so that command now starts Tastra. Old helpers and docs go.

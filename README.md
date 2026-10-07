@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.7.1, in development**. The typing core is done and tested; the
+Status: **0.7.2, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
@@ -78,18 +78,18 @@ previous binary is kept for rolling back.
   a `:-)` tab of text faces, recent emoji, skin tones on long-press, and an
   optional emoji row.
 - Clipboard: a chip offers what you just copied; history keeps items for an
-  hour; long-press to pin an item for good. Copy, Cut and Paste in the
-  text-editing panel for text selected in the application.
-- Text-editing panel with arrows (including up/down), Home/End and paste.
+  hour; long-press to pin an item for good.
+- Text-editing panel as in Gboard: arrows, Home/End, Select (the arrows then
+  extend the selection), Select all, Copy, Cut, Paste.
 - Settings grouped like Gboard; System/Light/Dark/AMOLED themes. The interface
   is in English, German, Russian and Ukrainian (follows the system language).
 
 ## Platform limits (KDE Plasma / KWin)
 
-- Selecting text from the keyboard (Select, Select all) is not possible: KWin
-  replaces the modifiers of keys sent by an input method, so Shift+Arrow or
-  Ctrl+A never reach the application. Select by touch in the application;
-  Copy, Cut and Paste in the text-editing panel then work.
+- KWin replaces the modifiers of keys sent by an input method, so the
+  text-editing panel sends Select (Shift+arrows), Select all, Copy and Cut as
+  keyboard input through KDE's fake-input protocol (the one KDE Connect uses).
+  Where that protocol is missing, Copy and Cut work on text selected by touch.
 - The clipboard is read and set through KWin's data-control protocol (as
   Klipper does), because KWin offers the regular Wayland clipboard only to the
   focused window, which an on-screen keyboard never is. Needs Plasma 6.4 or
@@ -118,8 +118,9 @@ records sizes and decisions only, never text.
 FrequencyWords and wordfreq (CC BY-SA 4.0), Unicode CLDR annotations (Unicode License V3),
 LDNOOBW word lists (CC BY 4.0), Hunspell dictionaries (system packages),
 LibreOffice uk_UA dictionary (MPL-1.1), optional whisper.cpp + ggml model
-(MIT). Details are in `data/*/ATTRIBUTION.md`, installed to
-`~/.local/share/doc/tastra`.
+(MIT), KDE's fake-input protocol description (LGPL-2.1-or-later,
+`protocols/`). Details are in `data/*/ATTRIBUTION.md` and `protocols/README.md`,
+installed to `~/.local/share/doc/tastra`.
 
 ## Development
 

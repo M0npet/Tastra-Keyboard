@@ -23,6 +23,7 @@ Q_LOGGING_CATEGORY(lcOtherProbe, "other.test", QtWarningMsg)
 #include "app/keyboarduibridge.h"
 #include "app/uitranslator.h"
 #include "core/systemclipboard.h"
+#include "core/keychords.h"
 #include "app/keyboardhider.h"
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
@@ -110,6 +111,13 @@ private:
     QString m_text;
 };
 
+class FakeChords final : public Tastra::KeyChordSender
+{
+public:
+    void send(const QList<int> &modifiers, int key) override { sent.append({modifiers, key}); }
+    QList<QPair<QList<int>, int>> sent;
+};
+
 class KeyboardUiBridgeTest : public QObject
 {
     Q_OBJECT
@@ -172,6 +180,68 @@ private Q_SLOTS:
         QVERIFY(bridge.clipboardHistory().contains(QStringLiteral("from Firefox")));
         QCOMPARE(bridge.clipboardSuggestion(), QStringLiteral("from Firefox"));
         bridge.setSystemClipboard(nullptr);                         // back to QClipboard
+    }
+
+    void selectSelectAllCopyAndCutAsShortcuts()
+    {
+        // With KWin's fake input the panel sends real shortcuts, so the
+        // application selects and copies itself (Gboard's editing panel).
+        using namespace Tastra::EvdevKey;
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        FakeClipboard clipboard;
+        bridge.setSystemClipboard(&clipboard);
+        QVERIFY(!bridge.canSelect());
+        QVERIFY(!bridge.canCopy());                                 // nothing selected, no shortcuts
+        FakeChords chords;
+        bridge.setKeyChordSender(&chords);
+        QVERIFY(bridge.canSelect() && bridge.canCopy());
+
+        bridge.selectAll();
+        bridge.copySelection();
+        QCOMPARE(chords.sent.size(), 2);
+        QCOMPARE(chords.sent.at(0), (QPair<QList<int>, int>({LeftCtrl}, A)));
+        QCOMPARE(chords.sent.at(1), (QPair<QList<int>, int>({LeftCtrl}, C)));
+        QCOMPARE(clipboard.sets, 0);                                // the application copies
+
+        // Select: arrows, Home and End extend the selection.
+        const int moved = backend.moveLeftCount;
+        bridge.toggleSelectMode();
+        QVERIFY(bridge.selectMode());
+        bridge.moveLeft();
+        bridge.moveEnd();
+        QCOMPARE(backend.moveLeftCount, moved);                     // not the plain key
+        QCOMPARE(chords.sent.at(2), (QPair<QList<int>, int>({LeftShift}, Left)));
+        QCOMPARE(chords.sent.at(3), (QPair<QList<int>, int>({LeftShift}, End)));
+        bridge.cutSelection();
+        QCOMPARE(chords.sent.at(4), (QPair<QList<int>, int>({LeftCtrl}, X)));
+        QVERIFY(!bridge.selectMode());                              // a cut ends selecting
+        bridge.moveLeft();
+        QCOMPARE(backend.moveLeftCount, moved + 1);
+
+        // Leaving the panel ends selecting too.
+        bridge.toggleSelectMode();
+        bridge.closePanel();
+        QVERIFY(!bridge.selectMode());
+
+        // A word being typed is finished before a shortcut acts.
+        bridge.tapLetter(QStringLiteral("h"));
+        bridge.tapLetter(QStringLiteral("i"));
+        bridge.selectAll();
+        QVERIFY(bridge.currentWord().isEmpty());
+
+        // Never in password fields.
+        const int before = chords.sent.size();
+        bridge.setContentType(0, 8);
+        QVERIFY(!bridge.canCopy());
+        bridge.copySelection();
+        bridge.cutSelection();
+        QCOMPARE(chords.sent.size(), before);
+        bridge.setContentType(0, 0);
+        bridge.setKeyChordSender(nullptr);
+        bridge.setSystemClipboard(nullptr);
     }
 
     void interfaceLanguageFollowsTheSystemOrTheSetting()

@@ -9,8 +9,11 @@
 
 #include "ext-data-control-v1-server-protocol.h"
 #include "xdg-shell-server-protocol.h"
+#include "fake-input-server-protocol.h"
 
 #include <algorithm>
+#include <mutex>
+#include <utility>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -32,6 +35,7 @@ public:
         wl_global_create(m_display, &wl_compositor_interface, 4, this, bindCompositor);
         wl_global_create(m_display, &xdg_wm_base_interface, 1, this, bindShell);
         if (withDataControl) wl_global_create(m_display, &ext_data_control_manager_v1_interface, 1, this, bindManager);
+        wl_global_create(m_display, &org_kde_kwin_fake_input_interface, 5, this, bindFakeInput);
         m_thread = std::thread([this] { wl_display_run(m_display); });
     }
     ~FakeCompositor()
@@ -42,6 +46,17 @@ public:
         wl_display_destroy(m_display);
     }
     const char *socketName() const { return m_socket; }
+    // Keys received through org_kde_kwin_fake_input: (evdev code, pressed).
+    std::vector<std::pair<uint32_t, bool>> fakeKeys() const
+    {
+        std::lock_guard lock(m_mutex);
+        return m_fakeKeys;
+    }
+    bool fakeInputAuthenticated() const
+    {
+        std::lock_guard lock(m_mutex);
+        return m_authenticated;
+    }
 
 private:
     struct Source { FakeCompositor *owner = nullptr; int id = 0; wl_resource *resource = nullptr; std::vector<std::string> mimes; };
@@ -99,6 +114,32 @@ private:
             [](wl_client *, wl_resource *, uint32_t) {}};
         wl_resource *shell = wl_resource_create(client, &xdg_wm_base_interface, int(version), id);
         wl_resource_set_implementation(shell, &shellImpl, nullptr, nullptr);
+    }
+
+    static void bindFakeInput(wl_client *client, void *data, uint32_t version, uint32_t id)
+    {
+        static const struct org_kde_kwin_fake_input_interface fakeImpl = {
+            [](wl_client *, wl_resource *r, const char *, const char *) {
+                std::lock_guard lock(self(r)->m_mutex);
+                self(r)->m_authenticated = true;
+            },
+            [](wl_client *, wl_resource *, wl_fixed_t, wl_fixed_t) {},
+            [](wl_client *, wl_resource *, uint32_t, uint32_t) {},
+            [](wl_client *, wl_resource *, uint32_t, wl_fixed_t) {},
+            [](wl_client *, wl_resource *, uint32_t, wl_fixed_t, wl_fixed_t) {},
+            [](wl_client *, wl_resource *, uint32_t, wl_fixed_t, wl_fixed_t) {},
+            [](wl_client *, wl_resource *, uint32_t) {},
+            [](wl_client *, wl_resource *) {},
+            [](wl_client *, wl_resource *) {},
+            [](wl_client *, wl_resource *, wl_fixed_t, wl_fixed_t) {},
+            [](wl_client *, wl_resource *r, uint32_t key, uint32_t state) {
+                std::lock_guard lock(self(r)->m_mutex);
+                self(r)->m_fakeKeys.emplace_back(key, state == WL_KEYBOARD_KEY_STATE_PRESSED);
+            },
+            [](wl_client *, wl_resource *r) { wl_resource_destroy(r); },
+            [](wl_client *, wl_resource *, uint32_t, uint32_t) {}};
+        wl_resource *fake = wl_resource_create(client, &org_kde_kwin_fake_input_interface, int(version), id);
+        wl_resource_set_implementation(fake, &fakeImpl, data, nullptr);
     }
 
     static void bindManager(wl_client *client, void *data, uint32_t version, uint32_t id)
@@ -186,6 +227,9 @@ private:
     std::vector<wl_resource *> m_devices;
     Source *m_selection = nullptr;
     int m_nextId = 0;
+    mutable std::mutex m_mutex;
+    std::vector<std::pair<uint32_t, bool>> m_fakeKeys;
+    bool m_authenticated = false;
 };
 
 }

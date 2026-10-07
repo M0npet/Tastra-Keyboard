@@ -5,6 +5,9 @@
 #ifdef TASTRA_DATA_CONTROL
 #include "platform/kwin/datacontrolclipboard.h"
 #endif
+#ifdef TASTRA_WAYLAND_EXTRAS
+#include "platform/kwin/fakeinputkeychords.h"
+#endif
 #include "panelvisibility.h"
 #include "tracelog.h"
 #include "voicecontroller.h"
@@ -68,6 +71,12 @@ int main(int argc, char **argv)
     // input panel never is: read and set it through data control instead.
     const auto dataControlClipboard = Tastra::KWin::DataControlClipboard::createForApplication();
     if (dataControlClipboard) bridge.setSystemClipboard(dataControlClipboard.get());
+#endif
+#ifdef TASTRA_WAYLAND_EXTRAS
+    // Select / Select all / Copy / Cut as keyboard shortcuts (KWin drops the
+    // modifiers of an input method's own keys).
+    const auto keyChords = Tastra::KWin::FakeInputKeyChords::createForApplication();
+    if (keyChords) bridge.setKeyChordSender(keyChords.get());
 #endif
     view.setSource(QUrl(QStringLiteral("qrc:/tastra/Main.qml")));
 

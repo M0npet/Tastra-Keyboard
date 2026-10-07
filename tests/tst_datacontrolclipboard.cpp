@@ -14,6 +14,7 @@
 
 #include "fakecompositor.h"
 #include "platform/kwin/datacontrolclipboard.h"
+#include "platform/kwin/fakeinputkeychords.h"
 
 #include <wayland-client.h>
 
@@ -164,6 +165,23 @@ private Q_SLOTS:
         wl_seat_destroy(globals.seat);
         wl_registry_destroy(registry);
         wl_display_flush(display);
+    }
+
+    void editingShortcutsGoThroughFakeInput()
+    {
+        // Ctrl+A as KDE Connect sends keys: modifier down, key down and up,
+        // modifier up, after authenticating.
+        FakeCompositor compositor;
+        Connection connection(compositor.socketName());
+        auto chords = Tastra::KWin::FakeInputKeyChords::create(connection.display());
+        QVERIFY(chords);
+        chords->send({Tastra::EvdevKey::LeftCtrl}, Tastra::EvdevKey::A);
+        chords->send({Tastra::EvdevKey::LeftShift}, Tastra::EvdevKey::Left);
+        using Key = std::pair<uint32_t, bool>;
+        const std::vector<Key> expected = {{29, true}, {30, true}, {30, false}, {29, false},
+                                           {42, true}, {105, true}, {105, false}, {42, false}};
+        QTRY_VERIFY(compositor.fakeKeys() == expected);
+        QVERIFY(compositor.fakeInputAuthenticated());
     }
 
     void withoutDataControlThereIsNoClipboardObject()

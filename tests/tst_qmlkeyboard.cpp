@@ -23,6 +23,7 @@
 #include "core/keyboardcontroller.h"
 #include "core/keyboardmodel.h"
 #include "core/systemclipboard.h"
+#include "core/keychords.h"
 #include "app/voicecontroller.h"
 #include "core/locallexicon.h"
 
@@ -43,6 +44,13 @@ public:
 
 private:
     QString m_text;
+};
+
+class FakeChords final : public Tastra::KeyChordSender
+{
+public:
+    void send(const QList<int> &modifiers, int key) override { sent.append({modifiers, key}); }
+    QList<QPair<QList<int>, int>> sent;
 };
 
 class FakeBackend final : public Tastra::InputMethodBackend
@@ -960,6 +968,27 @@ private Q_SLOTS:
         QTRY_VERIFY(!copy->isEnabled());
         click(paste);
         QVERIFY(backend.commits.join(QString()).endsWith(QStringLiteral("world")));
+        QVERIFY(!findNamed(view.rootObject(), QStringLiteral("selectButton")));      // no shortcuts: hidden
+
+        // With KWin's fake input: Select and Select all appear; Select lights
+        // up and the arrows then extend the selection.
+        FakeChords chords;
+        bridge.setKeyChordSender(&chords);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("selectButton")));
+        QQuickItem *select = findNamed(view.rootObject(), QStringLiteral("selectButton"));
+        QQuickItem *selectAll = findNamed(view.rootObject(), QStringLiteral("selectAllButton"));
+        QVERIFY(copy->isEnabled());                                          // the app copies its own selection
+        QTest::qWait(50);                                                    // the grid lays the new buttons out
+        const QPointF selectAt = select->mapToScene(QPointF(select->width() / 2, select->height() / 2));
+        QVERIFY2(selectAt.y() < view.height() && selectAt.y() > 0, qPrintable(QString::number(selectAt.y()) + QLatin1Char('/') + QString::number(view.height())));
+        click(select);
+        QVERIFY(bridge.selectMode());
+        QVERIFY(select->property("accent").toBool());
+        click(selectAll);
+        QCOMPARE(chords.sent.last(), (QPair<QList<int>, int>({Tastra::EvdevKey::LeftCtrl}, Tastra::EvdevKey::A)));
+        click(copy);
+        QCOMPARE(chords.sent.last(), (QPair<QList<int>, int>({Tastra::EvdevKey::LeftCtrl}, Tastra::EvdevKey::C)));
+        bridge.setKeyChordSender(nullptr);
         bridge.setSystemClipboard(nullptr);
     }
 

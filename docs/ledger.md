@@ -1491,3 +1491,24 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   offers stub wl_compositor and xdg_wm_base globals. With the Qt 6.11.2
   libraries the keyboard's path (DataControlClipboard on Qt's display) reads
   another client's text and owns the clipboard.
+
+## 2026-10-07 — 0.7.2 Select / Select all / Copy / Cut as real shortcuts
+
+- From KWin's source (GitHub mirror of KDE/kwin): fakeinputbackend.cpp
+  accepts every authenticate request ("TODO: make secure") and turns
+  keyboard_key into ordinary keyboard input (modifiers kept, focused window);
+  since 2024-07 restricted protocols are only hidden from sandboxed clients,
+  and since 2026-07 everything is announced to the input method. The
+  fake-input device is not a libinput device, so it does not end tablet mode
+  (tabletmodemanager.cpp blocksTabletMode). inputmethod.cpp has no hiding on
+  key input.
+- FakeInputKeyChords (protocol XML vendored from plasma-wayland-protocols,
+  LGPL-2.1-or-later): Ctrl+A, Ctrl+C, Ctrl+X, Shift+arrows/Home/End as evdev
+  key presses. The bridge finishes the word being typed first, leaves Select
+  mode on Cut and when the panel closes, never acts in password fields, and
+  keeps the 0.7.1 path (selection from the surrounding text + data control)
+  when fake input is missing.
+- Tests: the test compositor records fake-input keys (order and
+  authentication); bridge and UI tests. A render showed the panel's 13
+  buttons running past the panel at 800 px (also true for the old 8 at that
+  width): the grid now takes as many columns as fit.
