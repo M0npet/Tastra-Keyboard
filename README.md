@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.7.2, in development**. The typing core is done and tested; the
+Status: **0.7.3, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`; a short
 first test in Russian: `docs/FIRST-TEST.ru.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
@@ -42,7 +42,8 @@ previous binary is kept for rolling back.
   correction undoes it and remembers your word. Tap back into a corrected word
   to get what you typed back.
 - Suggestion strip: your word, the **correction** (what Space inserts) and the
-  next best; completions; next-word predictions learned from your own typing;
+  next best; completions; next-word predictions from the first word on
+  (bundled word pairs from open corpora), adapting to your own typing;
   emoji suggestions; long-press a suggestion to forget it. Offensive words are
   never suggested.
 - Several languages at once: with English and German (or Ukrainian and

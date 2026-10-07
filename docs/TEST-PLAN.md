@@ -74,3 +74,9 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 50. Select a word by touch in a text field, open the text-editing panel: Copy and Cut are enabled; Copy, then paste elsewhere with Ctrl+V on a hardware keyboard or the panel's Paste: the word arrives; Cut removes it from the field. In a password field Copy/Cut stay disabled.
 51. Text-editing panel in Firefox and Kate: Select all selects the whole field; Select (button lights up), then ← → Home End extend the selection; Copy, then Paste elsewhere inserts it; Cut removes it. The keyboard stays open throughout.
 
+
+## J. Predictions and human glides (0.7.3)
+52. Settings → Clear learned words, then type `thank` + Space: the strip offers `you`; tap it -> `thank you ` and the strip offers the next word. German `ich` + Space -> `bin`, `habe`…; Russian `я` -> `не`…; Ukrainian `я` -> `не`, `хочу`…
+53. After `.`, `!` or `?` and Space, after a double-space period, and after Return: the strip shows the toolbar, not predictions from the sentence before.
+54. Text-editing panel: Undo and Redo in Kate and Firefox undo and redo the last edit; in a password field they are hidden.
+55. Glide fast with rounded corners, without stopping on the letters: `the`, `world`, `people`, `привет`, `дякую` come out right; when a word misses, it is in the strip.

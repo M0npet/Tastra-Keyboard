@@ -4,6 +4,21 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.3
+- Next-word suggestions from the first word on, as in Gboard: after
+  `thank` the strip offers `you`, after `ich` `bin` and `habe`. The keyboard
+  now ships word pairs for English, German, Russian and Ukrainian, counted in
+  openly licensed corpora (Universal Dependencies, UA-GEC; see
+  `data/bigrams/ATTRIBUTION.md`); what you type yourself still comes first.
+  The previous word also helps autocorrect, completions and glides.
+- A new sentence starts without context: after `.`, `!`, `?` or Return the
+  strip no longer predicts from the last word of the sentence before, and
+  such pairs are not learned.
+- Glide typing copes with fast, rounded strokes that cut the corners of a
+  word (simulated: sloppy glides right 77 -> 81 % for common words, 64 ->
+  68 % for rarer ones; exact ones unchanged).
+- Text-editing panel: Undo and Redo.
+
 ## 0.7.2
 - Text-editing panel like Gboard's: Select (the arrows, Home and End then
   extend the selection) and Select all, and Copy / Cut act on whatever the

@@ -1512,3 +1512,42 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   authentication); bridge and UI tests. A render showed the panel's 13
   buttons running past the panel at 800 px (also true for the old 8 at that
   width): the grid now takes as many columns as fit.
+
+## 2026-10-07 — 0.7.3 Bundled word pairs, human-like glides, Undo/Redo
+
+- Glides: a generator of human-like paths (Gaussian corner scatter, corners
+  cut toward the neighbours' midpoint by up to 0.6 key widths, Catmull-Rom
+  curves; now `GlidePaths::humanPathFor` in tests/glidepaths.h), 600
+  frequent and 600 rarer words per language, three styles (clean, cut,
+  sloppy), weighted 0.7/0.3. A word was dropped when one of its keys lay
+  more than a key width from the path; 1.5 and a letters weight of 180
+  (was 260) gave top-1 86.0 -> 87.4 %, exact paths unchanged, sloppy
+  77.5 -> 81.2 % (frequent) and 64.1 -> 68.1 % (rarer). Tried and dropped:
+  a path-length channel, a turn-count channel, a stronger prior (0.8: +1.2
+  on frequent words, -0.7 on rarer ones). tst_glide cornersCutAsRealFingersDo:
+  40 English words tidy 92.5 -> 97.5 %, sloppy 75 -> 85 %, 16 Russian
+  93.8 -> 100 %.
+- Word pairs: LatinIME and Gboard ship a language model; Tastra had none
+  because no GPL-compatible pair data was known. Licences were checked in
+  each corpus' README/LICENSE: UD English EWT and ESLSpok, German GSD,
+  Russian Taiga and GSD, Ukrainian ParlaMint are CC BY-SA 4.0, UA-GEC is
+  CC BY 4.0; GUM, LinES, SynTagRus, Ukrainian IU and BRUK are NC, German
+  HDT's text is for academic use only, the PUD treebanks and Google Books
+  Ngrams are CC 3.0. tools/build-bigrams.py counts adjacent words of the
+  train/dev parts (both in the bundled frequency list, within a sentence,
+  across commas and dashes), pairs seen at least twice: en 20 849, de
+  15 031, ru 84 464, uk 31 099.
+- Measured on the held-out test parts (18 297 / 8 982 / 10 044 / 24 906
+  word pairs): the next word is among three suggestions for 22.1 / 13.7 /
+  15.4 / 16.6 % (none before for a new user). A prior of 30 per doubling of
+  the pair count: glides (human-like, prev word given) 88.4 -> 89.7 %,
+  autocorrect of noisy taps 76.5 -> 76.8 % right, 0.65 -> 0.72 % wrong,
+  clean words never changed; 60 and 100 added wrong corrections. The chat
+  probe is unchanged (0/1/2/1). Russian with pairs seen three times: -1.2
+  points of next-word hits for -1.5 MB, so twice it stays.
+- Memory (tools/bench_memory): +0.6 / +1.0 / +3.3 / +0.6 MB, load +~90 ms
+  for Russian on the loader thread.
+- A sentence end now clears the previous word (typed `.!?`, double-space
+  period, Return, or the application's text across `.!?…` or a line
+  break), as LatinIME's beginning-of-sentence context.
+
