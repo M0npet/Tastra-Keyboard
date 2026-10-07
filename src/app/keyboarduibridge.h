@@ -12,12 +12,14 @@
 
 #include <QHash>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 
 class QSoundEffect;
+class QQmlEngine;
 
 namespace Tastra
 {
@@ -67,6 +69,10 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY uiPreferencesChanged)
     Q_PROPERTY(QString effectiveTheme READ effectiveTheme NOTIFY uiPreferencesChanged)
     Q_PROPERTY(QString version READ version CONSTANT)
+    // Interface language: "system" (Plasma's language if Tastra has it,
+    // else English), "en", "de", "ru" or "uk". Label for the settings row.
+    Q_PROPERTY(QString uiLanguage READ uiLanguage NOTIFY uiLanguageChanged)
+    Q_PROPERTY(QString uiLanguageLabel READ uiLanguageLabel NOTIFY uiLanguageChanged)
     Q_PROPERTY(bool symbolHints READ symbolHints WRITE setSymbolHints NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool numberRow READ numberRow WRITE setNumberRow NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool autoSpaceAfterPunctuation READ autoSpaceAfterPunctuation WRITE setAutoSpaceAfterPunctuation NOTIFY typingPreferencesChanged)
@@ -259,6 +265,12 @@ public:
     Q_INVOKABLE void setAmoled(bool enabled);
     Q_INVOKABLE void setTheme(const QString &theme);
     Q_INVOKABLE void cycleTheme();
+    Q_INVOKABLE void cycleUiLanguage();
+    Q_INVOKABLE void setUiLanguage(const QString &setting);
+    QString uiLanguage() const { return m_uiLanguage; }
+    QString uiLanguageLabel() const;
+    // The engine whose qsTr() texts are re-evaluated when the language changes.
+    void setQmlEngine(QQmlEngine *engine);
     Q_INVOKABLE void setEmojiSuggestionsEnabled(bool enabled);
     Q_INVOKABLE void setNextWordSuggestions(bool enabled);
     // Gboard clipboard: pinned items stay (and are the only ones on disk).
@@ -323,6 +335,7 @@ Q_SIGNALS:
     void suggestionsChanged();
     void clipboardChanged();
     void inputContextChanged();
+    void uiLanguageChanged();
 
 private:
     void persistLanguage() const;
@@ -383,6 +396,10 @@ private:
     bool m_keyPopups = true;
     bool m_glideEnabled = true;
     bool m_secureInput = false;
+    void applyUiLanguage();
+    QString m_uiLanguage = QStringLiteral("system");
+    class UiTranslator *m_translator = nullptr;
+    QPointer<QQmlEngine> m_qmlEngine;
 };
 
 }

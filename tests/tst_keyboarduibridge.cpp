@@ -5,6 +5,7 @@
 
 #include <QCoreApplication>
 #include <QSettings>
+#include <QLocale>
 #include <QStandardPaths>
 
 #include "app/tracelog.h"
@@ -20,6 +21,7 @@ Q_LOGGING_CATEGORY(lcTraceProbe, "tastra.test", QtWarningMsg)
 Q_LOGGING_CATEGORY(lcOtherProbe, "other.test", QtWarningMsg)
 
 #include "app/keyboarduibridge.h"
+#include "app/uitranslator.h"
 #include "app/keyboardhider.h"
 #include "core/inputmethodbackend.h"
 #include "core/keyboardcontroller.h"
@@ -109,6 +111,54 @@ private Q_SLOTS:
     }
 
     void init() { QSettings().clear(); }
+
+    void interfaceLanguageFollowsTheSystemOrTheSetting()
+    {
+        // Gboard follows the system language; Tastra too, unless one is chosen.
+        QCOMPARE(Tastra::UiTranslator::resolve(QStringLiteral("system"), QLocale(QStringLiteral("de_DE"))), QStringLiteral("de"));
+        QCOMPARE(Tastra::UiTranslator::resolve(QStringLiteral("system"), QLocale(QStringLiteral("uk_UA"))), QStringLiteral("uk"));
+        QCOMPARE(Tastra::UiTranslator::resolve(QStringLiteral("system"), QLocale(QStringLiteral("fr_FR"))), QStringLiteral("en"));
+        QCOMPARE(Tastra::UiTranslator::resolve(QStringLiteral("ru"), QLocale(QStringLiteral("de_DE"))), QStringLiteral("ru"));
+
+        // The tables (the app installs one translator; this test has no app).
+        Tastra::UiTranslator table;
+        QVERIFY(table.loadLanguage(QStringLiteral("de")));
+        QCOMPARE(table.translate("SettingsPanel", "Paste"), QStringLiteral("Einfügen"));
+        QCOMPARE(table.translate("Tastra", "No microphone found"), QStringLiteral("Kein Mikrofon gefunden"));
+        QCOMPARE(table.translate("Main", "＋ Add “%1” to dictionary"), QStringLiteral("＋ „%1“ zum Wörterbuch hinzufügen"));
+        QVERIFY(table.translate("Main", "not a text of ours").isNull());      // falls back to English
+        QVERIFY(table.loadLanguage(QStringLiteral("uk")));
+        QCOMPARE(table.translate("SettingsPanel", "Paste"), QStringLiteral("Вставити"));
+        QVERIFY(table.loadLanguage(QStringLiteral("en")));
+        QVERIFY(table.isEmpty());
+
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        QSignalSpy changed(&bridge, &Tastra::KeyboardUiBridge::uiLanguageChanged);
+        bridge.setUiLanguage(QStringLiteral("de"));
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(bridge.uiLanguageLabel(), QStringLiteral("Deutsch"));
+        QCOMPARE(QSettings().value(QStringLiteral("uiLanguage")).toString(), QStringLiteral("de"));
+        bridge.cycleUiLanguage();                                   // de -> ru -> uk -> system -> en
+        QCOMPARE(bridge.uiLanguageLabel(), QStringLiteral("Русский"));
+        bridge.cycleUiLanguage();
+        QCOMPARE(bridge.uiLanguageLabel(), QStringLiteral("Українська"));
+        bridge.cycleUiLanguage();
+        QCOMPARE(bridge.uiLanguage(), QStringLiteral("system"));
+        QVERIFY(bridge.uiLanguageLabel().startsWith(QStringLiteral("System (")));
+        bridge.cycleUiLanguage();
+        QCOMPARE(bridge.uiLanguageLabel(), QStringLiteral("English"));
+        bridge.setUiLanguage(QStringLiteral("xx"));                // unknown: back to the system's
+        QCOMPARE(bridge.uiLanguage(), QStringLiteral("system"));
+
+        // A new start reads the choice back.
+        bridge.setUiLanguage(QStringLiteral("uk"));
+        Tastra::KeyboardUiBridge again(controller, model);
+        QCOMPARE(again.uiLanguage(), QStringLiteral("uk"));
+        QCOMPARE(again.uiLanguageLabel(), QStringLiteral("Українська"));
+    }
 
     // KWin sends text-input-v1 enums and maps PIN to password (8); 9 is date.
     void dateFieldIsNotTreatedAsSecret()

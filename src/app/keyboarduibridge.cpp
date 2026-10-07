@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+#include "uitranslator.h"
+
+#include <QQmlEngine>
 
 #include <QDateTime>
 
@@ -51,6 +54,8 @@ KeyboardUiBridge::KeyboardUiBridge(
     , m_toolbarModel(m_toolbarRegistry)
 {
     QSettings settings;
+    m_uiLanguage = settings.value(QStringLiteral("uiLanguage"), QStringLiteral("system")).toString();
+    applyUiLanguage();
     m_model.setLanguage(settings.value(QStringLiteral("language"), QStringLiteral("en")).toString());
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
@@ -707,6 +712,50 @@ void KeyboardUiBridge::setTheme(const QString &theme)
     m_theme = theme;
     persistPreference(QStringLiteral("theme"), theme);
     Q_EMIT uiPreferencesChanged();
+}
+
+QString KeyboardUiBridge::uiLanguageLabel() const
+{
+    static const QHash<QString, QString> names = {
+        {QStringLiteral("en"), QStringLiteral("English")}, {QStringLiteral("de"), QStringLiteral("Deutsch")},
+        {QStringLiteral("ru"), QStringLiteral("Русский")}, {QStringLiteral("uk"), QStringLiteral("Українська")},
+    };
+    const QString shown = names.value(m_translator ? m_translator->language() : QStringLiteral("en"));
+    if (m_uiLanguage != QStringLiteral("system")) return shown;
+    return tr("System (%1)").arg(shown);
+}
+
+void KeyboardUiBridge::setUiLanguage(const QString &setting)
+{
+    const QString value = setting == QStringLiteral("en") || UiTranslator::translatedLanguages().contains(setting)
+        ? setting : QStringLiteral("system");
+    if (value == m_uiLanguage) return;
+    m_uiLanguage = value;
+    persistPreference(QStringLiteral("uiLanguage"), m_uiLanguage);
+    applyUiLanguage();
+}
+
+void KeyboardUiBridge::setQmlEngine(QQmlEngine *engine) { m_qmlEngine = engine; }
+
+void KeyboardUiBridge::cycleUiLanguage()
+{
+    static const QStringList order = {QStringLiteral("system"), QStringLiteral("en"), QStringLiteral("de"),
+                                      QStringLiteral("ru"), QStringLiteral("uk")};
+    setUiLanguage(order.at((order.indexOf(m_uiLanguage) + 1) % order.size()));
+}
+
+void KeyboardUiBridge::applyUiLanguage()
+{
+    if (!m_translator) {
+        m_translator = new UiTranslator(this);          // removes itself when destroyed
+        QCoreApplication::installTranslator(m_translator);
+    }
+    m_translator->loadLanguage(UiTranslator::resolve(m_uiLanguage));
+    // Re-install so QCoreApplication sends LanguageChange to everyone.
+    QCoreApplication::removeTranslator(m_translator);
+    QCoreApplication::installTranslator(m_translator);
+    if (m_qmlEngine) m_qmlEngine->retranslate();
+    Q_EMIT uiLanguageChanged();
 }
 
 void KeyboardUiBridge::cycleTheme()

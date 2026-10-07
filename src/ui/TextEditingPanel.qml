@@ -10,42 +10,42 @@ Grid {
 
     PanelButton {
         width: root.portrait ? 150 : 124
-        label: "↑ Up"
+        label: "↑ " + qsTr("Up")
         onTriggered: keyboardBridge.moveUp()
     }
     PanelButton {
         width: root.portrait ? 150 : 124
-        label: "↓ Down"
+        label: "↓ " + qsTr("Down")
         onTriggered: keyboardBridge.moveDown()
     }
     PanelButton {
         width: root.portrait ? 150 : 124
-        label: "← Left"
+        label: "← " + qsTr("Left")
         onTriggered: keyboardBridge.moveLeft()
     }
     PanelButton {
         width: root.portrait ? 150 : 124
-        label: "Right →"
+        label: qsTr("Right") + " →"
         onTriggered: keyboardBridge.moveRight()
     }
     PanelButton {
         width: root.portrait ? 150 : 124
-        label: "Home"
+        label: qsTr("Home")
         onTriggered: keyboardBridge.moveHome()
     }
     PanelButton {
         width: root.portrait ? 150 : 124
-        label: "End"
+        label: qsTr("End")
         onTriggered: keyboardBridge.moveEnd()
     }
     PanelButton {
         width: root.portrait ? 150 : 124
-        label: "Delete"
+        label: qsTr("Delete")
         onTriggered: keyboardBridge.deleteForward()
     }
     PanelButton {
         width: root.portrait ? 150 : 124
-        label: "Backspace"
+        label: qsTr("Backspace")
         onTriggered: keyboardBridge.backspace()
     }
 }

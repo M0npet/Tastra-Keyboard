@@ -1,0 +1,80 @@
+# Tastra interface texts: Русский. English text<TAB>translation.
+# Checked by scripts/verify-static.py: every qsTr()/translate() text of the
+# sources needs a line here, and no line may be left over.
+%1 ms	%1 мс
+Add words with ＋ (a shortcut is optional: typing it offers the word), or tap a typed word in the suggestion strip. Many at once: %1 (one per line) and %2 (shortcut = text).	Добавляйте слова кнопкой ＋ (сокращение необязательно: при его наборе предлагается слово) или нажмите на набранное слово в строке подсказок. Много сразу: %1 (по одному в строке) и %2 (сокращение = текст).
+Advanced	Дополнительно
+Auto-capitalization	Заглавные буквы автоматически
+Auto-space after punctuation	Пробел после знаков препинания
+Autocorrect	Автоисправление
+Backspace	Стереть
+Block offensive words	Блокировать нецензурные слова
+Clear history	Очистить историю
+Clear learned words	Удалить выученные слова
+Clipboard	Буфер обмена
+Clipboard history	История буфера обмена
+Clipboard is empty	Буфер обмена пуст
+Compact left	Компактная слева
+Compact right	Компактная справа
+Dark	Тёмная
+Data: FrequencyWords and wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).	Данные: FrequencyWords и wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), словари Hunspell (системные пакеты), LibreOffice uk_UA (MPL-1.1); по желанию whisper.cpp (MIT).
+Delete	Удалить
+Dictionary	Словарь
+Double-space period	Точка двойным пробелом
+Down	Вниз
+Emoji	Эмодзи
+Emoji fast-access row	Строка быстрых эмодзи
+Emoji suggestions	Подсказки эмодзи
+End	В конец
+Full texts: %1	Полные тексты: %1
+Full width	Во всю ширину
+Gesture trail	Показывать след жеста
+Glide typing	Непрерывный ввод
+Glide typing engine	Включить непрерывный ввод
+Home	В начало
+Interface language	Язык интерфейса
+Key borders	Границы клавиш
+Key popups	Увеличение при нажатии
+Key size	Размер клавиш
+Keyboard language	Язык клавиатуры
+Keyboard layout	Вид клавиатуры
+Languages	Языки
+Left	Влево
+Light	Светлая
+Listening… tap 🎤 to finish	Слушаю… нажмите 🎤, чтобы закончить
+Local learning	Обучение на устройстве
+Long-press delay	Задержка долгого нажатия
+Long-press symbols (key hints)	Символы долгим нажатием (подсказки)
+Microphone could not be opened	Не удалось открыть микрофон
+New word	Новое слово
+Next-word suggestions	Подсказки следующего слова
+No microphone found	Микрофон не найден
+Number row	Ряд цифр
+Off	Выкл.
+On	Вкл.
+Paste	Вставить
+Personal dictionary (%1) — tap a word to remove it	Личный словарь (%1) — нажмите на слово, чтобы удалить
+Preferences	Основные
+Recognizing…	Распознаю…
+Right	Вправо
+Search emoji	Поиск эмодзи
+Settings	Настройки
+Shortcut (optional)	Сокращение (необязательно)
+Shortcuts (%1) — tap one to remove it	Сокращения (%1) — нажмите, чтобы удалить
+Sound on keypress	Звук при нажатии
+Speech recognition failed	Не удалось распознать речь
+Split	Разделённая
+Suggestions	Подсказки
+System	Системная
+System (%1)	Системный (%1)
+Tastra %1 · GPL-3.0-or-later · works offline	Tastra %1 · GPL-3.0-or-later · работает офлайн
+Text correction	Исправление текста
+Text editing	Редактирование
+Theme	Тема
+Underline word while typing	Подчёркивать слово при наборе
+Up	Вверх
+Voice input is not built in	Голосовой ввод не встроен
+Voice model could not be loaded	Не удалось загрузить голосовую модель
+Voice model not installed: run tastra-voice-setup	Голосовая модель не установлена: запустите tastra-voice-setup
+＋ Add word	＋ Добавить слово
+＋ Add “%1” to dictionary	＋ Добавить «%1» в словарь

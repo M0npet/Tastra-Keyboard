@@ -547,8 +547,8 @@ Rectangle {
                 elide: Text.ElideRight
                 color: root.textColor
                 font.pixelSize: root.portrait ? 17 : 15
-                text: keyboardBridge.voiceState === "recording" ? "Listening… tap 🎤 to finish"
-                    : keyboardBridge.voiceState === "recognizing" ? "Recognizing…"
+                text: keyboardBridge.voiceState === "recording" ? qsTr("Listening… tap 🎤 to finish")
+                    : keyboardBridge.voiceState === "recognizing" ? qsTr("Recognizing…")
                     : keyboardBridge.voiceMessage
             }
 
@@ -566,7 +566,7 @@ Rectangle {
                 Text {
                     id: saveWordText
                     anchors.centerIn: parent
-                    text: "\uFF0B Add \u201C" + keyboardBridge.saveWordCandidate + "\u201D to dictionary"
+                    text: qsTr("＋ Add “%1” to dictionary").arg(keyboardBridge.saveWordCandidate)
                     color: root.textColor
                     font.pixelSize: root.portrait ? 17 : 15
                     font.weight: Font.Medium
@@ -843,7 +843,7 @@ Rectangle {
                 anchors.left: wordEntryClose.right
                 anchors.leftMargin: root.keyGap * 2
                 anchors.verticalCenter: parent.verticalCenter
-                text: keyboardBridge.wordEntryStep === "word" ? "New word" : "Shortcut (optional)"
+                text: keyboardBridge.wordEntryStep === "word" ? qsTr("New word") : qsTr("Shortcut (optional)")
                 color: root.secondaryTextColor
                 font.pixelSize: root.portrait ? 15 : 13
             }
@@ -936,7 +936,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: 14
-                    text: "Search emoji"
+                    text: qsTr("Search emoji")
                     color: root.secondaryTextColor
                     font.pixelSize: root.portrait ? 16 : 14
                 }
@@ -1003,7 +1003,7 @@ Rectangle {
                 Text {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Keyboard language"
+                    text: qsTr("Keyboard language")
                     color: root.textColor
                     font.pixelSize: root.portrait ? 19 : 17
                     font.weight: Font.Medium
@@ -1515,10 +1515,10 @@ Rectangle {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 text: {
-                    if (keyboardBridge.activePanel === "clipboard") return "Clipboard"
-                    if (keyboardBridge.activePanel === "emoji") return "Emoji"
-                    if (keyboardBridge.activePanel === "text-editing") return "Text editing"
-                    if (keyboardBridge.activePanel === "settings") return "Settings"
+                    if (keyboardBridge.activePanel === "clipboard") return qsTr("Clipboard")
+                    if (keyboardBridge.activePanel === "emoji") return qsTr("Emoji")
+                    if (keyboardBridge.activePanel === "text-editing") return qsTr("Text editing")
+                    if (keyboardBridge.activePanel === "settings") return qsTr("Settings")
                     return ""
                 }
                 color: root.textColor

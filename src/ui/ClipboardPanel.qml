@@ -22,7 +22,7 @@ Column {
             anchors.margins: 10
             text: keyboardBridge.clipboardText.length > 0
                 ? keyboardBridge.clipboardText
-                : "Clipboard is empty"
+                : qsTr("Clipboard is empty")
             color: keyboardBridge.clipboardText.length > 0 ? root.textColor : root.secondaryTextColor
             font.pixelSize: root.portrait ? 15 : 13
             wrapMode: Text.Wrap
@@ -38,14 +38,14 @@ Column {
 
         PanelButton {
             width: root.portrait ? 120 : 108
-            label: "Paste"
+            label: qsTr("Paste")
             accent: true
             enabled: keyboardBridge.clipboardText.length > 0
             onTriggered: keyboardBridge.pasteClipboard()
         }
         PanelButton {
             width: root.portrait ? 150 : 132
-            label: "Clear history"
+            label: qsTr("Clear history")
             enabled: keyboardBridge.clipboardHistory.length > 0
             onTriggered: keyboardBridge.clearClipboardHistory()
         }

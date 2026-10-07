@@ -55,7 +55,8 @@ file(GLOB TASTRA_DATA_FILES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/frequency/*.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/emoji/*.tsv"
     "${CMAKE_CURRENT_SOURCE_DIR}/data/blocklist/*.txt"
-    "${CMAKE_CURRENT_SOURCE_DIR}/data/sounds/*.wav")
+    "${CMAKE_CURRENT_SOURCE_DIR}/data/sounds/*.wav"
+    "${CMAKE_CURRENT_SOURCE_DIR}/data/i18n/*.tsv")
 qt_add_resources(tastra-core "tastra-data"
     PREFIX "/tastra"
     BASE data
@@ -117,6 +118,7 @@ add_library(tastra-app STATIC
     src/app/panelvisibility.cpp
     src/app/keyboardhider.cpp
     src/app/voicecontroller.cpp
+    src/app/uitranslator.cpp
 )
 
 target_include_directories(tastra-app
@@ -131,6 +133,7 @@ target_link_libraries(tastra-app
         Qt6::Core
         Qt6::DBus
         Qt6::Gui
+        Qt6::Qml
 )
 
 qt_add_executable(tastra

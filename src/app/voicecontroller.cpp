@@ -2,6 +2,8 @@
 
 #include "voicecontroller.h"
 
+#include <QCoreApplication>
+
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(lcVoice, "tastra.voice", QtWarningMsg)
@@ -45,7 +47,7 @@ void VoiceController::toggle()
 {
     if (!available()) {
         setState(QStringLiteral("unavailable"),
-                 m_recognizer ? m_recognizer->unavailableReason() : QStringLiteral("Voice input is not built in"));
+                 m_recognizer ? m_recognizer->unavailableReason() : QCoreApplication::translate("Tastra", "Voice input is not built in"));
         return;
     }
     if (m_state == QStringLiteral("recognizing")) return;

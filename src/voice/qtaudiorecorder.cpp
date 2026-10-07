@@ -2,6 +2,8 @@
 
 #include "qtaudiorecorder.h"
 
+#include <QCoreApplication>
+
 #include <QAudioDevice>
 #include <QAudioSource>
 #include <QMediaDevices>
@@ -25,7 +27,7 @@ bool QtAudioRecorder::start(QString *error)
 {
     const QAudioDevice device = QMediaDevices::defaultAudioInput();
     if (device.isNull()) {
-        *error = QStringLiteral("No microphone found");
+        *error = QCoreApplication::translate("Tastra", "No microphone found");
         return false;
     }
     QAudioFormat wanted;
@@ -38,7 +40,7 @@ bool QtAudioRecorder::start(QString *error)
     m_device = m_source->start();
     if (!m_device) {
         m_source.reset();
-        *error = QStringLiteral("Microphone could not be opened");
+        *error = QCoreApplication::translate("Tastra", "Microphone could not be opened");
         return false;
     }
     const qint64 limit = qint64(m_format.bytesForDuration(qint64(MaxSeconds) * 1000000));

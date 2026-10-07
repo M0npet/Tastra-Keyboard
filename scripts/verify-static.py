@@ -403,6 +403,43 @@ for pattern in ('src/**/*', 'tests/**/*', 'tools/**/*', 'scripts/*', 'data/*.des
             continue
         if OLD_NAME.search(text) and rel not in ('README.md',):
             errors.append(f"{rel}: old name 'V3 Keyboard' outside the migration code")
+# Interface texts: every qsTr() / translate("Tastra", ...) / tr() text needs
+# a line in each data/i18n table with the same placeholders, and no table
+# line may be left over (0.7.0).
+def interface_texts():
+    found = set()
+    for file in (ROOT / 'src/ui').glob('*.qml'):
+        found |= set(re.findall(r'qsTr\("((?:[^"\\]|\\.)*)"\)', file.read_text(encoding='utf-8')))
+    for file in (ROOT / 'src').rglob('*.cpp'):
+        text = file.read_text(encoding='utf-8')
+        found |= set(re.findall(r'translate\("Tastra", "((?:[^"\\]|\\.)*)"\)', text))
+        found |= set(re.findall(r'\btr\("((?:[^"\\]|\\.)*)"\)', text))
+    return found
+texts = interface_texts()
+if not texts:
+    errors.append('no qsTr() texts found')
+for code in ('de', 'ru', 'uk'):
+    table = ROOT / f'data/i18n/{code}.tsv'
+    if not table.exists():
+        errors.append(f'{table.relative_to(ROOT)} missing')
+        continue
+    rows = {}
+    for line in table.read_text(encoding='utf-8').splitlines():
+        if not line or line.startswith('#'):
+            continue
+        if line.count('\t') != 1:
+            errors.append(f'data/i18n/{code}.tsv: malformed line {line[:40]!r}')
+            continue
+        source, translation = line.split('\t')
+        rows[source] = translation
+        for placeholder in ('%1', '%2'):
+            if source.count(placeholder) != translation.count(placeholder):
+                errors.append(f'data/i18n/{code}.tsv: {placeholder} differs in {source[:40]!r}')
+    for missing in sorted(texts - rows.keys()):
+        errors.append(f'data/i18n/{code}.tsv: no translation for {missing[:60]!r}')
+    for unused in sorted(rows.keys() - texts):
+        errors.append(f'data/i18n/{code}.tsv: unused line {unused[:60]!r}')
+
 forbid('src/ui/Main.qml', 'onPressStarted: root.beginGlideCandidate', 'implicit signal parameters (deprecated in Qt 6.11)')
 forbid('src/ui/Main.qml', 'id: emojiSearchInput', 'a text field in the panel (input panels never get keyboard focus)')
 

@@ -22,7 +22,7 @@ Column {
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left
             anchors.leftMargin: 12
-            text: "\uD83D\uDD0D  Search emoji"
+            text: "\uD83D\uDD0D  " + qsTr("Search emoji")
             color: root.secondaryTextColor
             font.pixelSize: root.portrait ? 15 : 13
         }

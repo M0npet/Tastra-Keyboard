@@ -2,6 +2,8 @@
 
 #include "whisperrecognizer.h"
 
+#include <QCoreApplication>
+
 #include <QFileInfo>
 #include <QLoggingCategory>
 #include <QStandardPaths>
@@ -47,7 +49,7 @@ QString WhisperRecognizer::defaultModelPath()
 QString WhisperRecognizer::unavailableReason() const
 {
     if (!QFileInfo::exists(m_modelPath)) {
-        return QStringLiteral("Voice model not installed: run tastra-voice-setup");
+        return QCoreApplication::translate("Tastra", "Voice model not installed: run tastra-voice-setup");
     }
     return {};
 }
@@ -78,7 +80,7 @@ void WhisperRecognizer::recognize(std::vector<float> samples, const QString &lan
                 m_context = whisper_init_from_file_with_params(path.c_str(), cparams);
             }
             if (!m_context) {
-                error = QStringLiteral("Voice model could not be loaded");
+                error = QCoreApplication::translate("Tastra", "Voice model could not be loaded");
             } else {
                 whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
                 params.language = lang.c_str();
@@ -90,7 +92,7 @@ void WhisperRecognizer::recognize(std::vector<float> samples, const QString &lan
                 params.print_timestamps = false;
                 params.n_threads = int(std::clamp(std::thread::hardware_concurrency() / 2, 1u, 4u));
                 if (whisper_full(m_context, params, samples.data(), int(samples.size())) != 0) {
-                    error = QStringLiteral("Speech recognition failed");
+                    error = QCoreApplication::translate("Tastra", "Speech recognition failed");
                 } else {
                     const int segments = whisper_full_n_segments(m_context);
                     for (int i = 0; i < segments; ++i) text += QString::fromUtf8(whisper_full_get_segment_text(m_context, i));

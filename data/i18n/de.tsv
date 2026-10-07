@@ -1,0 +1,80 @@
+# Tastra interface texts: Deutsch. English text<TAB>translation.
+# Checked by scripts/verify-static.py: every qsTr()/translate() text of the
+# sources needs a line here, and no line may be left over.
+%1 ms	%1 ms
+Add words with ＋ (a shortcut is optional: typing it offers the word), or tap a typed word in the suggestion strip. Many at once: %1 (one per line) and %2 (shortcut = text).	Wörter mit ＋ hinzufügen (ein Kürzel ist optional: wer es tippt, bekommt das Wort angeboten) oder ein getipptes Wort in der Vorschlagsleiste antippen. Viele auf einmal: %1 (eins pro Zeile) und %2 (Kürzel = Text).
+Advanced	Erweitert
+Auto-capitalization	Automatische Großschreibung
+Auto-space after punctuation	Leerzeichen nach Satzzeichen
+Autocorrect	Autokorrektur
+Backspace	Rücktaste
+Block offensive words	Anstößige Wörter blockieren
+Clear history	Verlauf löschen
+Clear learned words	Gelernte Wörter löschen
+Clipboard	Zwischenablage
+Clipboard history	Verlauf der Zwischenablage
+Clipboard is empty	Die Zwischenablage ist leer
+Compact left	Kompakt links
+Compact right	Kompakt rechts
+Dark	Dunkel
+Data: FrequencyWords and wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell dictionaries (system packages), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).	Daten: FrequencyWords und wordfreq (CC BY-SA 4.0), Unicode CLDR (Unicode License V3), LDNOOBW (CC BY 4.0), Hunspell-Wörterbücher (Systempakete), LibreOffice uk_UA (MPL-1.1); optional whisper.cpp (MIT).
+Delete	Entfernen
+Dictionary	Wörterbuch
+Double-space period	Punkt durch doppeltes Leerzeichen
+Down	Runter
+Emoji	Emoji
+Emoji fast-access row	Emoji-Schnellzugriffsleiste
+Emoji suggestions	Emoji-Vorschläge
+End	Ende
+Full texts: %1	Volltexte: %1
+Full width	Volle Breite
+Gesture trail	Bewegungsspur anzeigen
+Glide typing	Bewegungseingabe
+Glide typing engine	Bewegungseingabe aktivieren
+Home	Pos1
+Interface language	Sprache der Oberfläche
+Key borders	Tastenränder
+Key popups	Pop-up bei Tastendruck
+Key size	Tastengröße
+Keyboard language	Tastatursprache
+Keyboard layout	Tastaturform
+Languages	Sprachen
+Left	Links
+Light	Hell
+Listening… tap 🎤 to finish	Höre zu… zum Beenden 🎤 tippen
+Local learning	Lernen auf dem Gerät
+Long-press delay	Verzögerung bei langem Drücken
+Long-press symbols (key hints)	Symbole bei langem Drücken (Hinweise)
+Microphone could not be opened	Mikrofon konnte nicht geöffnet werden
+New word	Neues Wort
+Next-word suggestions	Vorschläge für das nächste Wort
+No microphone found	Kein Mikrofon gefunden
+Number row	Zahlenreihe
+Off	Aus
+On	An
+Paste	Einfügen
+Personal dictionary (%1) — tap a word to remove it	Persönliches Wörterbuch (%1) – zum Entfernen ein Wort antippen
+Preferences	Allgemein
+Recognizing…	Wird erkannt…
+Right	Rechts
+Search emoji	Emojis suchen
+Settings	Einstellungen
+Shortcut (optional)	Kürzel (optional)
+Shortcuts (%1) — tap one to remove it	Kürzel (%1) – zum Entfernen antippen
+Sound on keypress	Ton bei Tastendruck
+Speech recognition failed	Spracherkennung fehlgeschlagen
+Split	Geteilt
+Suggestions	Vorschläge
+System	System
+System (%1)	System (%1)
+Tastra %1 · GPL-3.0-or-later · works offline	Tastra %1 · GPL-3.0-or-later · funktioniert offline
+Text correction	Textkorrektur
+Text editing	Textbearbeitung
+Theme	Design
+Underline word while typing	Wort beim Tippen unterstreichen
+Up	Hoch
+Voice input is not built in	Spracheingabe ist nicht eingebaut
+Voice model could not be loaded	Sprachmodell konnte nicht geladen werden
+Voice model not installed: run tastra-voice-setup	Sprachmodell nicht installiert: tastra-voice-setup ausführen
+＋ Add word	＋ Wort hinzufügen
+＋ Add “%1” to dictionary	＋ „%1“ zum Wörterbuch hinzufügen

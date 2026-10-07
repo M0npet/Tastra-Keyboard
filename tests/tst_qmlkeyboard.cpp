@@ -914,6 +914,42 @@ private Q_SLOTS:
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiSearchBar")));
     }
 
+    void interfaceTextsFollowTheChosenLanguage()
+    {
+        // Settings -> Interface language: the panel's texts change at once
+        // (qsTr through the installed table, re-evaluated by the engine).
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        bridge.setQmlEngine(view.engine());
+        bridge.setUiLanguage(QStringLiteral("en"));
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        bridge.activateToolbarAction(QStringLiteral("settings"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("settingsSection_Languages")));
+        QQuickItem *header = findNamed(view.rootObject(), QStringLiteral("settingsSection_Languages"));
+        QQuickItem *button = findNamed(view.rootObject(), QStringLiteral("uiLanguageButton"));
+        QVERIFY(button);
+        QCOMPARE(header->property("text").toString(), QStringLiteral("Languages"));
+        QCOMPARE(button->property("label").toString(), QStringLiteral("English"));
+
+        bridge.setUiLanguage(QStringLiteral("de"));
+        QTRY_COMPARE(header->property("text").toString(), QStringLiteral("Sprachen"));
+        QCOMPARE(button->property("label").toString(), QStringLiteral("Deutsch"));
+        QVERIFY(findText(view.rootObject(), QStringLiteral("Zahlenreihe")));
+        QVERIFY(findText(view.rootObject(), QStringLiteral("Sprache der Oberfläche")));
+
+        bridge.setUiLanguage(QStringLiteral("uk"));
+        QTRY_COMPARE(header->property("text").toString(), QStringLiteral("Мови"));
+        QVERIFY(findText(view.rootObject(), QStringLiteral("Ряд цифр")));
+        bridge.setUiLanguage(QStringLiteral("en"));
+        QTRY_COMPARE(header->property("text").toString(), QStringLiteral("Languages"));
+    }
+
     void addWordFromSettingsTypedOnTheKeys()
     {
         FakeBackend backend;

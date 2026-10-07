@@ -59,6 +59,7 @@ int main(int argc, char **argv)
     view.setColor(Qt::transparent);
     view.setResizeMode(QQuickView::SizeViewToRootObject);
     view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+    bridge.setQmlEngine(view.engine());
     view.setSource(QUrl(QStringLiteral("qrc:/tastra/Main.qml")));
 
     if (view.status() == QQuickView::Error) {
