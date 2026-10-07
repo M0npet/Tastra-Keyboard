@@ -89,6 +89,7 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool keySound READ keySound WRITE setKeySound NOTIFY uiPreferencesChanged)
     // Gboard "Key long press delay" (default 300 ms).
     Q_PROPERTY(int longPressDelay READ longPressDelay NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(int keySoundVolume READ keySoundVolume NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool canPlayKeySound READ canPlayKeySound CONSTANT)
     Q_PROPERTY(bool glideTrail READ glideTrail WRITE setGlideTrail NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool emojiSuggestionsEnabled READ emojiSuggestionsEnabled WRITE setEmojiSuggestionsEnabled NOTIFY typingPreferencesChanged)
@@ -305,8 +306,13 @@ public:
     Q_INVOKABLE void moveUp();
     Q_INVOKABLE void moveDown();
     int longPressDelay() const;
+    // Gboard "Volume on keypress", in percent.
+    int keySoundVolume() const;
+    Q_INVOKABLE void cycleKeySoundVolume();
     Q_INVOKABLE void setGlideTrail(bool enabled);
-    Q_INVOKABLE void keyFeedback();
+    // The key's sound: "space", "delete", "return" or a letter key's click
+    // (LatinIME plays a different system sound for each).
+    Q_INVOKABLE void keyFeedback(const QString &kind = QString());
     Q_INVOKABLE void setAutoSpaceAfterPunctuation(bool enabled);
     Q_INVOKABLE void setEmojiRow(bool enabled);
     Q_INVOKABLE void insertEmoji(const QString &glyph);
@@ -398,8 +404,9 @@ private:
     void writeShortcutLine(const QString &key, const QString &line);
     bool m_keySound = false;
     int m_longPressDelay = 300;
+    int m_keySoundVolume = 35;
     bool m_glideTrail = true;
-    QSoundEffect *m_click = nullptr;          // created on first use only
+    QHash<QString, QSoundEffect *> m_keySounds;   // created on first use only
     bool m_autoSpaceAfterPunctuation = false;
     bool m_emojiRow = false;
     QString m_inputPurpose = QStringLiteral("text");

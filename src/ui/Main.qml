@@ -302,6 +302,8 @@ Rectangle {
         property bool consumeRelease: false
         property bool glideEligible: false
         property string glideValue: ""
+        // LatinIME: Space, Backspace and Return have their own sound.
+        property string sound: ""
 
         signal triggered()
         signal longPressed()
@@ -479,7 +481,7 @@ Rectangle {
                 lastY = point.y
                 key.pressX = point.x
                 key.pressY = point.y
-                keyboardBridge.keyFeedback()          // Gboard "Sound on keypress"
+                keyboardBridge.keyFeedback(key.sound) // Gboard "Sound on keypress"
                 key.consumeRelease = false
                 holdTimer.restart()
                 key.pressStarted(point.x, point.y)
@@ -1160,6 +1162,7 @@ Rectangle {
                             preferredWidth: (root.contentWidth - root.keyGap * 2) / 3
                             label: modelData
                             special: modelData === "⌫"
+                            sound: modelData === "⌫" ? "delete" : ""
                             onTriggered: modelData === "⌫" ? keyboardBridge.backspace() : keyboardBridge.tapText(modelData)
                         }
                     }
@@ -1331,6 +1334,7 @@ Rectangle {
 
             Key {
                 id: backspaceKey
+                sound: "delete"
                 property real dragStartX: 0
                 property int dragStep: 0
                 preferredWidth: root.baseKeyWidth * 1.25
@@ -1436,6 +1440,7 @@ Rectangle {
 
             Key {
                 id: spaceKey
+                sound: "space"
                 property real dragStartX: 0
                 property int cursorStep: 0
                 preferredWidth: root.baseKeyWidth * 4.05 + root.splitGap
@@ -1473,6 +1478,7 @@ Rectangle {
                 preferredWidth: root.baseKeyWidth * 1.35
                 accent: true
                 popupEnabled: false
+                sound: "return"
                 iconSource: "qrc:/tastra/icons/enter.svg"
                 onTriggered: keyboardBridge.enter()
             }

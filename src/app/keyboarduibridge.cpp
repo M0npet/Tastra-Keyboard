@@ -85,6 +85,7 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_keySound = canPlayKeySound() && settings.value(QStringLiteral("keySound"), false).toBool();
     m_glideTrail = settings.value(QStringLiteral("glideTrail"), true).toBool();
     m_longPressDelay = qBound(150, settings.value(QStringLiteral("longPressDelay"), 300).toInt(), 1000);
+    m_keySoundVolume = qBound(10, settings.value(QStringLiteral("keySoundVolume"), 35).toInt(), 100);
     m_autoSpaceAfterPunctuation = settings.value(QStringLiteral("autoSpaceAfterPunctuation"), false).toBool();
     m_typingEngine.setAutoSpaceAfterPunctuation(m_autoSpaceAfterPunctuation);
     m_emojiRow = settings.value(QStringLiteral("emojiRow"), false).toBool();
@@ -568,17 +569,34 @@ void KeyboardUiBridge::setGlideTrail(bool enabled)
     Q_EMIT uiPreferencesChanged();
 }
 
-void KeyboardUiBridge::keyFeedback()
+void KeyboardUiBridge::keyFeedback(const QString &kind)
 {
 #ifdef TASTRA_HAVE_KEY_SOUND
     if (!m_keySound) return;
-    if (!m_click) {
-        m_click = new QSoundEffect(this);
-        m_click->setSource(QUrl(QStringLiteral("qrc:/tastra/sounds/click.wav")));
-        m_click->setVolume(0.35f);
+    static const QStringList kinds = {QStringLiteral("space"), QStringLiteral("delete"), QStringLiteral("return")};
+    const QString name = kinds.contains(kind) ? kind : QStringLiteral("click");
+    QSoundEffect *&sound = m_keySounds[name];
+    if (!sound) {
+        sound = new QSoundEffect(this);
+        sound->setSource(QUrl(QStringLiteral("qrc:/tastra/sounds/%1.wav").arg(name)));
     }
-    m_click->play();
+    sound->setVolume(float(m_keySoundVolume) / 100.0f);
+    sound->play();
+#else
+    Q_UNUSED(kind);
 #endif
+}
+
+int KeyboardUiBridge::keySoundVolume() const { return m_keySoundVolume; }
+
+void KeyboardUiBridge::cycleKeySoundVolume()
+{
+    static const QList<int> steps = {15, 35, 60, 100};
+    const qsizetype at = steps.indexOf(m_keySoundVolume);
+    m_keySoundVolume = steps.at((at < 0 ? 1 : at + 1) % steps.size());
+    persistPreference(QStringLiteral("keySoundVolume"), m_keySoundVolume);
+    Q_EMIT uiPreferencesChanged();
+    keyFeedback();                                       // hear the new volume
 }
 bool KeyboardUiBridge::autoSpaceAfterPunctuation() const { return m_autoSpaceAfterPunctuation; }
 bool KeyboardUiBridge::emojiRow() const { return m_emojiRow; }

@@ -1,6 +1,7 @@
 # Tastra interface texts: Deutsch. English text<TAB>translation.
 # Checked by scripts/verify-static.py: every qsTr()/translate() text of the
 # sources needs a line here, and no line may be left over.
+%1 %	%1 %
 %1 ms	%1 ms
 Add words with ＋ (a shortcut is optional: typing it offers the word), or tap a typed word in the suggestion strip. Many at once: %1 (one per line) and %2 (shortcut = text).	Wörter mit ＋ hinzufügen (ein Kürzel ist optional: wer es tippt, bekommt das Wort angeboten) oder ein getipptes Wort in der Vorschlagsleiste antippen. Viele auf einmal: %1 (eins pro Zeile) und %2 (Kürzel = Text).
 Advanced	Erweitert
@@ -82,5 +83,6 @@ Up	Hoch
 Voice input is not built in	Spracheingabe ist nicht eingebaut
 Voice model could not be loaded	Sprachmodell konnte nicht geladen werden
 Voice model not installed: run tastra-voice-setup	Sprachmodell nicht installiert: tastra-voice-setup ausführen
+Volume on keypress	Lautstärke bei Tastendruck
 ＋ Add word	＋ Wort hinzufügen
 ＋ Add “%1” to dictionary	＋ „%1“ zum Wörterbuch hinzufügen

@@ -107,6 +107,13 @@ Flickable {
         }
 
         Row {
+            visible: keyboardBridge.canPlayKeySound && keyboardBridge.keySound
+            width: parent.width; spacing: 12
+            Text { width: parent.width - keySoundVolumeButton.width - parent.spacing; height: keySoundVolumeButton.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Volume on keypress"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+            PanelButton { id: keySoundVolumeButton; objectName: "keySoundVolumeButton"; width: root.portrait ? 170 : 150; label: qsTr("%1 %").arg(keyboardBridge.keySoundVolume); onTriggered: keyboardBridge.cycleKeySoundVolume() }
+        }
+
+        Row {
             width: parent.width; spacing: 12
             Text { width: parent.width - popupButton.width - parent.spacing; height: popupButton.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Key popups"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
             PanelButton { id: popupButton; width: root.portrait ? 170 : 150; label: keyboardBridge.keyPopups ? qsTr("On") : qsTr("Off"); onTriggered: keyboardBridge.setKeyPopups(!keyboardBridge.keyPopups) }

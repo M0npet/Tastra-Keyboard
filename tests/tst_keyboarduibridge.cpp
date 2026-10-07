@@ -717,9 +717,19 @@ private Q_SLOTS:
             bridge.setKeySound(true);
             bridge.setGlideTrail(false);
             bridge.keyFeedback();                  // must not crash without an audio device
+            for (const QString &kind : {QStringLiteral("space"), QStringLiteral("delete"), QStringLiteral("return"),
+                                        QStringLiteral("unknown")})
+                bridge.keyFeedback(kind);          // LatinIME: own sounds for Space, Delete, Return
+            QCOMPARE(bridge.keySoundVolume(), 35);
+            bridge.cycleKeySoundVolume();
+            QCOMPARE(bridge.keySoundVolume(), 60);
         }
         Tastra::KeyboardUiBridge reloaded(controller, model);
         QCOMPARE(reloaded.keySound(), reloaded.canPlayKeySound());   // only kept if playable
+        QCOMPARE(reloaded.keySoundVolume(), 60);
+        reloaded.cycleKeySoundVolume();
+        reloaded.cycleKeySoundVolume();
+        QCOMPARE(reloaded.keySoundVolume(), 15);
         QVERIFY(!reloaded.glideTrail());
         QVERIFY(reloaded.nextWordSuggestions());                     // Gboard: on by default
         reloaded.setNextWordSuggestions(false);

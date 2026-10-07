@@ -63,6 +63,10 @@ require('data/bigrams/ATTRIBUTION.md', 'CC BY-SA 4.0', 'word pair attribution')
 for language in ('en', 'de', 'ru', 'uk'):
     require(f'data/bigrams/{language}.txt', 'Built by tools/build-bigrams.py', f'{language} word pairs')
 require('tests/tst_glide.cpp', 'cornersCutAsRealFingersDo', 'human-like glide test (0.7.3)')
+require('src/app/keyboarduibridge.cpp', 'cycleKeySoundVolume', 'Gboard volume on keypress')
+for sound in ('click', 'space', 'delete', 'return'):
+    if not (ROOT / f'data/sounds/{sound}.wav').read_bytes().startswith(b'RIFF'):
+        errors.append(f'data/sounds/{sound}.wav: missing {sound} key sound')
 require('src/app/main.cpp', 'bridge.resetInputContext();', 'typing/panel reset on context close')
 require('CMakeLists.txt', 'Qt6::Gui', 'Qt GUI dependency for clipboard')
 

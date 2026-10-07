@@ -1,6 +1,7 @@
 # Tastra interface texts: Русский. English text<TAB>translation.
 # Checked by scripts/verify-static.py: every qsTr()/translate() text of the
 # sources needs a line here, and no line may be left over.
+%1 %	%1 %
 %1 ms	%1 мс
 Add words with ＋ (a shortcut is optional: typing it offers the word), or tap a typed word in the suggestion strip. Many at once: %1 (one per line) and %2 (shortcut = text).	Добавляйте слова кнопкой ＋ (сокращение необязательно: при его наборе предлагается слово) или нажмите на набранное слово в строке подсказок. Много сразу: %1 (по одному в строке) и %2 (сокращение = текст).
 Advanced	Дополнительно
@@ -82,5 +83,6 @@ Up	Вверх
 Voice input is not built in	Голосовой ввод не встроен
 Voice model could not be loaded	Не удалось загрузить голосовую модель
 Voice model not installed: run tastra-voice-setup	Голосовая модель не установлена: запустите tastra-voice-setup
+Volume on keypress	Громкость звука нажатия
 ＋ Add word	＋ Добавить слово
 ＋ Add “%1” to dictionary	＋ Добавить «%1» в словарь
