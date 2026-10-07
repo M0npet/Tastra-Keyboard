@@ -1563,7 +1563,10 @@ QStringList LocalLexicon::decodeGlidePathCandidates(const QVector<QPointF> &path
             letters += d;
             worstLetter = std::max(worstLetter, d);
         }
-        if (worstLetter > 1.0) continue;   // the finger never came near one of its keys
+        // A key may lie a key and a half from the path: real fingers cut the
+        // corners of a word ("the" passes between t, h and e rather than
+        // over h), and a narrower limit dropped the word before scoring.
+        if (worstLetter > 1.5) continue;
         letters /= ideal.size();
         const QVector<QPointF> idealSampled = Glide::resample(ideal, Samples);
         double location = 0.0;
@@ -1571,11 +1574,14 @@ QStringList LocalLexicon::decodeGlidePathCandidates(const QVector<QPointF> &path
         location /= Samples * keyWidth;
         if (location > 1.5) continue;
         const double shape = Glide::shapeDistance(sampled, idealSampled);
-        // Weights from a grid search on synthetic glides of the 200 most
-        // frequent words per language (tools in docs/ledger.md): the plateau
-        // is flat (1527-1530 of 1600); the misses left are ambiguous paths
-        // ("too"/"to", "dass"/"das"), which the strip offers as alternatives.
-        const double score = 1000.0 - 420.0 * location - 260.0 * letters - 200.0 * shape
+        // Weights from grid searches on synthetic glides (tools in
+        // docs/ledger.md): first on exact paths of the 200 most frequent words
+        // per language, then on human-like ones (key noise, corners cut,
+        // smoothed) of frequent and rarer words. The letters weight was 260;
+        // 180 keeps exact paths as they were and lifts cut and sloppy ones.
+        // The misses left are mostly ambiguous paths ("too"/"to",
+        // "dass"/"das"), which the strip offers as alternatives.
+        const double score = 1000.0 - 420.0 * location - 180.0 * letters - 200.0 * shape
                            + 0.6 * priorScore(word, prev);
         readings.append({word, score, location});
     }

@@ -55,6 +55,47 @@ private:
         return double(hits) / words.size();
     }
 
+    static double humanAccuracy(const LocalLexicon &lexicon, const QString &language, const QStringList &words,
+                                double sigma, double cut, QStringList *misses)
+    {
+        const QHash<QChar, QPointF> centres = centresFor(language);
+        int hits = 0;
+        quint32 seed = 3;
+        for (const QString &word : words) {
+            const QString decoded = lexicon.decodeGlidePath(GlidePaths::humanPathFor(word, centres, sigma, cut, ++seed),
+                                                            centres, KeyWidth);
+            if (decoded.compare(word, Qt::CaseInsensitive) == 0) ++hits;
+            else misses->append(word + QStringLiteral("->") + decoded);
+        }
+        return double(hits) / words.size();
+    }
+
+    static QStringList commonEnglishWords()
+    {
+        return {
+            QStringLiteral("hello"), QStringLiteral("world"), QStringLiteral("the"), QStringLiteral("and"),
+            QStringLiteral("you"), QStringLiteral("that"), QStringLiteral("have"), QStringLiteral("with"),
+            QStringLiteral("this"), QStringLiteral("what"), QStringLiteral("great"), QStringLiteral("thanks"),
+            QStringLiteral("please"), QStringLiteral("people"), QStringLiteral("because"), QStringLiteral("really"),
+            QStringLiteral("think"), QStringLiteral("about"), QStringLiteral("would"), QStringLiteral("there"),
+            QStringLiteral("right"), QStringLiteral("going"), QStringLiteral("little"), QStringLiteral("make"),
+            QStringLiteral("time"), QStringLiteral("good"), QStringLiteral("know"), QStringLiteral("just"),
+            QStringLiteral("like"), QStringLiteral("want"), QStringLiteral("work"), QStringLiteral("home"),
+            QStringLiteral("today"), QStringLiteral("night"), QStringLiteral("love"), QStringLiteral("friend"),
+            QStringLiteral("school"), QStringLiteral("water"), QStringLiteral("money"), QStringLiteral("phone"),
+        };
+    }
+
+    static QStringList commonRussianWords()
+    {
+        return {
+            QStringLiteral("привет"), QStringLiteral("спасибо"), QStringLiteral("хорошо"), QStringLiteral("сейчас"),
+            QStringLiteral("сегодня"), QStringLiteral("может"), QStringLiteral("когда"), QStringLiteral("потому"),
+            QStringLiteral("работа"), QStringLiteral("человек"), QStringLiteral("время"), QStringLiteral("дома"),
+            QStringLiteral("завтра"), QStringLiteral("вопрос"), QStringLiteral("деньги"), QStringLiteral("понимаю"),
+        };
+    }
+
 private Q_SLOTS:
     void initTestCase()
     {
@@ -106,18 +147,7 @@ private Q_SLOTS:
     {
         LocalLexicon lexicon;
         useBundledLists(lexicon, QStringLiteral("en"));
-        const QStringList words = {
-            QStringLiteral("hello"), QStringLiteral("world"), QStringLiteral("the"), QStringLiteral("and"),
-            QStringLiteral("you"), QStringLiteral("that"), QStringLiteral("have"), QStringLiteral("with"),
-            QStringLiteral("this"), QStringLiteral("what"), QStringLiteral("great"), QStringLiteral("thanks"),
-            QStringLiteral("please"), QStringLiteral("people"), QStringLiteral("because"), QStringLiteral("really"),
-            QStringLiteral("think"), QStringLiteral("about"), QStringLiteral("would"), QStringLiteral("there"),
-            QStringLiteral("right"), QStringLiteral("going"), QStringLiteral("little"), QStringLiteral("make"),
-            QStringLiteral("time"), QStringLiteral("good"), QStringLiteral("know"), QStringLiteral("just"),
-            QStringLiteral("like"), QStringLiteral("want"), QStringLiteral("work"), QStringLiteral("home"),
-            QStringLiteral("today"), QStringLiteral("night"), QStringLiteral("love"), QStringLiteral("friend"),
-            QStringLiteral("school"), QStringLiteral("water"), QStringLiteral("money"), QStringLiteral("phone"),
-        };
+        const QStringList words = commonEnglishWords();
         QStringList misses;
         const double clean = accuracy(lexicon, QStringLiteral("en"), words, 0.12, &misses);
         QVERIFY2(clean >= 0.95, qPrintable(QString::number(clean) + QLatin1Char(' ') + misses.join(QLatin1Char(' '))));
@@ -130,15 +160,33 @@ private Q_SLOTS:
     {
         LocalLexicon lexicon;
         useBundledLists(lexicon, QStringLiteral("ru"));
-        const QStringList words = {
-            QStringLiteral("привет"), QStringLiteral("спасибо"), QStringLiteral("хорошо"), QStringLiteral("сейчас"),
-            QStringLiteral("сегодня"), QStringLiteral("может"), QStringLiteral("когда"), QStringLiteral("потому"),
-            QStringLiteral("работа"), QStringLiteral("человек"), QStringLiteral("время"), QStringLiteral("дома"),
-            QStringLiteral("завтра"), QStringLiteral("вопрос"), QStringLiteral("деньги"), QStringLiteral("понимаю"),
-        };
+        const QStringList words = commonRussianWords();
         QStringList misses;
         const double rate = accuracy(lexicon, QStringLiteral("ru"), words, 0.25, &misses);
         QVERIFY2(rate >= 0.85, qPrintable(QString::number(rate) + QLatin1Char(' ') + misses.join(QLatin1Char(' '))));
+    }
+
+    void cornersCutAsRealFingersDo()
+    {
+        // A finger turns before it reaches the middle keys and draws a curve,
+        // not straight strokes: the keys of "the" or "привет" can lie most
+        // of a key away from the path. Such words used to be dropped before
+        // scoring (a key more than one key width off), or lost to their
+        // letters' distance alone.
+        LocalLexicon en;
+        useBundledLists(en, QStringLiteral("en"));
+        QStringList misses;
+        const double tidy = humanAccuracy(en, QStringLiteral("en"), commonEnglishWords(), 0.15, 0.3, &misses);
+        QVERIFY2(tidy >= 0.95, qPrintable(QString::number(tidy) + QLatin1Char(' ') + misses.join(QLatin1Char(' '))));
+        misses.clear();
+        const double sloppy = humanAccuracy(en, QStringLiteral("en"), commonEnglishWords(), 0.25, 0.5, &misses);
+        QVERIFY2(sloppy >= 0.82, qPrintable(QString::number(sloppy) + QLatin1Char(' ') + misses.join(QLatin1Char(' '))));
+
+        LocalLexicon ru;
+        useBundledLists(ru, QStringLiteral("ru"));
+        misses.clear();
+        const double russian = humanAccuracy(ru, QStringLiteral("ru"), commonRussianWords(), 0.25, 0.5, &misses);
+        QVERIFY2(russian >= 0.95, qPrintable(QString::number(russian) + QLatin1Char(' ') + misses.join(QLatin1Char(' '))));
     }
 
     void nothingForATinyOrMissingPath()
