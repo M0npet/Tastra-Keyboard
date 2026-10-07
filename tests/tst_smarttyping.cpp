@@ -649,6 +649,34 @@ private Q_SLOTS:
         }
     }
 
+    void theStripPredictsTheNextWordBeforeAnythingWasLearned()
+    {
+        // Gboard: "thank" + Space offers "you"; tapping it types "you " and
+        // the strip moves on to the word after it.
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::TypingEngine engine(controller);
+        engine.setLearningEnabled(false);
+        engine.setLanguage(QStringLiteral("en"));
+        QVERIFY(engine.waitForDictionaryForTesting(10000));
+        composing(backend, engine);
+        engine.setAutoCapitalizationEnabled(false);
+        for (const QChar ch : QStringLiteral("thank")) engine.typeLetter(QString(ch));
+        engine.space();
+        QVERIFY2(engine.suggestions().contains(QStringLiteral("you")), qPrintable(engine.suggestions().join(',')));
+        engine.chooseSuggestion(QStringLiteral("you"));
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("thank you"));
+        QCOMPARE(backend.preedit, QStringLiteral(" "));
+        QCOMPARE(engine.previousWord(), QStringLiteral("you"));
+        QVERIFY(!engine.suggestions().isEmpty());
+        // Not after the end of a sentence.
+        engine.typeText(QStringLiteral("."));
+        engine.space();
+        QVERIFY2(engine.suggestions().isEmpty(), qPrintable(engine.suggestions().join(',')));
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
     void compositionDoubleSpaceAndNextWord()
     {
         FakeBackend backend;
