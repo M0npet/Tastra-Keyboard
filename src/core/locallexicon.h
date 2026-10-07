@@ -64,6 +64,8 @@ public:
     void setCompanionLanguages(const QStringList &codes);
     QStringList companionLanguages() const { return m_companions; }
     bool knownInCompanionLanguage(const QString &word) const;
+    // A word of the frequency list that the Hunspell dictionary lacks.
+    bool listedButNotInDictionary(const QString &word) const;
     static void preloadForeignWordsForTesting(const QString &language);   // blocking
     // Known without Hunspell (frequency list, stems, user and core words).
     bool hasWordCheaply(const QString &word) const;

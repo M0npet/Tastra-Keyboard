@@ -37,6 +37,17 @@ Q_LOGGING_CATEGORY(lcLexicon, "tastra.lexicon", QtWarningMsg)
 namespace Tastra
 {
 
+// FNV-1a over the UTF-16 code units: stable, seedless, good enough here.
+static quint64 wordHash(QStringView word)
+{
+    quint64 h = 14695981039346656037ULL;
+    for (const QChar ch : word) {
+        h ^= ch.unicode();
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
 // Immutable once built; created on a worker thread, then only used on the
 // thread that owns the LocalLexicon.
 struct DictionaryData
@@ -52,6 +63,11 @@ struct DictionaryData
     // Word frequency (sorted by word for prefix search); rank 1 = most common.
     struct FreqEntry { QString word; quint32 rank; bool capital; };
     std::vector<FreqEntry> freq;
+    // Words of the frequency list that Hunspell does not know: chat words
+    // ("окей", "naja", "ok"), names, British spellings, subtitle noise.
+    // Never offered, but not "corrected" away either (sorted hashes).
+    std::vector<quint64> listedOnly;
+    bool isListedOnly(QStringView word) const { return std::binary_search(listedOnly.begin(), listedOnly.end(), wordHash(word)); }
 
     std::pair<size_t, size_t> freqRange(QStringView prefix) const
     {
@@ -274,12 +290,20 @@ void loadFrequency(DictionaryData &data, const QString &language, const QStringL
             // Keep only real words; German nouns and names are valid only
             // capitalized, so remember that for display.
             if (!data.spell(word)) {
-                if (!data.spell(capitalizeFirst(word))) continue;
+                if (!data.spell(capitalizeFirst(word))) {
+                    // Below 20 000 the list's unknown words turn into typos
+                    // people make too ("realy"): measured, keeping 50 000
+                    // left 0.4 % more typos uncorrected.
+                    if (rank <= 20000) data.listedOnly.push_back(wordHash(word));
+                    continue;
+                }
                 capital = true;
             }
         }
         data.freq.push_back({word, rank, capital});
     }
+    std::sort(data.listedOnly.begin(), data.listedOnly.end());
+    data.listedOnly.shrink_to_fit();
     std::sort(data.freq.begin(), data.freq.end(), [](const auto &a, const auto &b) { return a.word < b.word; });
     data.freq.erase(std::unique(data.freq.begin(), data.freq.end(), [](const auto &a, const auto &b) { return a.word == b.word; }), data.freq.end());
     data.freq.shrink_to_fit();
@@ -500,16 +524,7 @@ void releaseFreedMemory()
 class WordHashes
 {
 public:
-    static quint64 hashOf(QStringView word)
-    {
-        // FNV-1a over the UTF-16 code units: stable, seedless, good enough here.
-        quint64 h = 14695981039346656037ULL;
-        for (const QChar ch : word) {
-            h ^= ch.unicode();
-            h *= 1099511628211ULL;
-        }
-        return h;
-    }
+    static quint64 hashOf(QStringView word) { return wordHash(word); }
     void add(QStringView word) { m_hashes.push_back(hashOf(word)); }
     void finish(const std::vector<quint64> &blocked)
     {
@@ -620,6 +635,12 @@ void LocalLexicon::setCompanionLanguages(const QStringList &codes)
     m_companions.removeDuplicates();
     // Start the background loads now, before the first word needs them.
     for (const QString &code : std::as_const(m_companions)) knownInLanguage(code, QString());
+}
+
+bool LocalLexicon::listedButNotInDictionary(const QString &word) const
+{
+    adoptLoadedData();
+    return m_data && m_data->isListedOnly(normalize(word));
 }
 
 bool LocalLexicon::knownInCompanionLanguage(const QString &word) const
@@ -1384,7 +1405,9 @@ QString LocalLexicon::pickCorrection(const QString &word, const QString &previou
     // A word of another enabled language ("danke" on the English layout)
     // is that language's word, not a typo (Gboard multilingual typing).
     // Only a nearly free fix in the active language still wins below.
-    const bool otherLanguageWord = knownInCompanionLanguage(typed);
+    // ... and a listed word Hunspell lacks ("окей", "naja", "honour") is the
+    // user's word too.
+    const bool otherLanguageWord = knownInCompanionLanguage(typed) || listedButNotInDictionary(typed);
     // "i" -> "I", "monday" -> "Monday": only the capital is a word.
     if (const QString capital = englishCapitalForm(typed); !capital.isEmpty() && !otherLanguageWord) return capital;
     const auto typo = m_typoMap.constFind(typed);
@@ -1415,7 +1438,8 @@ QString LocalLexicon::pickCorrection(const QString &word, const QString &previou
         typed.size() <= 4 && best.edit == Edit::Other && best.word.size() == typed.size();
     if (shortDistantSubstitution && personal < 2) return {};
     const bool known = rank > 0 || isCore(best.word) || personal > 0 || isUserWord(best.word);
-    const bool confident = best.edit == Edit::Transposition
+    // A swap in three letters changes two of them: "omg" is not "mog".
+    const bool confident = (best.edit == Edit::Transposition && (known || typed.size() >= 4))
         || (best.edit == Edit::Apostrophe && known)
         || (best.edit == Edit::Accent && (isCore(best.word) || (rank > 0 && rank <= 20000)))
         || isCore(best.word)

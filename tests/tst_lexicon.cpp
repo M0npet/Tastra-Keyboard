@@ -536,6 +536,24 @@ private Q_SLOTS:
         QVERIFY(words.indexOf(QStringLiteral("як")) < 30);
     }
 
+    void listedWordsHunspellLacksAreKept()
+    {
+        // The frequency list has words the dictionary lacks: chat words
+        // ("окей", "naja"), names, British spellings. They stay as typed;
+        // only a nearly free fix (a left-out apostrophe) is still made.
+        LocalLexicon lexicon;
+        useLatinImeFixtures(lexicon, QStringLiteral("en"));
+        QVERIFY(!lexicon.hasWord(QStringLiteral("honour")));
+        QVERIFY(lexicon.listedButNotInDictionary(QStringLiteral("honour")));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("honour")).isEmpty());   // not "honor"
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("honr")), QStringLiteral("honor"));
+        QCOMPARE(lexicon.bestCorrection(QStringLiteral("thats")), QStringLiteral("that's"));
+        QVERIFY(!lexicon.suggestions(QStringLiteral("hono"), QString(), 3).contains(QStringLiteral("honour")));
+        // A swap into an unlisted word needs more than three letters.
+        QVERIFY(lexicon.hasWord(QStringLiteral("mog")));
+        QVERIFY(lexicon.bestCorrection(QStringLiteral("omg")).isEmpty());
+    }
+
     void wordsRunTogetherAreSplit()
     {
         // LatinIME's space omission and mistyped space: Space between two
