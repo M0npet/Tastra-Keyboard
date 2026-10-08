@@ -1239,6 +1239,12 @@ void TypingEngine::clearLearning()
     refreshSuggestions();
 }
 
+void TypingEngine::saveLearning()
+{
+    m_lexicon.flushLearning();
+    LocalLexicon::waitForLearningWrites();
+}
+
 void TypingEngine::beginGlide(const QString &key)
 {
     dropGlideAlternatives();

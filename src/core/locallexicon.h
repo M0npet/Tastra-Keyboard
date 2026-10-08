@@ -55,6 +55,11 @@ public:
     // only become valid after PromotionCount uses, so one accidental typo is
     // never legitimised. A plain-text file adds words for every language.
     static constexpr int PromotionCount = 3;
+    // Learned words and word pairs kept per language, as in LatinIME's user
+    // history: at 1.2 times this many, the rarest are dropped down to it, so
+    // saving them stays quick.
+    static constexpr qsizetype MaxLearnedWords = 10000;
+    static constexpr qsizetype MaxLearnedPairs = 30000;
     static void setUserDictionaryFile(const QString &path);
     // Whether `word` is in another language's bundled frequency list; the list
     // is loaded on first use only (wrong-layout detection).
@@ -114,7 +119,11 @@ public:
     void learnWordWithContext(const QString &word, const QString &previousWord);
     // Takes back one learnWordWithContext() (a glided word the user replaced).
     void unlearnWordWithContext(const QString &word, const QString &previousWord);
+    // Saves learned words in the background (one writer; a save still
+    // waiting is replaced by the newer one).
     void flushLearning();
+    // Blocks until every save started so far is on disk.
+    static void waitForLearningWrites();
     void clearLearning();
 
     bool hasWord(const QString &word) const;
@@ -179,6 +188,12 @@ private:
     QHash<QString, QString> m_typoMap;
     QHash<QString, int> m_personalFrequency;
     QHash<QString, int> m_bigramFrequency;
+    // The learned next words of each previous word (from m_bigramFrequency;
+    // rebuilt when pairs were removed), so nextWords() looks up instead of
+    // scanning up to 36 000 pairs after every word.
+    mutable QHash<QString, QStringList> m_learnedFollowers;
+    mutable bool m_learnedFollowersValid = false;
+    const QStringList &learnedFollowers(const QString &previousWord) const;
     int m_unsavedLearning = 0;
     bool m_blockOffensive = true;
     QSet<QString> m_offensive;

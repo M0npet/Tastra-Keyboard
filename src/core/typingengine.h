@@ -97,6 +97,9 @@ public:
     void setSensitiveContext(bool sensitive);
     bool syncSurroundingText(const QString &text, int cursorByte, int anchorByte);
     void clearLearning();
+    // Writes what was learned since the last save and waits until it is on
+    // disk (before the keyboard is ended).
+    void saveLearning();
 
     void beginGlide(const QString &key);
     void glideThrough(const QString &key);

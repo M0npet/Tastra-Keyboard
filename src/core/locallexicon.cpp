@@ -31,6 +31,7 @@
 #include <chrono>
 #include <limits>
 #include <thread>
+#include <vector>
 
 Q_LOGGING_CATEGORY(lcLexicon, "tastra.lexicon", QtWarningMsg)
 
@@ -284,6 +285,101 @@ QStringList &searchPathOverride()
 {
     static QStringList paths;
     return paths;
+}
+
+// Learned words are saved by one background thread: a save of 10 000 words
+// and 30 000 pairs takes over 100 ms, too long for a keystroke. Saves that
+// queue up while one is being written collapse into one of the newest lists.
+QThreadPool &learningWriter()
+{
+    static QThreadPool *pool = [] {
+        auto *p = new QThreadPool;
+        p->setMaxThreadCount(1);
+        return p;
+    }();
+    return *pool;
+}
+
+struct LearningSnapshot
+{
+    QHash<QString, int> words;
+    QHash<QString, int> bigrams;
+    QStringList forgotten;
+};
+
+struct LearningSaves
+{
+    QMutex mutex;
+    QHash<QString, LearningSnapshot> pending;     // by language
+    bool scheduled = false;
+};
+
+LearningSaves &learningSaves()
+{
+    static auto *saves = new LearningSaves;
+    return *saves;
+}
+
+void writeLearning(const QString &language, const LearningSnapshot &snapshot)
+{
+    QVariantMap words;
+    for (auto it = snapshot.words.constBegin(); it != snapshot.words.constEnd(); ++it) words.insert(it.key(), it.value());
+    QVariantMap bigrams;
+    for (auto it = snapshot.bigrams.constBegin(); it != snapshot.bigrams.constEnd(); ++it) bigrams.insert(it.key(), it.value());
+    QSettings settings;
+    settings.setValue(QStringLiteral("learning/%1/words").arg(language), words);
+    settings.setValue(QStringLiteral("learning/%1/bigrams").arg(language), bigrams);
+    settings.setValue(QStringLiteral("learning/%1/forgotten").arg(language), snapshot.forgotten);
+}
+
+void saveLearningInBackground(const QString &language, LearningSnapshot snapshot)
+{
+    LearningSaves &saves = learningSaves();
+    QMutexLocker lock(&saves.mutex);
+    saves.pending.insert(language, std::move(snapshot));
+    if (saves.scheduled) return;                  // the queued save takes these
+    saves.scheduled = true;
+    learningWriter().start([] {
+        LearningSaves &saves = learningSaves();
+        for (;;) {
+            QHash<QString, LearningSnapshot> batch;
+            {
+                QMutexLocker lock(&saves.mutex);
+                if (saves.pending.isEmpty()) {
+                    saves.scheduled = false;
+                    return;
+                }
+                batch.swap(saves.pending);
+            }
+            for (auto it = batch.cbegin(); it != batch.cend(); ++it) writeLearning(it.key(), it.value());
+        }
+    });
+}
+
+// LatinIME's user history dictionary holds at most 10 000 words and 30 000
+// word pairs (HeaderPolicy::DEFAULT_MAX_NGRAM_COUNTS); once it reaches 1.2
+// times that (ForgettingCurveUtils::ENTRY_COUNT_HARD_LIMIT_WEIGHT), the
+// lowest-ranked entries are removed down to the maximum
+// (LanguageModelDictContent::truncateEntries). Here the rank is the count;
+// LatinIME also lets entries fade with time, which these counts do not.
+void pruneLearned(QHash<QString, int> &counts, qsizetype max)
+{
+    if (counts.size() < max + max / 5) return;
+    std::vector<int> values;
+    values.reserve(size_t(counts.size()));
+    for (auto it = counts.cbegin(); it != counts.cend(); ++it) values.push_back(it.value());
+    const size_t cut = values.size() - size_t(max);
+    std::nth_element(values.begin(), values.begin() + qptrdiff(cut), values.end());
+    const int threshold = values[cut];               // the max-th largest count
+    // Everything above the threshold stays; of the entries at it, as many as
+    // fit (at least one).
+    qsizetype above = 0;
+    for (auto it = counts.cbegin(); it != counts.cend(); ++it) if (it.value() > threshold) ++above;
+    qsizetype roomAtThreshold = max - above;
+    for (auto it = counts.begin(); it != counts.end();) {
+        if (it.value() < threshold || (it.value() == threshold && roomAtThreshold-- <= 0)) it = counts.erase(it);
+        else ++it;
+    }
 }
 
 QStringList &frequencyPathOverride()
@@ -554,7 +650,13 @@ LocalLexicon::LocalLexicon()
 LocalLexicon::~LocalLexicon()
 {
     flushLearning();
+    waitForLearningWrites();
     if (m_pending.valid()) m_pending.wait();
+}
+
+void LocalLexicon::waitForLearningWrites()
+{
+    learningWriter().waitForDone();
 }
 
 void LocalLexicon::setDictionarySearchPaths(const QStringList &paths)
@@ -1021,6 +1123,7 @@ void LocalLexicon::forgetWord(const QString &word)
         if (it.key().left(at) == w || it.key().mid(at + 1) == w) it = m_bigramFrequency.erase(it);
         else ++it;
     }
+    m_learnedFollowersValid = false;
     m_forgotten.insert(w);
     if (m_userWords.remove(w) > 0) persistUserWords();
     ++m_unsavedLearning;
@@ -1577,11 +1680,7 @@ QStringList LocalLexicon::nextWords(const QString &previousWord, int limit) cons
     // most common first: what was typed after a word beats the corpora.
     struct Scored { QString word; int score; };
     QVector<Scored> scored;
-    const QString prefix = prev + QChar(0x001f);
-    for (auto it = m_bigramFrequency.constBegin(); it != m_bigramFrequency.constEnd(); ++it) {
-        if (!it.key().startsWith(prefix)) continue;
-        scored.push_back({it.key().mid(prefix.size()), it.value()});
-    }
+    for (const QString &next : learnedFollowers(prev)) scored.push_back({next, m_bigramFrequency.value(bigramKey(prev, next))});
     std::sort(scored.begin(), scored.end(), [](const Scored &a, const Scored &b) {
         if (a.score != b.score) return a.score > b.score;
         return a.word < b.word;
@@ -1606,6 +1705,21 @@ QStringList LocalLexicon::nextWords(const QString &previousWord, int limit) cons
         if (!result.contains(form, Qt::CaseInsensitive)) result.append(form);
     }
     return result;
+}
+
+const QStringList &LocalLexicon::learnedFollowers(const QString &previousWord) const
+{
+    if (!m_learnedFollowersValid) {
+        m_learnedFollowers.clear();
+        for (auto it = m_bigramFrequency.constBegin(); it != m_bigramFrequency.constEnd(); ++it) {
+            const qsizetype at = it.key().indexOf(QChar(0x001f));
+            if (at > 0) m_learnedFollowers[it.key().left(at)].append(it.key().mid(at + 1));
+        }
+        m_learnedFollowersValid = true;
+    }
+    static const QStringList none;
+    const auto it = m_learnedFollowers.constFind(previousWord);
+    return it == m_learnedFollowers.constEnd() ? none : *it;
 }
 
 QString LocalLexicon::decodeGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres,
@@ -1777,8 +1891,10 @@ QString LocalLexicon::decodeGlide(const QStringList &trace, const QString &previ
 
 void LocalLexicon::loadLearning()
 {
+    waitForLearningWrites();                 // what was learned last is on disk
     m_personalFrequency.clear();
     m_bigramFrequency.clear();
+    m_learnedFollowersValid = false;
     m_unsavedLearning = 0;
     QSettings settings;
     const QVariantMap words = settings.value(QStringLiteral("learning/%1/words").arg(m_language)).toMap();
@@ -1811,6 +1927,11 @@ void LocalLexicon::loadLearning()
     for (auto it = bigrams.constBegin(); it != bigrams.constEnd(); ++it) {
         if (it.value().toInt() > 0) m_bigramFrequency.insert(it.key(), it.value().toInt());
     }
+    // Older versions kept everything.
+    const qsizetype loaded = m_personalFrequency.size() + m_bigramFrequency.size();
+    pruneLearned(m_personalFrequency, MaxLearnedWords);
+    pruneLearned(m_bigramFrequency, MaxLearnedPairs);
+    if (m_personalFrequency.size() + m_bigramFrequency.size() < loaded) ++m_unsavedLearning;
 }
 
 void LocalLexicon::learnWordWithContext(const QString &word, const QString &previousWord)
@@ -1821,9 +1942,14 @@ void LocalLexicon::learnWordWithContext(const QString &word, const QString &prev
     if (m_personalFrequency.value(w) >= PromotionCount) m_forgotten.remove(w);
     const QString prev = normalize(previousWord);
     if (!prev.isEmpty()) {
-        const QString key = bigramKey(prev, w);
-        m_bigramFrequency[key] = qMin(1000, m_bigramFrequency.value(key) + 1);
+        int &count = m_bigramFrequency[bigramKey(prev, w)];
+        if (count == 0 && m_learnedFollowersValid) m_learnedFollowers[prev].append(w);
+        count = qMin(1000, count + 1);
     }
+    pruneLearned(m_personalFrequency, MaxLearnedWords);
+    const qsizetype pairs = m_bigramFrequency.size();
+    pruneLearned(m_bigramFrequency, MaxLearnedPairs);
+    if (m_bigramFrequency.size() != pairs) m_learnedFollowersValid = false;
     // Batch disk writes: one settings flush per 16 words (and on context or
     // language change / shutdown) instead of one per word.
     if (++m_unsavedLearning >= 16) flushLearning();
@@ -1838,8 +1964,14 @@ void LocalLexicon::unlearnWordWithContext(const QString &word, const QString &pr
     const QString prev = normalize(previousWord);
     if (!prev.isEmpty()) {
         const QString key = bigramKey(prev, w);
-        if (const int count = m_bigramFrequency.value(key); count > 1) m_bigramFrequency[key] = count - 1;
-        else m_bigramFrequency.remove(key);
+        if (const int count = m_bigramFrequency.value(key); count > 1) {
+            m_bigramFrequency[key] = count - 1;
+        } else if (m_bigramFrequency.remove(key) > 0 && m_learnedFollowersValid) {
+            if (auto it = m_learnedFollowers.find(prev); it != m_learnedFollowers.end()) {
+                it->removeOne(w);
+                if (it->isEmpty()) m_learnedFollowers.erase(it);
+            }
+        }
     }
     ++m_unsavedLearning;
 }
@@ -1847,22 +1979,18 @@ void LocalLexicon::unlearnWordWithContext(const QString &word, const QString &pr
 void LocalLexicon::flushLearning()
 {
     if (m_unsavedLearning == 0) return;
-    QVariantMap words;
-    for (auto it = m_personalFrequency.constBegin(); it != m_personalFrequency.constEnd(); ++it) words.insert(it.key(), it.value());
-    QVariantMap bigrams;
-    for (auto it = m_bigramFrequency.constBegin(); it != m_bigramFrequency.constEnd(); ++it) bigrams.insert(it.key(), it.value());
-    QSettings settings;
-    settings.setValue(QStringLiteral("learning/%1/words").arg(m_language), words);
-    settings.setValue(QStringLiteral("learning/%1/bigrams").arg(m_language), bigrams);
-    settings.setValue(QStringLiteral("learning/%1/forgotten").arg(m_language), QStringList(m_forgotten.values()));
     m_unsavedLearning = 0;
+    // The copies share the data until typing changes it.
+    saveLearningInBackground(m_language, {m_personalFrequency, m_bigramFrequency, QStringList(m_forgotten.values())});
 }
 
 void LocalLexicon::clearLearning()
 {
     m_personalFrequency.clear();
     m_bigramFrequency.clear();
+    m_learnedFollowersValid = false;
     m_unsavedLearning = 0;
+    waitForLearningWrites();                 // no older save may come after this
     QSettings settings;
     settings.remove(QStringLiteral("learning/%1").arg(m_language));
 }

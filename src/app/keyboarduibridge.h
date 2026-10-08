@@ -364,6 +364,8 @@ public:
     Q_INVOKABLE void setCompositionEnabled(bool enabled);
     Q_INVOKABLE void setClipboardHistoryEnabled(bool enabled);
     Q_INVOKABLE void clearLearnedWords();
+    // Saves the words learned since the last save (before the keyboard ends).
+    void saveLearning();
 
     void resetInputContext();
     // The text input was switched off: remember a word still being composed

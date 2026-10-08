@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     Tastra
-    VERSION 0.7.9
+    VERSION 0.7.10
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -208,6 +208,7 @@ add_library(tastra-app STATIC
     src/app/voicecontroller.cpp
     src/app/uitranslator.cpp
     src/app/qtsystemclipboard.cpp
+    src/app/terminationsaver.cpp
 )
 
 target_include_directories(tastra-app
@@ -579,6 +580,13 @@ if(BUILD_TESTING)
     target_compile_definitions(tst_glide PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     target_link_libraries(tst_glide PRIVATE tastra-core Qt6::Test)
     add_test(NAME glide COMMAND tst_glide)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(tst_terminationsaver tests/tst_terminationsaver.cpp)
+    target_compile_definitions(tst_terminationsaver PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_terminationsaver PRIVATE tastra-app Qt6::Test)
+    add_test(NAME terminationsaver COMMAND tst_terminationsaver)
 endif()
 
 if(BUILD_TESTING)

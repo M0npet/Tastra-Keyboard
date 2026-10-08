@@ -9,6 +9,7 @@
 #include "platform/kwin/fakeinputkeychords.h"
 #endif
 #include "panelvisibility.h"
+#include "terminationsaver.h"
 #include "tracelog.h"
 #include "voicecontroller.h"
 
@@ -52,6 +53,9 @@ int main(int argc, char **argv)
     Tastra::KeyboardController controller(backend);
     Tastra::KeyboardModel model;
     Tastra::KeyboardUiBridge bridge(controller, model);
+    // Learned words are saved every 16 words and when the field changes;
+    // KWin ends the keyboard with SIGTERM, so save the rest first.
+    Tastra::saveBeforeTermination(&app, [&bridge] { bridge.saveLearning(); });
 #ifdef TASTRA_HAVE_VOICE
     // Offline dictation; the model is only loaded when the mic key is used.
     Tastra::QtAudioRecorder voiceRecorder;

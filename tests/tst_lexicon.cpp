@@ -404,6 +404,61 @@ private Q_SLOTS:
         QCOMPARE(lexicon.suggestions(QStringLiteral("hel"), {}).value(0), QStringLiteral("helsinki"));
     }
 
+    void aSaveInTheBackgroundIsOnDiskForTheNextLoad()
+    {
+        // Saving runs off the typing thread; whoever loads next waits for it.
+        useFixtureDictionaries();
+        LocalLexicon first;
+        loaded(first, QStringLiteral("en"));
+        for (int i = 0; i < 16; ++i) first.learnWordWithContext(QStringLiteral("helsinki"), {});   // the 16th saves
+        LocalLexicon second;
+        loaded(second, QStringLiteral("en"));
+        QCOMPARE(second.suggestions(QStringLiteral("hel"), {}).value(0), QStringLiteral("helsinki"));
+    }
+
+    void learnedWordsAreBoundedLikeLatinImeUserHistory()
+    {
+        // A word typed once among more than LatinIME keeps goes first; words
+        // typed often stay. An older version's unbounded list is cut on load.
+        auto name = [](int i) {
+            QString w = QStringLiteral("zq");
+            for (int k = 0; k < 4; ++k, i /= 26) w += QChar(u'a' + i % 26);
+            return w;
+        };
+        const int rare = int(LocalLexicon::MaxLearnedWords * 6 / 5) + 100;
+        QVariantMap words;
+        for (int i = 0; i < rare; ++i) words.insert(name(i), 1);
+        for (int i = rare; i < rare + 50; ++i) words.insert(name(i), 5);
+        words.insert(QStringLiteral("helsinki"), 3);
+        QVariantMap pairs;
+        for (int i = 0; i < int(LocalLexicon::MaxLearnedPairs * 6 / 5); ++i)
+            pairs.insert(QStringLiteral("the") + QChar(0x001f) + name(i), i < 10 ? 7 : 1);
+        {
+            QSettings settings;
+            settings.setValue(QStringLiteral("learning/en/schema"), 2);
+            settings.setValue(QStringLiteral("learning/en/words"), words);
+            settings.setValue(QStringLiteral("learning/en/bigrams"), pairs);
+        }
+        useFixtureDictionaries();
+        {
+            LocalLexicon lexicon;
+            loaded(lexicon, QStringLiteral("en"));
+            QCOMPARE(lexicon.suggestions(QStringLiteral("hel"), {}).value(0), QStringLiteral("helsinki"));
+            // Learning goes on: new words fill the room up to the limit again.
+            for (int i = 0; i < 20; ++i) lexicon.learnWordWithContext(QStringLiteral("helsinki"), QStringLiteral("the"));
+        }
+        QSettings settings;
+        const QVariantMap saved = settings.value(QStringLiteral("learning/en/words")).toMap();
+        QVERIFY(saved.size() <= LocalLexicon::MaxLearnedWords + 1);
+        QVERIFY(saved.size() >= LocalLexicon::MaxLearnedWords);
+        for (int i = rare; i < rare + 50; ++i) QCOMPARE(saved.value(name(i)).toInt(), 5);
+        QCOMPARE(saved.value(QStringLiteral("helsinki")).toInt(), 23);
+        const QVariantMap savedPairs = settings.value(QStringLiteral("learning/en/bigrams")).toMap();
+        QVERIFY(savedPairs.size() <= LocalLexicon::MaxLearnedPairs + 1);
+        for (int i = 0; i < 10; ++i) QCOMPARE(savedPairs.value(QStringLiteral("the") + QChar(0x001f) + name(i)).toInt(), 7);
+        QCOMPARE(savedPairs.value(QStringLiteral("the") + QChar(0x001f) + QStringLiteral("helsinki")).toInt(), 20);
+    }
+
     void switchingLanguageKeepsOnlyOneDictionary()
     {
         useFixtureDictionaries();
@@ -571,6 +626,28 @@ private Q_SLOTS:
         QVERIFY(!lexicon.nextWords(QStringLiteral("i"), 3).contains(QStringLiteral("have")));
         QCOMPARE(lexicon.nextWords(QStringLiteral("i"), 3).size(), 3);
         LocalLexicon::setBigramSearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
+    }
+
+    void learnedNextWordsFollowLearningAndForgetting()
+    {
+        // The learned pairs are looked up by previous word; the lookup has to
+        // follow every change to them.
+        useFixtureDictionaries();
+        LocalLexicon lexicon;
+        loaded(lexicon, QStringLiteral("en"));
+        QVERIFY(lexicon.nextWords(QStringLiteral("dear"), 3).isEmpty());
+        lexicon.learnWordWithContext(QStringLiteral("john"), QStringLiteral("dear"));
+        QCOMPARE(lexicon.nextWords(QStringLiteral("dear"), 3), QStringList{QStringLiteral("john")});
+        lexicon.learnWordWithContext(QStringLiteral("anna"), QStringLiteral("dear"));   // after a lookup
+        lexicon.learnWordWithContext(QStringLiteral("anna"), QStringLiteral("dear"));
+        QCOMPARE(lexicon.nextWords(QStringLiteral("dear"), 3), (QStringList{QStringLiteral("anna"), QStringLiteral("john")}));
+        lexicon.unlearnWordWithContext(QStringLiteral("john"), QStringLiteral("dear"));
+        QCOMPARE(lexicon.nextWords(QStringLiteral("dear"), 3), QStringList{QStringLiteral("anna")});
+        lexicon.learnWordWithContext(QStringLiteral("john"), QStringLiteral("dear"));
+        lexicon.forgetWord(QStringLiteral("anna"));
+        QCOMPARE(lexicon.nextWords(QStringLiteral("dear"), 3), QStringList{QStringLiteral("john")});
+        lexicon.clearLearning();
+        QVERIFY(lexicon.nextWords(QStringLiteral("dear"), 3).isEmpty());
     }
 
     void germanNounTypedLowercaseIsOfferedNotForced()

@@ -1518,6 +1518,11 @@ void KeyboardUiBridge::clearLearnedWords()
     Q_EMIT suggestionsChanged();
 }
 
+void KeyboardUiBridge::saveLearning()
+{
+    m_typingEngine.saveLearning();
+}
+
 void KeyboardUiBridge::deactivateInputContext()
 {
     m_typingEngine.rememberCompositionBeforeDeactivation();

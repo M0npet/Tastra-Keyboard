@@ -1714,3 +1714,51 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   /root/.local/src/tastra and stopped at the build; removed again. Scenario
   scripts now run from files through runuser.
 
+
+## 2026-10-08 — 0.7.10 learning off the typing path
+
+- Measured (sandbox, RelWithDebInfo, 160 learned words, `LocalLexicon`
+  directly): with 10 000 learned words and 30 000 pairs, 0.7.9 spent up to
+  222 ms on the typing thread on every 16th word (one QSettings write of
+  everything; 290 ms at 12 000 / 36 000). Now the lists are copied (shared
+  until changed) and written by one background thread: at most 2.6–4.7 ms
+  on the typing thread (the detach and, at the limit, the pruning), mean
+  0.1–0.2 ms. Saves queued while one is written collapse into one (ten
+  queued saves took 1.4 s to drain before that change, two now).
+  `waitForLearningWrites()` runs before loading (language switch, a second
+  lexicon), before clearing and at destruction; the test that loads in a
+  second lexicon fails 3 of 5 runs without that wait.
+- Bounds checked in LatinIME (AOSP main): HeaderPolicy
+  DEFAULT_MAX_NGRAM_COUNTS = {10000, 30000, ...};
+  ForgettingCurveUtils::ENTRY_COUNT_HARD_LIMIT_WEIGHT = 1.2 triggers
+  truncation; LanguageModelDictContent::truncateEntries removes the
+  lowest-priority entries down to the maximum. Tastra does the same with
+  the count as priority; LatinIME's priority also decays with time
+  (levels drop every 15 days), which plain counts do not, so a word typed
+  often long ago keeps its place. Older unbounded lists are cut on load.
+- nextWords() scanned every learned pair (startsWith on each key) after
+  every word: 2.3 ms at 30 000 pairs. An index by previous word, kept in
+  step on learn, rebuilt after removals: 0.15 ms. Test:
+  learnedNextWordsFollowLearningAndForgetting.
+- KWin's InputMethod::stopInputMethod() (master, 0f621cc) sends SIGTERM,
+  waits up to 30 s, then SIGKILL; it runs when another virtual keyboard is
+  chosen and when KWin exits. Tastra had no handler, so up to 15 learned
+  words since the last field change were lost. Now a self-pipe handler
+  saves on the event loop, then re-raises the signal with the default
+  action, so the process ends exactly as before (no destructors run).
+  tst_terminationsaver starts itself as a child, learns 3 words, sends
+  SIGTERM/SIGINT: the words are saved and the child dies by the signal;
+  without the handler they are not saved. Under TSan the child cannot be
+  started (libtsan CHECK in ForkAfter with Qt 6.4's clone); ASan passes.
+- Qt 6.12 (Arch is moving to it): the Wayland client sits in qtbase
+  (src/plugins/platforms/wayland, in 6.11 too). Diffed 6.11 and 6.12 headers that
+  Tastra includes (qwaylandwindow_p.h, qwaylandshellsurface_p.h,
+  qwaylandshellintegration_p.h, qwaylandscreen_p.h): source compatible
+  (an optional parent argument, copies disabled, QScopedPointer ->
+  std::unique_ptr), but the class layout changed, so a build against 6.11
+  must be rebuilt for 6.12: tastra-update does that since 0.7.9.
+- Checks: 19/19 sandbox tests, the 3 KWin protocol tests in the overlay,
+  the full suite under ASan/UBSan (the new test on its own), lexicon/smarttyping/typingstress/
+  bridge/legacymigration under TSan (Qt's own reports suppressed), static
+  verify. Mutation checks: no pruning -> the bounds test fails; no wait
+  before loading -> the background-save test fails.

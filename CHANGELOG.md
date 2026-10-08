@@ -4,6 +4,24 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.10
+Learning, after measuring what it costs while typing:
+- Saving learned words no longer pauses typing. Every 16th word used to
+  write all learned words and word pairs on the typing thread: up to 220 ms
+  with 10 000 words and 30 000 pairs. Saving now runs in the background
+  (under 5 ms on the typing thread), and saves that queue up while one is
+  being written collapse into one.
+- Learned words and word pairs are bounded as in LatinIME's user history:
+  10 000 words and 30 000 pairs per language; at 1.2 times that, the rarest
+  are dropped down to the limit. A list saved by an older version is cut the
+  same way when it is loaded.
+- Next-word suggestions look up the learned pairs of the previous word
+  instead of going through all of them after every word (2.3 ms → 0.15 ms
+  with 30 000 pairs).
+- Words learned since the last save are no longer lost when KWin ends the
+  keyboard (choosing another virtual keyboard, logging out): KWin sends
+  SIGTERM, and Tastra now saves them first and then ends as before.
+
 ## 0.7.9
 Installing and updating, after a review against current Arch (Plasma 6.7):
 - The installer no longer stops when Plasma runs in German, Russian or
