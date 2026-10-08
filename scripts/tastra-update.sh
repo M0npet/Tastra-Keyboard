@@ -46,8 +46,8 @@ rebuild_reason() {
     local sound
     sound="$(pkg-config --exists Qt6Multimedia 2>/dev/null && echo yes || echo no)"
     [[ "$(stamp_value sound)" == "$sound" ]] || { echo "Qt Multimedia (key sounds) was installed or removed"; return; }
-    # A backup the user went back to is newer than the record.
-    [[ ! "$bin" -nt "$STAMP" ]] || { echo "the installed binary was replaced (a rollback)"; return; }
+    [[ "$(sha256sum "$bin" | awk '{print $1}')" == "$(stamp_value binary)" ]] \
+        || { echo "the installed binary is not the one built (a rollback)"; return; }
 }
 
 if [[ ! -d "$SRC/.git" ]]; then

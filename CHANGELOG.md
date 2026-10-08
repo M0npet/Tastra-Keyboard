@@ -4,6 +4,23 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.9
+Installing and updating, after a review against current Arch (Plasma 6.7):
+- The installer no longer stops when Plasma runs in German, Russian or
+  Ukrainian (two tests looked for English labels).
+- Select, Select all, Undo and Redo in the text-editing panel work on KWin
+  up to 6.7: KWin offers the protocol they use only to programs whose
+  desktop file asks for it, and Tastra's now does.
+- `tastra-update` also rebuilds when Qt was updated (run it after a system
+  upgrade that brings a new Qt), after a failed update or a rollback, and
+  when voice input or key sounds were set up; `--force` always rebuilds.
+- `tastra-rollback` goes back one build at a time; the installer no longer
+  keeps a backup of the very build it installs again, stops with a clear
+  message at the step that failed, prints full paths and says when
+  `~/.local/bin` is not on the `PATH`.
+- README: `pacman -Syu`, and `qt6-multimedia` for key sounds. The trace
+  instructions create their folder (`mkdir -p ~/.local/state/tastra`).
+
 ## 0.7.8
 Touch handling, after a review with simulated two-thumb typing:
 - Fast two-thumb typing keeps the letters in the order they were pressed,

@@ -173,6 +173,7 @@ if ((no_build == 0)); then
         echo "qt=$(pkg-config --modversion Qt6Core 2>/dev/null || echo unknown)"
         echo "voice=$(bash "$SRC/scripts/tastra-voice-setup.sh" --status >/dev/null 2>&1 && echo yes || echo no)"
         echo "sound=$(pkg-config --exists Qt6Multimedia 2>/dev/null && echo yes || echo no)"
+        echo "binary=$(checksum "$BIN_DIR/tastra")"
     } > "$INSTALLED_STAMP"
 fi
 

@@ -5,7 +5,7 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.7.8, in development**. The typing core is done and tested; the
+Status: **0.7.9, in development**. The typing core is done and tested; the
 remaining work is checking it on the device (`docs/TEST-PLAN.md`; a short
 first test in Russian: `docs/FIRST-TEST.ru.md`). The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over

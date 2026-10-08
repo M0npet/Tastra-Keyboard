@@ -1686,3 +1686,31 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   all single-sequence ones pass; three multi-sequence ones remain as
   harness artefacts.
 
+## 2026-10-08 — 0.7.9 the install path (fifth review)
+
+- A review ran the installer end to end with a throwaway HOME and read KWin
+  v6.4.5, v6.7.5, v6.7.91 and master, kservice, plasma-keyboard,
+  plasma-workspace and the Arch package pages. Current Arch: KWin 6.7.5,
+  Qt 6.12 rolling in. My earlier ledger entry (0.7.2) read KWin master:
+  there the input method gets fake input; in 6.7.5 org_kde_kwin_fake_input
+  is on interfacesBlackList and allowed only when the program's desktop file
+  (found by its canonical Exec path, utils/serviceutils.h) lists it in
+  X-KDE-Wayland-Interfaces. Added to the desktop file; the installer writes
+  an absolute Exec already.
+- Reproduced and fixed: the QML test failed in a de/ru/uk session
+  (UiTranslator follows LANGUAGE, which Plasma exports); all tests now get
+  LANGUAGE=en, LC_ALL=C.UTF-8, QT_QPA_OFFSCREEN_NO_GLX=1 from CTest. Checked:
+  the whole install as a normal user with LANG=ru_RU / LANGUAGE=ru (21/21),
+  a tastra-update rebuild after a simulated Qt change with LANGUAGE=uk
+  (21/21; the rebuilt binary was byte-identical, so no backup), rollback
+  walking back 0.7.8 -> 0.7.7 -> 0.7.6 -> "no older build", and the update
+  check after a rollback.
+- tastra-update compares a record of the installed build (source, commit,
+  Qt version, voice, key sounds, binary checksum) instead of only the
+  commit: before, a failed update, a rollback or tastra-voice-setup left
+  the old binary in place with "up to date".
+- During testing a command chain failed and an unprefixed `$U` ran
+  tastra-update as root in the sandbox: it cloned the public repository to
+  /root/.local/src/tastra and stopped at the build; removed again. Scenario
+  scripts now run from files through runuser.
+
