@@ -60,6 +60,9 @@ class KeyboardUiBridge final : public QObject
     // What the chip shows of the just-copied text (the start of it; a long
     // text would take the layout seconds). Tapping it pastes all of it.
     Q_PROPERTY(QString clipboardSuggestion READ clipboardSuggestionPreview NOTIFY suggestionsChanged)
+    // Gboard "paste sections": e-mail, web address, phone number, date, time
+    // or number found in what was just copied, each as its own chip.
+    Q_PROPERTY(QStringList clipboardParts READ clipboardParts NOTIFY suggestionsChanged)
     Q_PROPERTY(QStringList userWords READ userWords NOTIFY userWordsChanged)
     // "text", "email", "url", "number" or "phone" — drives Gboard-like layouts.
     Q_PROPERTY(QString inputPurpose READ inputPurpose NOTIFY inputContextChanged)
@@ -126,6 +129,9 @@ class KeyboardUiBridge final : public QObject
     // Gboard's Select: the arrow keys extend the selection (Shift+arrows).
     Q_PROPERTY(bool canSelect READ canSelect NOTIFY selectionChanged)
     Q_PROPERTY(bool selectMode READ selectMode NOTIFY selectionChanged)
+    // Gboard gesture delete: sliding left from Backspace selects words in the
+    // application (KWin fake input), sliding back deselects, release deletes.
+    Q_PROPERTY(bool deleteGestureSelects READ deleteGestureSelects NOTIFY selectionChanged)
     Q_PROPERTY(QStringList clipboardHistory READ clipboardHistory NOTIFY clipboardChanged)
     Q_PROPERTY(QStringList emojiItems READ emojiItems CONSTANT)
     Q_PROPERTY(QStringList emojiCategories READ emojiCategories NOTIFY emojiChanged)
@@ -160,6 +166,8 @@ public:
     QString clipboardSuggestion() const;
     QString clipboardSuggestionPreview() const;
     Q_INVOKABLE void pasteClipboardSuggestion();
+    QStringList clipboardParts() const;
+    Q_INVOKABLE void pasteClipboardPart(int index);
     QStringList userWords() const;
     QString inputPurpose() const;
     QStringList suggestions() const;
@@ -297,6 +305,13 @@ public:
     bool canCut() const { return canCopy() && !m_terminal; }
     bool canSelect() const { return m_chords != nullptr && !m_terminal; }
     bool selectMode() const { return m_selectMode && m_chords; }
+    bool deleteGestureSelects() const { return canSelect() && !m_secureInput; }
+    // `words`: how many words before the cursor are selected now (from the
+    // start of the slide); the application's selection follows.
+    Q_INVOKABLE void deleteGestureTo(int words);
+    // The finger lifted: deletes what is selected. Cancelled: deselects.
+    Q_INVOKABLE void endDeleteGesture();
+    Q_INVOKABLE void cancelDeleteGesture();
     // Sends editing shortcuts as keyboard input (KWin fake input). Not owned.
     void setKeyChordSender(class KeyChordSender *sender);
     // The clipboard the keyboard reads and owns: KWin's data control in the
@@ -466,6 +481,10 @@ private:
     bool m_terminal = false;           // content purpose terminal
     class KeyChordSender *m_chords = nullptr;
     bool m_selectMode = false;
+    bool m_deleteGestureActive = false;
+    mutable QString m_clipboardPartsSource;
+    mutable QStringList m_clipboardPartsCache;
+    int m_deleteGestureWords = 0;
     // Finishes the word being typed before a shortcut acts on the text.
     void settleForShortcut();
     void setSelectMode(bool on);

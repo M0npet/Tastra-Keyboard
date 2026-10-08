@@ -695,6 +695,66 @@ private Q_SLOTS:
         QCOMPARE(backend.backspaces, whileHeld);                 // stops on release
     }
 
+    void slidingLeftFromBackspaceSelectsThenDeletesOnRelease()
+    {
+        // Gboard gesture delete with KWin's fake input: the slide selects
+        // words (Ctrl+Shift+Left per step), sliding back deselects, release
+        // deletes the selection with one Backspace; nothing is deleted while
+        // sliding. Without fake input it still deletes word by word.
+        using Chord = QPair<QList<int>, int>;
+        using namespace Tastra::EvdevKey;
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        FakeChords chords;
+        bridge.setKeyChordSender(&chords);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QQuickItem *key = findNamed(view.rootObject(), QStringLiteral("backspaceKey"));
+        QVERIFY(key);
+        const QPoint at = key->mapToScene(QPointF(key->width() * 0.8, key->height() / 2)).toPoint();
+        const int step = int(qMax(18.0, key->width() * 0.20)) + 2;
+        static QPointingDevice *touch = QTest::createTouchDevice();
+        auto seq = QTest::touchEvent(&view, touch, false);
+        seq.press(0, at).commit();
+        // Qt Quick merges touch updates within a frame: one move per frame.
+        for (int i = 1; i <= 3; ++i) { seq.move(0, at - QPoint(i * step, 0)).commit(); QTest::qWait(40); }
+        seq.move(0, at - QPoint(2 * step, 0)).commit();
+        QTest::qWait(40);
+        const Chord left{{LeftCtrl, LeftShift}, Left}, right{{LeftCtrl, LeftShift}, Right};
+        QCOMPARE(chords.sent, (QList<Chord>{left, left, left, right}));
+        QCOMPARE(backend.backspaces, 0);
+        seq.release(0, at - QPoint(2 * step, 0)).commit();
+        QTRY_COMPARE(chords.sent.last(), (Chord{{}, BackSpace}));
+        QCOMPARE(backend.backspaces, 0);
+
+        // Back to the start before lifting: nothing deleted.
+        chords.sent.clear();
+        seq.press(0, at).commit();
+        QTest::qWait(40);
+        seq.move(0, at - QPoint(step, 0)).commit();
+        QTest::qWait(40);
+        seq.move(0, at).commit();
+        QTest::qWait(40);
+        seq.release(0, at).commit();
+        QTest::qWait(30);
+        QCOMPARE(chords.sent, (QList<Chord>{left, right}));
+        QCOMPARE(backend.backspaces, 0);
+
+        // No fake input: word by word while sliding, as before.
+        bridge.setKeyChordSender(nullptr);
+        chords.sent.clear();
+        seq.press(0, at).commit();
+        for (int i = 1; i <= 2; ++i) { seq.move(0, at - QPoint(i * step, 0)).commit(); QTest::qWait(40); }
+        seq.release(0, at - QPoint(2 * step, 0)).commit();
+        QTRY_VERIFY(backend.backspaces > 0);
+        QVERIFY(chords.sent.isEmpty());
+    }
+
     void touchPointInsideTheKeyReachesCorrection()
     {
         FakeBackend backend;
@@ -1185,6 +1245,20 @@ private Q_SLOTS:
         QTest::mouseClick(&view, Qt::LeftButton, {}, chip->mapToScene(QPointF(chip->width() / 2, chip->height() / 2)).toPoint());
         QTRY_COMPARE(backend.commits.join(QString()), QStringLiteral("https://example.org/a"));
         QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("clipboardChip")));    // used once
+
+        // Gboard "paste sections": the address alone, next to the whole text.
+        backend.commits.clear();
+        QGuiApplication::clipboard()->setText(QStringLiteral("Write to anna@example.org today"));
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("clipboardPart0")));
+        QTest::qWait(50);
+        QQuickItem *part = findNamed(view.rootObject(), QStringLiteral("clipboardPart0"));
+        QQuickItem *whole = findNamed(view.rootObject(), QStringLiteral("clipboardChip"));
+        QVERIFY(whole);
+        QVERIFY(whole->mapToScene(QPointF(whole->width(), 0)).x() <= part->mapToScene(QPointF(0, 0)).x());
+        QVERIFY(part->mapToScene(QPointF(part->width(), 0)).x() <= view.width());
+        QTest::mouseClick(&view, Qt::LeftButton, {}, part->mapToScene(QPointF(part->width() / 2, part->height() / 2)).toPoint());
+        QTRY_COMPARE(backend.commits.join(QString()), QStringLiteral("anna@example.org"));
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("clipboardPart0")));
 
         // Typing dismisses a fresh offer.
         QGuiApplication::clipboard()->setText(QStringLiteral("second"));

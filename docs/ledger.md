@@ -1840,3 +1840,25 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   composition whose text already holds the composed word (a flag, no text).
 - Checks: 23/23, ASan + UBSan 23/23; clientsim 35 cases, 0.7.11 fails 9.
 
+## 2026-10-08 — 0.7.13 the release criterion; gesture delete; paste sections
+
+- User: "критерий готовности — полная копия гугл клавы". Written down as
+  docs/GBOARD-PARITY.md from the Gboard Help Center (Use your keyboard, Word
+  suggestions, Copy & paste sections, Theme/sound/vibration, Slide to type,
+  Advanced voice typing, Writing tools, Handwriting, Morse code, Languages;
+  read 2026-10-08) plus Android Police (2025-10) and Androidsis (2025-09),
+  each feature marked done / partly / missing / impossible on KWin / needs
+  Google's servers, with a backlog.
+- Gesture delete: LatinIME onMoveDeletePointer selects word-wise and
+  onUpWithDeletePointerActive deletes the selection; Tastra deleted as it
+  slid. Now Ctrl+Shift+Left/Right per step and one BackSpace on release, all
+  through KWin fake input (one channel; BackSpace is keysym 0xff08 on fake
+  input 6). The word being typed is finished first. Deactivation mid-slide
+  forgets the slide without sending keys. QML test: Qt Quick merges touch
+  updates within a frame, so the test moves once per 40 ms.
+- Paste sections: e-mail, web address, phone (7-15 digits, not a numeric
+  date), numeric date, time, number of 3+ digits; nothing contained in an
+  earlier part, never the whole text, at most three; first 20 000 characters
+  of a copy. Chips beside the 📋 chip share the strip (render checked).
+- Checks: 23/23, ASan + UBSan 23/23.
+

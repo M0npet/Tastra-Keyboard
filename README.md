@@ -5,9 +5,11 @@ touch tablets such as the Minisforum V3. Native C++ / Qt 6 / QML (no Java,
 Electron or browser engine), fully offline, light on memory. English, German,
 Ukrainian and Russian. GPL-3.0-or-later (see `COPYING`).
 
-Status: **0.7.12, in development**. The typing core is done and tested; the
-remaining work is checking it on the device (`docs/TEST-PLAN.md`; a short
-first test in Russian: `docs/FIRST-TEST.ru.md`). The keyboard
+Status: **0.7.13, in development**. Version 1.0 means everything Gboard
+does, as far as it can be done offline on KWin; what is done and what is
+missing is listed in `docs/GBOARD-PARITY.md`. Checking on the device:
+`docs/TEST-PLAN.md` (a short first test in Russian: `docs/FIRST-TEST.ru.md`).
+The keyboard
 was called "V3 Keyboard" up to 0.6.1; its settings and words move over
 automatically.
 

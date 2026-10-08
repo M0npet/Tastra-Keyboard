@@ -793,36 +793,76 @@ Rectangle {
                 }
             }
 
-            Rectangle {
-                // Gboard: paste what was just copied.
-                id: clipboardChip
-                objectName: "clipboardChip"
+            Row {
+                // Gboard: paste what was just copied, or only the e-mail,
+                // web address, phone number, date or number found in it.
+                id: clipboardChips
                 visible: keyboardBridge.clipboardSuggestion.length > 0 && keyboardBridge.suggestions.length === 0
                     && !saveWordChip.visible && !voiceStatus.visible && !root.toolbarExpanded
                 anchors.centerIn: parent
-                width: Math.min(clipboardChipText.implicitWidth + 32, parent.width * 0.6)
                 height: parent.height - 10
-                radius: height / 2
-                color: clipboardChipMouse.pressed ? root.pressedColor : root.selectedColor
-                Text {
-                    id: clipboardChipText
-                    anchors.centerIn: parent
-                    width: parent.width - 28
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideMiddle
-                    text: "\uD83D\uDCCB " + keyboardBridge.clipboardSuggestion.replace(/\s+/g, " ")
-                    color: root.textColor
-                    font.pixelSize: root.portrait ? 17 : 15
+                spacing: 8
+                readonly property real room: parent.width - 24
+
+                Rectangle {
+                    id: clipboardChip
+                    objectName: "clipboardChip"
+                    width: Math.min(clipboardChipText.implicitWidth + 32,
+                                    clipboardChips.room * (keyboardBridge.clipboardParts.length > 0 ? 0.34 : 0.6))
+                    height: parent.height
+                    radius: height / 2
+                    color: clipboardChipMouse.pressed ? root.pressedColor : root.selectedColor
+                    Text {
+                        id: clipboardChipText
+                        anchors.centerIn: parent
+                        width: parent.width - 28
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideMiddle
+                        text: "\uD83D\uDCCB " + keyboardBridge.clipboardSuggestion.replace(/\s+/g, " ")
+                        color: root.textColor
+                        font.pixelSize: root.portrait ? 17 : 15
+                    }
+                    MouseArea {
+                        id: clipboardChipMouse
+                        anchors.fill: parent
+                        onClicked: keyboardBridge.pasteClipboardSuggestion()
+                    }
                 }
-                MouseArea {
-                    id: clipboardChipMouse
-                    anchors.fill: parent
-                    onClicked: keyboardBridge.pasteClipboardSuggestion()
+
+                Repeater {
+                    model: keyboardBridge.clipboardParts
+                    delegate: Rectangle {
+                        objectName: "clipboardPart" + index
+                        // The parts share what the whole-text chip leaves.
+                        width: Math.min(partText.implicitWidth + 28,
+                                        (clipboardChips.room * 0.64 - clipboardChips.spacing * keyboardBridge.clipboardParts.length)
+                                        / keyboardBridge.clipboardParts.length)
+                        height: clipboardChips.height
+                        radius: height / 2
+                        color: partMouse.pressed ? root.pressedColor : root.keyColor
+                        border.width: 1
+                        border.color: root.selectedColor
+                        Text {
+                            id: partText
+                            anchors.centerIn: parent
+                            width: parent.width - 24
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideMiddle
+                            text: modelData
+                            color: root.textColor
+                            font.pixelSize: root.portrait ? 16 : 14
+                        }
+                        MouseArea {
+                            id: partMouse
+                            anchors.fill: parent
+                            onClicked: keyboardBridge.pasteClipboardPart(index)
+                        }
+                    }
                 }
             }
 
             Row {
-                visible: !suggestionRow.visible && !clipboardChip.visible
+                visible: !suggestionRow.visible && !clipboardChips.visible
                 anchors.centerIn: parent
                 spacing: root.portrait ? 18 : 14
 
@@ -1511,16 +1551,31 @@ Rectangle {
                     backspaceRepeat.interval = 75
                     backspaceRepeat.start()
                 }
-                onPressEnded: (x, y) => backspaceRepeat.stop()
-                onPressCancelled: backspaceRepeat.stop()
+                onPressEnded: (x, y) => {
+                    backspaceRepeat.stop()
+                    keyboardBridge.endDeleteGesture()
+                }
+                onPressCancelled: {
+                    backspaceRepeat.stop()
+                    keyboardBridge.cancelDeleteGesture()
+                }
                 onPressStarted: (x, y) => {
                     backspaceRepeat.stop()
                     dragStartX = x
                     dragStep = 0
                 }
                 onPointerMoved: (x, y) => {
-                    var step = Math.floor((dragStartX - x) / Math.max(18, width * 0.20))
-                    if (step > dragStep) {
+                    var step = Math.max(0, Math.floor((dragStartX - x) / Math.max(18, width * 0.20)))
+                    if (keyboardBridge.deleteGestureSelects) {
+                        // Gboard: the slide selects words, sliding back takes
+                        // them out again, release deletes the selection.
+                        if (step !== dragStep) {
+                            backspaceRepeat.stop()
+                            consumeRelease = true
+                            keyboardBridge.deleteGestureTo(step)
+                            dragStep = step
+                        }
+                    } else if (step > dragStep) {
                         backspaceRepeat.stop()          // swipe-delete takes over
                         consumeRelease = true
                         keyboardBridge.backspaceRepeated(step - dragStep)

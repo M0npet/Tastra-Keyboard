@@ -21,6 +21,7 @@ public:
 
 namespace EvdevKey
 {
+constexpr int BackSpace = 14;
 constexpr int LeftCtrl = 29;
 constexpr int LeftShift = 42;
 constexpr int A = 30;

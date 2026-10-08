@@ -1,0 +1,128 @@
+# Gboard parity — the release criterion
+
+**Tastra 1.0 = everything Gboard does, as far as it can be done offline on
+KDE Plasma / KWin**, checked on the tablet (`docs/TEST-PLAN.md`). This list
+is the measure; it is updated with every release.
+
+Sources (read 2026-10-08): the Gboard Help Center articles
+[Use your keyboard](https://support.google.com/gboard/answer/2842292),
+[Word suggestions](https://support.google.com/gboard/answer/7068415),
+[Copy & paste sections of text](https://support.google.com/gboard/answer/10742542),
+[Theme, sound, vibration](https://support.google.com/gboard/answer/6102154),
+[Slide to type](https://support.google.com/gboard/answer/2811346),
+[Advanced voice typing](https://support.google.com/gboard/answer/11197787),
+[Writing tools](https://support.google.com/gboard/answer/16515540),
+[Handwriting](https://support.google.com/gboard/answer/9108773),
+[Morse code](https://support.google.com/gboard/answer/9011881),
+[Languages](https://support.google.com/gboard/answer/7068494); Android Police
+(Oct 2025) on Preferences; Androidsis (Sep 2025) on gestures; AlternativeTo
+(Aug 2023) on Resize; AOSP LatinIME for behaviour details.
+
+Legend: ✅ done · 🟡 partly · ❌ missing (planned) · 🚫 impossible on KWin ·
+☁️ needs Google's servers or a cloud model (the project is offline; an
+offline alternative is named where one exists).
+
+## Typing and correction
+
+| Gboard | Tastra |
+|---|---|
+| Suggestion strip, completions, typed word / correction / alternative | ✅ |
+| Next-word suggestions | ✅ (bundled pairs + learning; quality below Gboard's neural model) |
+| Emoji suggestions | ✅ |
+| Remove a suggestion (touch and hold) | ✅ |
+| Autocorrect, undo with Backspace, re-correction | ✅ |
+| Auto-capitalization, double-space period, auto-space after punctuation | ✅ |
+| Block offensive words | ✅ |
+| Personal dictionary with shortcuts | ✅ |
+| Learning, "Delete learned words" | ✅ |
+| Multilingual typing (several languages at once) | ✅ (en, de, ru, uk) |
+| Smart Compose (inline sentence completion, US English) | ❌ planned as phrase chips in the strip |
+| Spell check underline in apps, "Add to dictionary" from it | 🚫 an input method on KWin cannot mark text in apps |
+| Grammar check | ☁️ |
+| Proofread "Fix it" (network) | ☁️ |
+| Writing tools: rephrase, tone, shorten… | ☁️ (needs a language model far beyond a keyboard's size) |
+| Incognito (no learning in private windows) | 🟡 learning can be switched off; a quick toggle is ❌ |
+
+## Gestures and keys
+
+| Gboard | Tastra |
+|---|---|
+| Glide typing, gesture trail, alternatives, one Backspace erases | ✅ |
+| Space-bar cursor control | ✅ |
+| Gesture delete: slide left from Backspace **selects** words, slide back to take some back, release deletes | ✅ 0.7.13 (with KWin fake input; without it, word by word while sliding) |
+| `?123` slide for one symbol, Shift slide for one capital | ✅ |
+| Double-tap Shift = Caps Lock | ✅ |
+| Touch and hold for accents / symbols, adjustable duration | ✅ |
+| Key popup on press | ✅ |
+| Long-press space or globe: language list | ✅ |
+| Long-press comma: emoji / settings / one-handed | 🟡 opens emoji only |
+| Two-thumb rollover typing | ✅ |
+
+## Layouts and size
+
+| Gboard | Tastra |
+|---|---|
+| Number row | ✅ |
+| Split keyboard (tablets) | ✅ |
+| One-handed mode left / right | ✅ |
+| Floating keyboard | 🚫 KWin places the panel |
+| Resize: drag the height, choose the width | 🟡 key size in settings; drag handle ❌ |
+| Field types: number pad, phone, e-mail `@` `.com`, URL | ✅ |
+| Layout choice per language (QWERTY, QWERTZ, AZERTY, Dvorak, Colemak, PC) | ❌ |
+| Show emoji switch key / language switch key | 🟡 globe key always shown; switches ❌ |
+| Morse code layout | ❌ |
+| Handwriting layout | ❌ no light offline recogniser chosen yet |
+| More languages | 🟡 4 of Gboard's hundreds; more need dictionaries + frequency lists |
+
+## Panels
+
+| Gboard | Tastra |
+|---|---|
+| Emoji: categories, recent, search, skin tones, emoticons, fast-access row | ✅ |
+| GIFs, stickers, Bitmoji, Emoji Kitchen | ☁️ |
+| Clipboard history, pin, expiry, chip with the last copy | ✅ |
+| Smart paste of parts (e-mail, URL, phone, number, date from a copied text) | ✅ 0.7.13 (also times; postal addresses ❌, Gboard has them in some countries only) |
+| Images and screenshots in the clipboard | ❌ (possible: put the image on the clipboard and send Ctrl+V) |
+| Text editing panel (arrows, select, select all, copy, cut, paste, undo, redo) | ✅ |
+| Toolbar: choose and arrange its buttons | ❌ |
+| Translate | ☁️ (an offline alternative exists: Firefox Translations / Bergamot models; large) |
+| Google search, Lens | ☁️ |
+| Hide keyboard | ✅ |
+
+## Voice
+
+| Gboard | Tastra |
+|---|---|
+| Voice typing | ✅ optional, offline (whisper.cpp) |
+| Voice commands: "delete last word", "clear", "send", "stop", punctuation and emoji by voice | ❌ planned (offline, on the recognised text) |
+| Auto punctuation | ✅ (whisper writes it) |
+| Rambler, sign-to-text, "Fix it" by voice | ☁️ |
+
+## Look and feedback
+
+| Gboard | Tastra |
+|---|---|
+| System / light / dark themes, key borders | ✅ (+ AMOLED) |
+| Colour themes, own background photo | ❌ planned |
+| Sound on keypress + volume | ✅ |
+| Haptic feedback + strength | ❌ needs a vibration motor driven through Linux force feedback; not checked whether the tablet has one |
+| Settings like Gboard's (sections) | ✅ |
+
+## Backlog, in order
+
+Done: gesture delete with selection, smart paste of parts (0.7.13).
+
+1. Voice commands.
+2. Colour themes and a background photo.
+3. Resize handle for the height.
+4. Toolbar: choose and order the buttons.
+5. Show emoji / language switch key; long-press comma menu.
+6. Layout choice per language (QWERTZ, AZERTY, Dvorak, Colemak).
+7. Phrase completion in the strip (Smart Compose-like).
+8. Incognito toggle.
+9. Clipboard images.
+10. Morse code.
+11. Handwriting (find an offline recogniser first).
+12. More languages.
+13. Offline translation (Bergamot), if its size is acceptable.
+14. Haptic feedback, if the tablet has a vibration motor.

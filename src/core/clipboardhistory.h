@@ -9,6 +9,12 @@
 namespace Tastra
 {
 
+// Gboard "paste sections of text": the e-mail addresses, web addresses, phone
+// numbers, numeric dates and times and other numbers found in a copied text,
+// each offered on its own (at most `limit`, in that order, none twice, none
+// that is part of an earlier one, never the whole text itself).
+QStringList clipboardParts(const QString &text, int limit = 3);
+
 // Clipboard history as on Gboard: items are kept for one hour unless pinned.
 // Only pinned items are written to disk; everything else lives in memory.
 class ClipboardHistory

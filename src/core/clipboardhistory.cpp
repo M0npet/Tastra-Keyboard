@@ -3,10 +3,58 @@
 
 #include <QDateTime>
 #include <algorithm>
+#include <QRegularExpression>
 #include <QSettings>
 
 namespace Tastra
 {
+
+QStringList clipboardParts(const QString &text, int limit)
+{
+    QStringList parts;
+    const QString whole = text.trimmed();
+    if (whole.isEmpty() || limit <= 0) return parts;
+    // A pasted book is searched only at its start.
+    const QString scanned = whole.left(20000);
+    auto consider = [&](QString part) {
+        part = part.trimmed();
+        if (part.size() < 3 || part == whole || parts.size() >= limit) return;
+        for (const QString &kept : std::as_const(parts)) {
+            if (kept.contains(part)) return;
+        }
+        parts.append(part);
+    };
+    auto each = [&](const QRegularExpression &pattern, const std::function<void(QString)> &take) {
+        auto it = pattern.globalMatch(scanned);
+        while (it.hasNext() && parts.size() < limit) take(it.next().captured(0));
+    };
+    static const QRegularExpression email(QStringLiteral(R"([\w.%+-]+@[\w-]+(?:\.[\w-]+)*\.\p{L}{2,})"),
+                                          QRegularExpression::UseUnicodePropertiesOption);
+    static const QRegularExpression url(QStringLiteral(R"((?:https?://|www\.)[^\s<>"'«»]+)"),
+                                        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression phone(QStringLiteral(R"((?<![\w+])\+?\d[\d ()./-]{5,}\d(?!\w))"));
+    static const QRegularExpression date(
+        QStringLiteral(R"((?<!\d)(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[./-]\d{1,2}[./-](?:\d{4}|\d{2}))(?!\d))"));
+    static const QRegularExpression wholeDate(QStringLiteral("^(?:%1)$").arg(date.pattern()));
+    static const QRegularExpression time(QStringLiteral(R"((?<!\d)(?:[01]?\d|2[0-3]):[0-5]\d(?!\d))"));
+    static const QRegularExpression number(QStringLiteral(R"((?<![\w.,])\d{3,}(?:[.,]\d+)?(?![\w]))"));
+
+    each(email, consider);
+    each(url, [&](QString found) {
+        while (!found.isEmpty() && QStringLiteral(".,;:!?)]}").contains(found.back())) found.chop(1);
+        consider(found);
+    });
+    each(phone, [&](QString found) {
+        found = found.trimmed();
+        const qsizetype digits = std::count_if(found.cbegin(), found.cend(), [](QChar c) { return c.isDigit(); });
+        if (digits < 7 || digits > 15 || wholeDate.match(found).hasMatch()) return;
+        consider(found);
+    });
+    each(date, consider);
+    each(time, consider);
+    each(number, consider);
+    return parts;
+}
 
 ClipboardHistory::ClipboardHistory()
 {

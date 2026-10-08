@@ -4,6 +4,21 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.13
+Release criterion written down: Tastra 1.0 is everything Gboard does, as far
+as it can be done offline on KWin (`docs/GBOARD-PARITY.md`, with sources and
+the backlog). The first two gaps:
+- Gesture delete as on Gboard: sliding left from Backspace now selects the
+  words to go in the application, sliding back takes words out of the
+  selection again, and lifting the finger deletes it; back at the start,
+  nothing is deleted. Before, words went one by one while sliding and could
+  not be taken back. Needs KWin's fake input (as Select in the editing panel);
+  without it, and in password fields and terminals, it deletes as before.
+- Paste sections of text: after copying, the strip offers next to the whole
+  text the e-mail address, web address, phone number, numeric date, time or
+  other number found in it (up to three), e.g. only the code from "Your
+  code: 583920".
+
 ## 0.7.12
 Editing in the middle of the text:
 - A word picked from the strip or glided in front of a space or punctuation

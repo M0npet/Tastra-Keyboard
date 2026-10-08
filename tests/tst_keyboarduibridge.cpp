@@ -251,6 +251,65 @@ private Q_SLOTS:
         QVERIFY(bridge.canSelect());
     }
 
+    void slidingFromBackspaceSelectsWordsAndDeletesThemOnRelease()
+    {
+        // Gboard / LatinIME gesture delete: slide left from Backspace, the
+        // words to go are selected in the application; slide back, fewer;
+        // lift the finger, the selection is deleted; back at the start,
+        // nothing is.
+        using namespace Tastra::EvdevKey;
+        using Chord = QPair<QList<int>, int>;
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        QVERIFY(!bridge.deleteGestureSelects());                     // no shortcuts: deletes as it slides
+        FakeChords chords;
+        bridge.setKeyChordSender(&chords);
+        QVERIFY(bridge.deleteGestureSelects());
+
+        bridge.tapLetter(QStringLiteral("h"));
+        bridge.tapLetter(QStringLiteral("i"));
+        bridge.deleteGestureTo(1);
+        QVERIFY(bridge.currentWord().isEmpty());                     // the word is finished first
+        bridge.deleteGestureTo(3);
+        bridge.deleteGestureTo(2);
+        QCOMPARE(chords.sent, (QList<Chord>{{{LeftCtrl, LeftShift}, Left}, {{LeftCtrl, LeftShift}, Left},
+                                            {{LeftCtrl, LeftShift}, Left}, {{LeftCtrl, LeftShift}, Right}}));
+        const int keys = backend.backspaceCount;
+        bridge.endDeleteGesture();
+        QCOMPARE(chords.sent.last(), (Chord{{}, BackSpace}));
+        QCOMPARE(backend.backspaceCount, keys);                      // not the input method's own key
+
+        chords.sent.clear();
+        bridge.deleteGestureTo(2);
+        bridge.deleteGestureTo(0);
+        bridge.endDeleteGesture();
+        QCOMPARE(chords.sent, (QList<Chord>{{{LeftCtrl, LeftShift}, Left}, {{LeftCtrl, LeftShift}, Left},
+                                            {{LeftCtrl, LeftShift}, Right}, {{LeftCtrl, LeftShift}, Right}}));
+
+        // Cancelled (the touch was taken away): the selection is undone.
+        chords.sent.clear();
+        bridge.deleteGestureTo(1);
+        bridge.cancelDeleteGesture();
+        QCOMPARE(chords.sent, (QList<Chord>{{{LeftCtrl, LeftShift}, Left}, {{LeftCtrl, LeftShift}, Right}}));
+        // The field went away mid-slide: nothing more is sent anywhere.
+        chords.sent.clear();
+        bridge.deleteGestureTo(2);
+        bridge.deactivateInputContext();
+        bridge.endDeleteGesture();
+        bridge.cancelDeleteGesture();
+        QCOMPARE(chords.sent.size(), 2);
+
+        // Passwords and terminals: never selected by shortcuts.
+        bridge.setContentType(0, 8);
+        QVERIFY(!bridge.deleteGestureSelects());
+        bridge.setContentType(0, 12);
+        QVERIFY(!bridge.deleteGestureSelects());
+        bridge.setContentType(0, 0);
+        bridge.setKeyChordSender(nullptr);
+    }
+
     void selectSelectAllCopyAndCutAsShortcuts()
     {
         // With KWin's fake input the panel sends real shortcuts, so the

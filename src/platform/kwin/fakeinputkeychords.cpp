@@ -24,6 +24,7 @@ namespace
 uint32_t keysymFor(int evdev)
 {
     switch (evdev) {
+    case EvdevKey::BackSpace: return 0xff08;   // XKB_KEY_BackSpace
     case EvdevKey::LeftCtrl: return 0xffe3;    // XKB_KEY_Control_L
     case EvdevKey::LeftShift: return 0xffe1;   // XKB_KEY_Shift_L
     case EvdevKey::A: return 0x61;

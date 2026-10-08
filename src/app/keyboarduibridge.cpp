@@ -261,6 +261,27 @@ void KeyboardUiBridge::pasteClipboardSuggestion()
     if (!text.isEmpty()) tapText(text);
     Q_EMIT suggestionsChanged();
 }
+
+QStringList KeyboardUiBridge::clipboardParts() const
+{
+    const QString text = clipboardSuggestion();
+    if (text.isEmpty()) return {};
+    if (m_clipboardPartsSource != text) {
+        m_clipboardPartsSource = text;
+        m_clipboardPartsCache = Tastra::clipboardParts(text);
+    }
+    return m_clipboardPartsCache;
+}
+
+void KeyboardUiBridge::pasteClipboardPart(int index)
+{
+    cancelInlineFields();
+    const QStringList parts = clipboardParts();
+    if (index < 0 || index >= parts.size()) return;
+    m_freshClipboard.clear();
+    tapText(parts.at(index));
+    Q_EMIT suggestionsChanged();
+}
 QStringList KeyboardUiBridge::userWords() const { return m_typingEngine.userWords(); }
 
 bool KeyboardUiBridge::typedWordUnknown() const
@@ -1319,6 +1340,47 @@ void KeyboardUiBridge::settleForShortcut()
     m_typingEngine.resetComposition();
 }
 
+// LatinIME onMoveDeletePointer / onUpWithDeletePointerActive: the slide
+// selects whole words before the cursor, release deletes the selection, and
+// sliding back to the start deletes nothing. Word steps are the
+// application's own (Ctrl+Shift+Left / Right).
+void KeyboardUiBridge::deleteGestureTo(int words)
+{
+    if (!deleteGestureSelects()) return;
+    const int target = qBound(0, words, 64);
+    if (!m_deleteGestureActive) {
+        if (target == 0) return;
+        settleForShortcut();
+        m_deleteGestureActive = true;
+        m_deleteGestureWords = 0;
+    }
+    while (m_deleteGestureWords < target) {
+        m_chords->send({EvdevKey::LeftCtrl, EvdevKey::LeftShift}, EvdevKey::Left);
+        ++m_deleteGestureWords;
+    }
+    while (m_deleteGestureWords > target) {
+        m_chords->send({EvdevKey::LeftCtrl, EvdevKey::LeftShift}, EvdevKey::Right);
+        --m_deleteGestureWords;
+    }
+}
+
+void KeyboardUiBridge::endDeleteGesture()
+{
+    if (!m_deleteGestureActive) return;
+    m_deleteGestureActive = false;
+    if (m_deleteGestureWords > 0 && m_chords) m_chords->send({}, EvdevKey::BackSpace);
+    m_deleteGestureWords = 0;
+    typingStateDidChange();
+}
+
+void KeyboardUiBridge::cancelDeleteGesture()
+{
+    if (!m_deleteGestureActive) return;
+    deleteGestureTo(0);
+    m_deleteGestureActive = false;
+    typingStateDidChange();
+}
+
 void KeyboardUiBridge::setSelectMode(bool on)
 {
     if (m_selectMode == on) return;
@@ -1526,12 +1588,17 @@ void KeyboardUiBridge::saveLearning()
 void KeyboardUiBridge::deactivateInputContext()
 {
     m_typingEngine.rememberCompositionBeforeDeactivation();
+    // A delete slide ends with the field: no keys go to whatever comes next.
+    m_deleteGestureActive = false;
+    m_deleteGestureWords = 0;
     Q_EMIT pressesCancelled();          // no key repeats or glides into nothing
     resetInputContext();
 }
 
 void KeyboardUiBridge::resetInputContext()
 {
+    m_deleteGestureActive = false;
+    m_deleteGestureWords = 0;
     cancelInlineFields();
     if (m_voice) m_voice->cancel();                 // never type into a new field
     loadShortcuts();                                 // pick up edits without a restart

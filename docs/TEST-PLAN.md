@@ -99,3 +99,7 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 66. In claude.ai and Kate: text `I dogs`, tap right after `I`, type Space + `lov`, tap `love` in the strip, then tap at the end of the text: `I love dogs` with one space. Text `I need.`, tap before the period, Space + `hel`, tap `help`: `I need help.`.
 67. Settings → Underline word while typing Off, in claude.ai: glide `to`, tap `too` in the strip: `too ` (not `to too`); glide again and Backspace: the glided word is gone. Tap right after `I` in `I dogs` and glide `the`: `I the dogs`.
 
+## N. Gboard gaps closed (0.7.13)
+68. In Kate and claude.ai, after `one two three four`: touch Backspace and slide left: `four`, then `three four` become selected (nothing deleted yet); slide back a bit: only `four` stays selected; lift: `four` is deleted. Slide left and all the way back, lift: nothing deleted. In a password field the slide deletes as before.
+69. Copy `Write to anna@example.org today` (or an SMS-style `Your code: 583920`), open the keyboard: next to the 📋 chip there is `anna@example.org` (`583920`); tap it: only that is inserted.
+

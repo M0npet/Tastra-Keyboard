@@ -79,6 +79,32 @@ private Q_SLOTS:
         QCOMPARE(history.items().size(), 2);
     }
 
+    void partsOfACopiedTextAreFound()
+    {
+        // Gboard "paste sections of text": e-mail, web address, phone, a
+        // numeric date or time, other numbers; never the whole text, nothing
+        // twice or inside an earlier part, at most three.
+        using Tastra::clipboardParts;
+        QCOMPARE(clipboardParts(QStringLiteral("Write to anna.k@example.org or call +49 151 2345 6789.")),
+                 (QStringList{QStringLiteral("anna.k@example.org"), QStringLiteral("+49 151 2345 6789")}));
+        QCOMPARE(clipboardParts(QStringLiteral("See https://kde.org/plasma-desktop/, (www.archlinux.org).")),
+                 (QStringList{QStringLiteral("https://kde.org/plasma-desktop/"), QStringLiteral("www.archlinux.org")}));
+        QCOMPARE(clipboardParts(QStringLiteral("Termin am 12.03.2027 um 14:30, Raum 4711")),
+                 (QStringList{QStringLiteral("12.03.2027"), QStringLiteral("14:30"), QStringLiteral("4711")}));
+        QCOMPARE(clipboardParts(QStringLiteral("Ваш код: 583920")), QStringList{QStringLiteral("583920")});
+        QCOMPARE(clipboardParts(QStringLiteral("Order 2026-10-08, total 149.90")),
+                 (QStringList{QStringLiteral("2026-10-08"), QStringLiteral("149.90")}));
+        // The whole text is the chip itself; short numbers are no parts.
+        QVERIFY(clipboardParts(QStringLiteral("anna.k@example.org")).isEmpty());
+        QVERIFY(clipboardParts(QStringLiteral("I have 2 cats and 12 fish")).isEmpty());
+        QVERIFY(clipboardParts(QString()).isEmpty());
+        // Numbers inside a phone number or a web address are not offered again.
+        QCOMPARE(clipboardParts(QStringLiteral("Ring 0441 123456 now")), QStringList{QStringLiteral("0441 123456")});
+        QCOMPARE(clipboardParts(QStringLiteral("a https://x.org/item/123456 b")),
+                 QStringList{QStringLiteral("https://x.org/item/123456")});
+        QCOMPARE(clipboardParts(QStringLiteral("1111 2222 3333 4444 5555 x"), 3).size(), 3);
+    }
+
     void unpinnedClipsExpireAfterAnHourPinnedOnesStay()
     {
         // Gboard: clipboard items are kept for an hour unless pinned; only
