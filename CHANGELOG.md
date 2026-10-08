@@ -4,6 +4,21 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.12
+Editing in the middle of the text:
+- A word picked from the strip or glided in front of a space or punctuation
+  gets no space of its own (`I | dogs` + `love` -> `I love dogs`, `I need|.`
+  + `help` -> `I need help.`). Before, the keyboard's space stayed behind as
+  a second one when you tapped elsewhere (KWin commits it then). Replacing
+  the word around the cursor already worked this way.
+- The other reading of a glide and one Backspace after a glide delete the
+  glided word correctly in Firefox also with "Underline word while typing"
+  off and in the middle of the text (GTK measured the deletion on text
+  Firefox had not reported yet: `to too`).
+- The trace notes when Firefox seems to have finished a word by itself
+  while it was still underlined (no text, only that fact), to settle the
+  last open question from 0.7.7 on the device.
+
 ## 0.7.11
 Words the cursor touches, after a review against GTK 3, Firefox and KWin
 (their sources read again) with a new model of such a text field in the tests:

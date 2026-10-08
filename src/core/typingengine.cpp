@@ -487,6 +487,17 @@ bool TypingEngine::deleteLocal(const QString &text)
     return true;
 }
 
+// Deletes text this keyboard committed right before the cursor. GTK 3 maps
+// the deletion's bytes onto the text it last read from the widget, which in
+// Firefox can be from before that commit; unless the client has reported
+// the text back since, an empty commit first makes GTK read it again
+// (imwayland.c: any commit at done -> notify_im_change).
+bool TypingEngine::deleteOwnText(const QString &text)
+{
+    if (m_surroundingSupported && !(inSyncWithClient() && m_model.endsWith(text))) commitLocal(QString());
+    return deleteLocal(text);
+}
+
 void TypingEngine::recordLocalState()
 {
     m_inSync = false;
@@ -573,6 +584,18 @@ bool TypingEngine::inSyncWithClient() const
     return m_surroundingSupported && m_inSync;
 }
 
+// What the client last reported after the word at the cursor: the text
+// after the cursor does not change while typing before it.
+bool TypingEngine::textFollowsWord() const
+{
+    return !m_charAfterWord.isNull() && (m_charAfterWord.isSpace() || m_charAfterWord.isPunct());
+}
+
+bool TypingEngine::textFollowsCursor() const
+{
+    return m_wordAfterCursor.isEmpty() && textFollowsWord();
+}
+
 void TypingEngine::resumeWordBeforeCursor()
 {
     // Only where the keyboard knows the text: a field that reports it.
@@ -632,8 +655,7 @@ bool TypingEngine::replaceBeforeCursor(const QString &existing, const QString &r
                           << (confirmed ? "text-channel"
                                         : refreshed ? "text-channel after refresh"
                                                     : allowUnconfirmed ? "key-fallback" : "skipped");
-        if (refreshed) commitLocal(QString());
-        if ((confirmed || refreshed) && deleteLocal(existing)) {
+        if ((confirmed || refreshed) && deleteOwnText(existing)) {
             commitLocal(replacement);
             return true;
         }
@@ -1064,7 +1086,7 @@ void TypingEngine::chooseSuggestion(const QString &word)
             refreshSuggestions();
             return;
         }
-        const bool followed = !m_charAfterWord.isNull() && (m_charAfterWord.isSpace() || m_charAfterWord.isPunct());
+        const bool followed = textFollowsWord();
         if (!m_recorrectionOriginal.isEmpty() && selected == m_recorrectionOriginal) m_lexicon.promoteWord(selected);
         m_wordAfterCursor.clear();
         m_currentWord = selected;
@@ -1091,13 +1113,21 @@ void TypingEngine::chooseSuggestion(const QString &word)
     }
     m_currentWord = selected;
     finalizeCurrentWord();
-    if (!(composed || compositionAvailable()) || !setPreeditLocal(QStringLiteral(" "))) {
+    // In the middle of the text, before a space or punctuation, the word
+    // gets no space of its own (as when a word around the cursor is
+    // replaced): it would stay behind as a second space.
+    const bool followed = textFollowsCursor();
+    m_spaceCommittedAfterSuggestion = false;
+    if (followed) {
+        m_pendingSpace = false;
+    } else if (!(composed || compositionAvailable()) || !setPreeditLocal(QStringLiteral(" "))) {
         commitLocal(QStringLiteral(" "));
+        m_spaceCommittedAfterSuggestion = true;
     } else {
         m_pendingSpace = true;
     }
     m_pendingSpaceAfterWord = m_pendingSpace;
-    m_spaceFromSuggestion = true;
+    m_spaceFromSuggestion = !followed;
     m_lastActionWasSpace = false;
     m_sentenceStart = false;
     refreshSuggestions();
@@ -1214,6 +1244,7 @@ void TypingEngine::resetComposition()
     dropGlideAlternatives();
     m_resumedWord.clear();
     m_wordAfterCursor.clear();
+    m_charAfterWord = QChar();
     m_spaceFromSuggestion = false;
     m_pendingWord.clear();
     m_pendingOriginal.clear();
@@ -1274,7 +1305,13 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
         // abandoning a live preedit loses text; external changes end a
         // composition through reset() (observed on device when the user
         // clicks elsewhere or switches windows).
-        qCDebug(lcEngine) << "echo bytes" << bounded << "ignored while composing";
+        // For the trace only (no text): does the client's text already hold
+        // the word being composed, as if it had committed the composition by
+        // itself (a page script in Firefox)? KWin sends no reset then.
+        const QString composed = m_composing ? stripHead(m_currentWord) : QString();
+        const bool holdsWord = !composed.isEmpty() && sameTextState(before, tail(m_model + composed));
+        qCDebug(lcEngine) << "echo bytes" << bounded << "ignored while composing"
+                          << (holdsWord ? "(client text holds the composed word)" : "");
         return false;
     }
 
@@ -1458,12 +1495,12 @@ void TypingEngine::eraseGlidedWord()
     const bool held = m_pendingSpace;
     dropGlideAlternatives();
     if (m_learningEnabled) m_lexicon.unlearnWordWithContext(glided, m_wordBeforeGlide);
-    const QString committed = held ? glided : glided + QLatin1Char(' ');
+    const QString committed = m_spaceCommittedAfterSuggestion ? glided + QLatin1Char(' ') : glided;
     if (held) {
         m_pendingSpace = false;
         setPreeditLocal(QString());
     }
-    if (!deleteLocal(committed)) {
+    if (!deleteOwnText(committed)) {
         for (int i = 0; i < committed.size(); ++i) backspaceLocal();
     }
     m_previousWord = m_wordBeforeGlide;
@@ -1490,21 +1527,26 @@ void TypingEngine::replaceGlidedWord(const QString &word)
     // is exactly what was committed: delete it on the text channel, which
     // stays ordered with the commit (Backspace key events would not).
     const bool held = m_pendingSpace;
-    const QString committed = held ? glided : glided + QLatin1Char(' ');
+    const QString space = m_spaceCommittedAfterSuggestion ? QStringLiteral(" ") : QString();
+    const QString committed = glided + space;
     if (held) {
         m_pendingSpace = false;
         setPreeditLocal(QString());
     }
-    if (!deleteLocal(committed)) {
+    if (!deleteOwnText(committed)) {
         for (int i = 0; i < committed.size(); ++i) backspaceLocal();   // no text channel: keys only
     }
-    commitLocal(held ? word : word + QLatin1Char(' '));
+    commitLocal(word + space);
     if (held) {
-        if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
-        else commitLocal(QStringLiteral(" "));
+        if (setPreeditLocal(QStringLiteral(" "))) {
+            m_pendingSpace = true;
+        } else {
+            commitLocal(QStringLiteral(" "));
+            m_spaceCommittedAfterSuggestion = true;
+        }
     }
     m_pendingSpaceAfterWord = m_pendingSpace;
-    m_spaceFromSuggestion = true;
+    m_spaceFromSuggestion = held || !space.isEmpty();
     m_previousWord = m_wordBeforeGlide;
     m_currentWord = word;
     finalizeCurrentWord();

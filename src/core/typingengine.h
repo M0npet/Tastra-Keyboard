@@ -120,6 +120,10 @@ private:
     // previous word, or a corrected word still held with its space.
     QString contextWord() const;
     bool lostWordResumes() const;
+    // A space or punctuation right after the word at the cursor (or right
+    // after the cursor), as the client last reported.
+    bool textFollowsWord() const;
+    bool textFollowsCursor() const;
     // LatinIME restartSuggestionsOnWordTouchedByCursor: after Backspace
     // reaches the end of a word, that word is the word being typed again
     // (suggestions for it; the next letter continues it).
@@ -146,6 +150,7 @@ private:
     void commitLocal(const QString &text);
     void backspaceLocal();
     bool deleteLocal(const QString &text);
+    bool deleteOwnText(const QString &text);
     void recordLocalState();
     void recordState(const QString &state);
     void forgetTextState();
@@ -166,6 +171,7 @@ private:
     QString m_currentWord;
     QString m_previousWord;
     QString m_wordBeforePeriod;          // restored when a double-space period is undone
+    bool m_spaceCommittedAfterSuggestion = false;   // the last suggestion's space went out as text
     QString m_resumedWord;               // taken up again after Backspace (resumeWordBeforeCursor)
     QString m_previousBeforeResume;      // the context before that
     QString m_lostWord;                  // composed when the text input was switched off

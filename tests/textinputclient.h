@@ -115,12 +115,19 @@ public:
         }
     }
 
-    // The user puts the cursor somewhere (a tap in the text): the client
-    // reports it at human speed.
+    // The user puts the cursor somewhere (a tap in the text): KWin first
+    // commits the text of the keyboard's last preedit itself and resets the
+    // keyboard (InputMethod::commitPendingText on the touch), then the client
+    // reports the new cursor at human speed. `position` counts in the text
+    // after that commit.
     void placeCursor(int position)
     {
+        if (!preedit.isEmpty()) {
+            insert(preedit);
+            preedit.clear();
+            if (engine) engine->resetComposition();
+        }
         cursor = qBound(0, position, int(text.size()));
-        preedit.clear();
         m_cache = current();
         m_gtkSurrounding = current();
         if (advance) advance(1000);
@@ -131,8 +138,15 @@ public:
 
     void setText(const QString &value)
     {
+        preedit.clear();
         text = value;
         placeCursor(int(value.size()));
+    }
+
+    // A tap at the end of the text.
+    void tapAtEnd()
+    {
+        placeCursor(int((text + preedit).size()));
     }
 
     QString visible() const { return text.left(cursor) + preedit + text.mid(cursor); }

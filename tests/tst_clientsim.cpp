@@ -13,6 +13,7 @@
 #include "core/keyboardcontroller.h"
 #include "core/locallexicon.h"
 #include "core/typingengine.h"
+#include "glidepaths.h"
 #include "textinputclient.h"
 
 namespace
@@ -158,6 +159,125 @@ private Q_SLOTS:
         s.act([&] { s.engine.chooseSuggestion(QStringLiteral("you")); });
         QCOMPARE(s.client.visible(), QStringLiteral("we help you "));
         QCOMPARE(s.client.badDeletes, 0);
+    }
+
+    // A word picked from the strip in the middle of the text, where a space
+    // or punctuation already follows: no second space (the replaced word's
+    // path did this already), so nothing is left over when KWin commits the
+    // keyboard's preedit on the next tap.
+    void aSuggestionBeforeASpaceAddsNoSecondSpace_data()
+    {
+        QTest::addColumn<int>("echo");
+        QTest::addColumn<QString>("text");
+        QTest::addColumn<int>("at");
+        QTest::addColumn<QString>("typed");
+        QTest::addColumn<QString>("chosen");
+        QTest::addColumn<QString>("expected");
+        for (int echo : {int(TextInputClient::Echo::Current), int(TextInputClient::Echo::Lagging)}) {
+            const char *mode = echo == int(TextInputClient::Echo::Current) ? "gtk" : "firefox";
+            QTest::addRow("%s before a space", mode) << echo << QStringLiteral("I dogs") << 1 << QStringLiteral(" lov")
+                                                     << QStringLiteral("love") << QStringLiteral("I love dogs");
+            QTest::addRow("%s before a period", mode) << echo << QStringLiteral("I need.") << 6 << QStringLiteral(" hel")
+                                                      << QStringLiteral("help") << QStringLiteral("I need help.");
+            QTest::addRow("%s at the end", mode) << echo << QStringLiteral("I need") << 6 << QStringLiteral(" hel")
+                                                 << QStringLiteral("help") << QStringLiteral("I need help ");
+            // A word the cursor was put after, replaced from the strip.
+            QTest::addRow("%s old word", mode) << echo << QStringLiteral("I like teh dogs") << 10 << QString()
+                                               << QStringLiteral("the") << QStringLiteral("I like the dogs");
+        }
+    }
+    void aSuggestionBeforeASpaceAddsNoSecondSpace()
+    {
+        QFETCH(int, echo);
+        QFETCH(QString, text);
+        QFETCH(int, at);
+        QFETCH(QString, typed);
+        QFETCH(QString, chosen);
+        QFETCH(QString, expected);
+        Session s{static_cast<TextInputClient::Echo>(echo)};
+        s.engine.setAutoCapitalizationEnabled(false);
+        s.client.setText(text);
+        s.client.placeCursor(at);
+        s.type(typed);
+        s.act([&] { s.engine.chooseSuggestion(chosen); });
+        s.client.tapAtEnd();
+        QCOMPARE(s.client.visible(), expected);
+        QCOMPARE(s.client.badDeletes, 0);
+    }
+
+    // The same for a glide in the middle of the text: a space before it
+    // (after "I"), none after it (" dogs" follows); Backspace right after
+    // the glide erases exactly the glided word.
+    void aGlideInTheMiddleOfTheTextFitsIn_data() { echoModes_data(); }
+    void aGlideInTheMiddleOfTheTextFitsIn()
+    {
+        QFETCH(int, echo);
+        Session s{static_cast<TextInputClient::Echo>(echo)};
+        s.engine.setAutoCapitalizationEnabled(false);
+        s.client.setText(QStringLiteral("I dogs"));
+        s.client.placeCursor(1);
+        auto glide = [&] {
+            s.act([&] {
+                s.engine.beginGlide(QStringLiteral("t"));
+                s.engine.glideThrough(QStringLiteral("h"));
+                s.engine.glideThrough(QStringLiteral("e"));
+                QVERIFY(!s.engine.endGlide().isEmpty());
+            });
+        };
+        glide();
+        QCOMPARE(s.client.visible(), QStringLiteral("I the dogs"));
+        s.act([&] { s.engine.backspace(); });
+        QCOMPARE(s.client.visible(), QStringLiteral("I  dogs"));
+        s.client.tapAtEnd();
+        QCOMPARE(s.client.text, QStringLiteral("I  dogs"));
+        QCOMPARE(s.client.badDeletes, 0);
+    }
+
+    // The other reading of a glide and one Backspace after it, in Firefox
+    // too: both delete the glided word, which GTK must measure on the text
+    // as it is, not as Firefox's cache last had it.
+    void aGlidedWordCanBeSwappedAndErased_data()
+    {
+        QTest::addColumn<int>("echo");
+        QTest::addColumn<bool>("underline");
+        for (const bool underline : {true, false}) {
+            QTest::addRow("gtk underline=%d", int(underline)) << int(TextInputClient::Echo::Current) << underline;
+            QTest::addRow("firefox underline=%d", int(underline)) << int(TextInputClient::Echo::Lagging) << underline;
+        }
+    }
+    void aGlidedWordCanBeSwappedAndErased()
+    {
+        QFETCH(int, echo);
+        QFETCH(bool, underline);
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(":/tastra/frequency")});
+        Session s{static_cast<TextInputClient::Echo>(echo)};
+        QVERIFY(s.engine.waitForDictionaryForTesting(10000));
+        s.engine.setAutoCapitalizationEnabled(false);
+        s.engine.setCompositionEnabled(underline);
+        // An empty field: Firefox's cache has no text at all yet when the
+        // glided word is deleted again.
+        s.client.setText(QString());
+        const auto centres = GlidePaths::centresFor(QStringLiteral("en"));
+        auto glide = [&] {
+            s.act([&] {
+                s.engine.endGlidePath(GlidePaths::pathFor(QStringLiteral("too"), centres, 0.0, 3), centres,
+                                      GlidePaths::KeyWidth);
+            });
+        };
+        glide();
+        QCOMPARE(s.client.visible(), QStringLiteral("to "));
+        QVERIFY2(s.engine.suggestions().contains(QStringLiteral("too")), qPrintable(s.engine.suggestions().join(',')));
+        s.act([&] { s.engine.chooseSuggestion(QStringLiteral("too")); });
+        QCOMPARE(s.client.visible(), QStringLiteral("too "));
+        s.act([&] { s.engine.backspace(); });
+        QCOMPARE(s.client.visible(), QString());
+        glide();
+        s.act([&] { s.engine.space(); });
+        glide();
+        s.act([&] { s.engine.backspace(); });
+        QCOMPARE(s.client.visible(), QStringLiteral("to "));
+        QCOMPARE(s.client.badDeletes, 0);
+        Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
     // tst_typingstress against the modelled clients: Backspace keys and

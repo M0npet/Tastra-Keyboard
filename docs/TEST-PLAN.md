@@ -95,3 +95,7 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 64. Glide right after a typed word (no Space) or after `Hi.`: a space comes first (`Hi. The`). Tap right after a word in the text and glide: the word stays, the glided word follows it with a space.
 65. Settings → Underline word while typing Off; in claude.ai type `hepl` and tap `help` in the strip right away: `help `. On again: start an empty message with `yhe`, tap `the` if the strip offers it: `the`, not `ythe`.
 
+## M. Editing in the middle (0.7.12)
+66. In claude.ai and Kate: text `I dogs`, tap right after `I`, type Space + `lov`, tap `love` in the strip, then tap at the end of the text: `I love dogs` with one space. Text `I need.`, tap before the period, Space + `hel`, tap `help`: `I need help.`.
+67. Settings → Underline word while typing Off, in claude.ai: glide `to`, tap `too` in the strip: `too ` (not `to too`); glide again and Backspace: the glided word is gone. Tap right after `I` in `I dogs` and glide `the`: `I the dogs`.
+

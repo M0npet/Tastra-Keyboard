@@ -1818,3 +1818,25 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   client reports while composing differs (Firefox leaves the composition out,
   Chromium may not), so the keyboard cannot tell safely.
 
+## 2026-10-08 — 0.7.12 editing in the middle of the text
+
+- The client model now does what KWin does on a tap in the text: commit the
+  keyboard's last preedit (m_pendingText) and reset the keyboard
+  (InputMethod::commitPendingText), then report the new cursor.
+- Reproduced and fixed: a suggestion or glide in front of a space left the
+  keyboard's held space behind as a second one ("I love  dogs", "I help ."
+  before a period; the re-correction of an old word likewise). The word now
+  gets no space when the client reported a space or punctuation right after
+  the cursor (the text after the cursor does not change while typing before
+  it; cleared on every reset), as the word-around-cursor path did since
+  0.6.x. One Backspace and the other readings of a glide follow what was
+  actually committed after the word (none, held or committed space).
+- Reproduced and fixed: with composition off, Firefox model, empty field: the
+  other reading of a glide gave "to too", Backspace after it nothing: the
+  deletion was measured by GTK on text from before the glide. deleteOwnText
+  sends the empty commit first (0.7.11's re-read) unless the client has
+  confirmed the text.
+- Diagnostic for the open Firefox question: the trace marks an echo during a
+  composition whose text already holds the composed word (a flag, no text).
+- Checks: 23/23, ASan + UBSan 23/23; clientsim 35 cases, 0.7.11 fails 9.
+
