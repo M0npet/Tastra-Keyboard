@@ -26,6 +26,8 @@ no_build=0
 [[ "${1:-}" == "--no-build" ]] && no_build=1
 
 stop() { echo "STOP: $*" >&2; exit 1; }
+((EUID != 0)) || stop "run this as your own user, not as root: it installs into ~/.local"
+INSTALLED_STAMP="$DATA/tastra/installed"
 VERSION="$(sed -n 's/^ *VERSION \([0-9.]*\)$/\1/p' "$SRC/CMakeLists.txt" | head -n1)"
 [[ -n "$VERSION" ]] || stop "cannot read the version from CMakeLists.txt"
 
@@ -90,21 +92,30 @@ else
     echo
     echo "===== FRESH BUILD + FULL TEST SUITE ====="
     rm -rf "$BUILD"
-    (
-        set -o pipefail
-        cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee "$LOG"
-        cmake --build "$BUILD" --parallel "$(nproc)" 2>&1 | tee -a "$LOG"
-        QT_QPA_PLATFORM=offscreen ctest --test-dir "$BUILD" --output-on-failure 2>&1 | tee -a "$LOG"
-    ) || stop "build or tests failed; nothing was installed (log: $LOG)"
+    # Each step stops the install on its own (pipefail: tee does not hide a
+    # failure). The tests run headless and in English whatever the session's
+    # language is.
+    cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee "$LOG" \
+        || stop "configure failed; nothing was installed (log: $LOG)"
+    cmake --build "$BUILD" --parallel "$(nproc)" 2>&1 | tee -a "$LOG" \
+        || stop "build failed; nothing was installed (log: $LOG)"
+    QT_QPA_PLATFORM=offscreen QT_QPA_OFFSCREEN_NO_GLX=1 LANGUAGE=en LC_ALL=C.UTF-8 \
+        ctest --test-dir "$BUILD" --output-on-failure --no-tests=error 2>&1 | tee -a "$LOG" \
+        || stop "tests failed; nothing was installed (log: $LOG)"
+    [[ -x "$BUILD/tastra" ]] || stop "the build made no binary; nothing was installed (log: $LOG)"
 fi
 
 echo
 echo "===== INSTALL ====="
-mkdir -p "$BIN_DIR" "$DATA/tastra/backups" "$DATA/applications"
+mkdir -p "$BIN_DIR" "$DATA/tastra/backups" "$DATA/applications" "$STATE/tastra"
 stamp="$(date +%Y%m%d-%H%M%S)"
-# The binary that runs now: Tastra's, or the old name's (a real file, not our link).
+checksum() { sha256sum "$1" | awk '{print $1}'; }
+# The binary that runs now: Tastra's, or the old name's (a real file, not our
+# link). Not when it is this very build again: a rollback must go back.
 if [[ -f "$BIN_DIR/tastra" && ! -L "$BIN_DIR/tastra" ]]; then
-    cp -a "$BIN_DIR/tastra" "$DATA/tastra/backups/tastra.before-$VERSION.$stamp"
+    if [[ "$(checksum "$BIN_DIR/tastra")" != "$(checksum "$BUILD/tastra")" ]]; then
+        cp -a "$BIN_DIR/tastra" "$DATA/tastra/backups/tastra.before-$VERSION.$stamp"
+    fi
 elif [[ -f "$BIN_DIR/v3-keyboard" && ! -L "$BIN_DIR/v3-keyboard" ]]; then
     cp -a "$BIN_DIR/v3-keyboard" "$DATA/tastra/backups/v3-keyboard.before-$VERSION.$stamp"
 fi
@@ -149,8 +160,21 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
 fi
 command -v kbuildsycoca6 >/dev/null 2>&1 && kbuildsycoca6 >/dev/null 2>&1 || true
 
-[[ "$(sha256sum "$BUILD/tastra" | awk '{print $1}')" == "$(sha256sum "$BIN_DIR/tastra" | awk '{print $1}')" ]] \
+[[ "$(checksum "$BUILD/tastra")" == "$(checksum "$BIN_DIR/tastra")" ]] \
     || stop "installed binary checksum mismatch"
+
+# What this build was made from: tastra-update rebuilds when any of it
+# changes (a new commit; a Qt update, as the keyboard uses Qt's private
+# Wayland classes; voice input or key sounds set up since).
+if ((no_build == 0)); then
+    {
+        echo "source=$SRC"
+        echo "commit=$(git -C "$SRC" rev-parse HEAD 2>/dev/null || echo none)"
+        echo "qt=$(pkg-config --modversion Qt6Core 2>/dev/null || echo unknown)"
+        echo "voice=$(bash "$SRC/scripts/tastra-voice-setup.sh" --status >/dev/null 2>&1 && echo yes || echo no)"
+        echo "sound=$(pkg-config --exists Qt6Multimedia 2>/dev/null && echo yes || echo no)"
+    } > "$INSTALLED_STAMP"
+fi
 
 echo
 echo "===== TASTRA $VERSION INSTALLED ====="
@@ -159,4 +183,10 @@ echo "binary:     $BIN_DIR/tastra ($(sha256sum "$BIN_DIR/tastra" | awk '{print $
 ((no_build)) || echo "build log:  $LOG"
 echo "Test plan:  $SRC/docs/TEST-PLAN.md"
 echo "Relaunch:   kcmshell6 kcm_virtualkeyboard -> None -> Apply -> Tastra -> Apply"
-echo "Update:     tastra-update     Roll back: tastra-rollback"
+echo "Update:     $BIN_DIR/tastra-update     Roll back: $BIN_DIR/tastra-rollback"
+case ":$PATH:" in
+    *":$BIN_DIR:"*) ;;
+    *) echo
+       echo "NOTE: $BIN_DIR is not on your PATH, so type the full paths above, or add it:"
+       echo "      echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc   (then open a new terminal)" ;;
+esac

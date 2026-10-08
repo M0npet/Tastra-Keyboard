@@ -126,6 +126,8 @@ private Q_SLOTS:
     void init()
     {
         QSettings().clear();
+        // The labels below are English; not the system language's.
+        QSettings().setValue(QStringLiteral("uiLanguage"), QStringLiteral("en"));
         // Script errors in handlers are silent on device; make them fatal here.
         QTest::failOnWarning(QRegularExpression(QStringLiteral("ReferenceError|TypeError|is not declared")));
     }

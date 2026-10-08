@@ -18,6 +18,9 @@ rm -f "$HOME/.local/bin/tastra" \
       "$HOME/.local/bin/tastra-voice-setup" \
       "$HOME/.local/bin/tastra-rollback" \
       "$HOME/.local/bin/tastra-uninstall" \
+      "$HOME/.local/bin/tastra-update" \
+      "$HOME/.local/bin/tastra-install" \
+      "$DATA/tastra/installed" \
       "$DATA/applications/io.github.m0npet.Tastra.desktop"
 rm -rf "$DATA/doc/tastra"
 # Left over from the "V3 Keyboard" builds (up to 0.6.1).

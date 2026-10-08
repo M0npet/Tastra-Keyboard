@@ -580,3 +580,12 @@ if(BUILD_TESTING)
     target_link_libraries(tst_glide PRIVATE tastra-core Qt6::Test)
     add_test(NAME glide COMMAND tst_glide)
 endif()
+
+if(BUILD_TESTING)
+    # The tests expect the English interface and C collation whatever the
+    # system language is (Plasma exports LANGUAGE from its language setting;
+    # the installer runs the suite in the user's session).
+    get_property(TASTRA_ALL_TESTS DIRECTORY PROPERTY TESTS)
+    set_property(TEST ${TASTRA_ALL_TESTS} APPEND PROPERTY ENVIRONMENT
+        "LANGUAGE=en" "LC_ALL=C.UTF-8" "QT_QPA_OFFSCREEN_NO_GLX=1")
+endif()

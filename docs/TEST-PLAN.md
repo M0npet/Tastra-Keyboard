@@ -1,6 +1,6 @@
 # Tastra — live test checklist (most important first)
 
-Before: `touch ~/.local/state/tastra/trace.enable`, then relaunch the
+Before: `mkdir -p ~/.local/state/tastra && touch ~/.local/state/tastra/trace.enable`, then relaunch the
 keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 
 ## A. Core typing (Firefox: claude.ai / ChatGPT, and a KDE app e.g. Kate)

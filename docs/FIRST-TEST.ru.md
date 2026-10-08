@@ -6,8 +6,8 @@
 ## 0. Подготовка
 
 ```
-tastra-update                                   # или установка по README
-touch ~/.local/state/tastra/trace.enable         # трейс: только размеры и решения, без текста
+~/.local/bin/tastra-update                      # обновление; в первый раз — установка по README
+mkdir -p ~/.local/state/tastra && touch ~/.local/state/tastra/trace.enable   # трейс: только размеры и решения, без текста
 kcmshell6 kcm_virtualkeyboard                    # None -> Apply -> Tastra -> Apply
 ```
 

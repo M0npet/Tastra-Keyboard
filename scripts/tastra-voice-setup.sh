@@ -17,7 +17,7 @@ MODEL="ggml-base-q5_1.bin"
 MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$MODEL"
 MODEL_SHA="422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
 MODEL_SIZE=59707625
-PACKAGE="${TASTRA_VOICE_PACKAGE:-whisper-cpp}"   # or whisper-cpp-vulkan for the iGPU
+PACKAGE="${TASTRA_VOICE_PACKAGE:-whisper-cpp}"   # the Arch package (TASTRA_VOICE_PACKAGE for another build of it)
 
 have_pkg() { pacman -Qq "$1" >/dev/null 2>&1; }
 

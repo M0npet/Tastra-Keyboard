@@ -4,5 +4,8 @@ Comment=Privacy-first virtual keyboard for Wayland
 Exec=tastra
 Type=Application
 X-KDE-Wayland-VirtualKeyboard=true
+# KWin up to 6.7 offers its fake-input protocol (the editing panel's
+# shortcuts) only to programs whose desktop file asks for it.
+X-KDE-Wayland-Interfaces=org_kde_kwin_fake_input
 Icon=input-keyboard-virtual
 NoDisplay=true

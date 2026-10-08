@@ -15,18 +15,27 @@ automatically.
 
 On Arch Linux:
 
-    sudo pacman -S --needed git base-devel cmake ninja pkgconf python hunspell \
-        qt6-base qt6-declarative qt6-wayland qt6-svg wayland wayland-protocols libxkbcommon
+    sudo pacman -Syu --needed git base-devel cmake ninja pkgconf python hunspell \
+        qt6-base qt6-declarative qt6-wayland qt6-svg qt6-multimedia qt6-multimedia-ffmpeg \
+        wayland wayland-protocols libxkbcommon
     git clone https://github.com/M0npet/Tastra-Keyboard.git ~/.local/src/tastra
     ~/.local/src/tastra/scripts/tastra-install.sh
     kcmshell6 kcm_virtualkeyboard      # None -> Apply -> Tastra -> Apply
 
 The installer runs a static check, a fresh Release build and the full test
-suite, and installs into `~/.local` only when everything is green. The
-previous binary is kept for rolling back.
+suite (about a minute), and installs into `~/.local` only when everything is
+green. The previous binary is kept for rolling back. The helpers below are in
+`~/.local/bin`; Arch does not put that on the `PATH` by default, so either
+type `~/.local/bin/tastra-update` and so on, or add it once:
+`echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc`.
 
 - Update to the latest version: `tastra-update` (or `tastra-update --check`).
-- Roll back to the previous build: `tastra-rollback`.
+  It also rebuilds when Qt was updated (the keyboard uses Qt's private Wayland
+  classes, so run it after a system upgrade that brings a new Qt), when voice
+  input or key sounds were set up, and after a rollback; `--force` always
+  rebuilds.
+- Roll back to the previous build: `tastra-rollback` (again to go further
+  back).
 - Dictionaries: `tastra-dictionaries [--status]` (EN/DE/RU from pacman, UK from a
   pinned, checksummed upstream file).
 - Offline voice input (optional): `tastra-voice-setup`, then `tastra-update`.
@@ -90,7 +99,9 @@ previous binary is kept for rolling back.
 
 - KWin replaces the modifiers of keys sent by an input method, so the
   text-editing panel sends Select (Shift+arrows), Select all, Copy and Cut as
-  keyboard input through KDE's fake-input protocol (the one KDE Connect uses).
+  keyboard input through KDE's fake-input protocol (the one KDE Connect uses);
+  KWin up to 6.7 offers it only to programs whose desktop file asks for it,
+  as the installed one does.
   Where that protocol is missing, Copy and Cut work on text selected by touch.
   Plasma 6.5 and newer take the shortcuts as key symbols, so they follow your
   layout; older KWin gets US key positions (with QWERTZ, Undo would arrive as
@@ -115,7 +126,8 @@ about one million instructions (`tools/bench_keystroke`).
 Nothing leaves the device. Settings and learned words are kept in
 `~/.config/tastra`. Dictation audio stays in memory only (30 s at most) and is
 erased after recognition. The optional trace
-(`touch ~/.local/state/tastra/trace.enable` before starting the keyboard)
+(`mkdir -p ~/.local/state/tastra && touch ~/.local/state/tastra/trace.enable`
+before starting the keyboard)
 records sizes and decisions only, never text.
 
 ## Third-party data
