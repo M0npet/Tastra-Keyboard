@@ -118,24 +118,28 @@ private Q_SLOTS:
             bool swapped = false;
             bool heldSpace = false;    // the trailing space is still in the preedit
             const QString letters = QStringLiteral("abcdeéжщї");
+            QString log;
             for (int step = 0; step < 250; ++step) {
                 now += 5 + rng.bounded(300);
                 const int op = rng.bounded(100);
                 if (op < 58) {
                     const QString ch(letters.at(rng.bounded(letters.size())));
                     engine.typeLetter(ch);
+                    log += ch;
                     expected += ch;
                     ++wordLength;
                     heldAfterWord = swapped = heldSpace = false;
                 } else if (op < 62) {
                     // New paragraph: exercises the empty-paragraph first letter.
                     engine.enter();
+                    log += "⏎";
                     if (composition && heldSpace) expected.chop(1);   // a held space is dropped
                     expected += QLatin1Char('\n');
                     wordLength = 0;
                     heldAfterWord = swapped = heldSpace = false;
                 } else if (op < 78) {
                     engine.space();
+                    log += "␣";
                     if (composition && swapped) {
                         swapped = false;                       // already there
                     } else {
@@ -148,6 +152,7 @@ private Q_SLOTS:
                     const QString p = QStringList{QStringLiteral(","), QStringLiteral("."), QStringLiteral("!")}
                         .at(rng.bounded(3));
                     engine.typeText(p);
+                    log += p;
                     if (heldAfterWord) {
                         expected.chop(1);
                         expected += p + QLatin1Char(' ');
@@ -162,6 +167,7 @@ private Q_SLOTS:
                     wordLength = 0;
                 } else {
                     engine.backspace();
+                    log += "⌫";
                     if (composition && swapped) {
                         // LatinIME revertSwapPunctuation: "w, " -> "w ,"
                         const QChar punct = expected.at(expected.size() - 2);
@@ -171,7 +177,11 @@ private Q_SLOTS:
                     } else if (!expected.isEmpty()) {
                         expected.chop(1);
                     }
-                    if (wordLength > 0) --wordLength;
+                    // The word Backspace reaches is the word being typed
+                    // again (LatinIME restartSuggestionsOnWordTouchedByCursor).
+                    wordLength = 0;
+                    while (wordLength < expected.size() && letters.contains(expected.at(expected.size() - 1 - wordLength)))
+                        ++wordLength;
                     heldAfterWord = swapped = heldSpace = false;
                 }
                 // Echoes the client might send after this step.
@@ -179,6 +189,7 @@ private Q_SLOTS:
                 if (echoMode == 2 && !previousVisible.isNull()) echo(previousVisible.left(backend.field.size()));
                 previousVisible = backend.field;
 
+                if (backend.visible() != expected) qWarning() << "seed" << seed << log.right(40);
                 QCOMPARE(backend.visible(), expected);
             }
         }

@@ -60,6 +60,42 @@ QString bareWord(const QString &text)
     return text.mid(start, end - start).toLower();
 }
 
+// The word right before the cursor (letters, and connectors between
+// letters) and the word before that one, which is the context unless a
+// sentence end or a line break lies between them.
+struct WordsBeforeCursor {
+    QString trailing;
+    QString previous;
+};
+
+WordsBeforeCursor wordsBeforeCursor(const QString &before)
+{
+    auto inWord = [&before](qsizetype i) {
+        const QChar ch = before.at(i);
+        if (ch.isLetter()) return true;
+        return isWordConnector(ch) && i > 0 && i + 1 < before.size() && before.at(i - 1).isLetter()
+            && before.at(i + 1).isLetter();
+    };
+    WordsBeforeCursor words;
+    qsizetype start = before.size();
+    while (start > 0 && inWord(start - 1)) --start;
+    words.trailing = before.mid(start);
+    qsizetype prevEnd = start;
+    while (prevEnd > 0 && !before.at(prevEnd - 1).isLetter()) --prevEnd;
+    qsizetype prevStart = prevEnd;
+    while (prevStart > 0 && inWord(prevStart - 1)) --prevStart;
+    words.previous = before.mid(prevStart, prevEnd - prevStart).toLower();
+    for (qsizetype i = prevEnd; i < start; ++i) {
+        const QChar ch = before.at(i);
+        if (ch == QLatin1Char('.') || ch == QLatin1Char('!') || ch == QLatin1Char('?') || ch == QLatin1Char('\n')
+            || ch == QChar(0x2026)) {
+            words.previous.clear();
+            break;
+        }
+    }
+    return words;
+}
+
 }
 
 TypingEngine::TypingEngine(KeyboardController &controller)
@@ -304,6 +340,14 @@ void TypingEngine::typeLetter(const QString &text, QPointF touch)
         m_autoSpacePending = false;
         commitLocal(QStringLiteral(" "));
     }
+    if (!m_composing && !m_currentWord.isEmpty() && m_wordAfterCursor.isEmpty() && compositionAvailable()
+        && !recomposeCurrentWord() && m_currentWord == m_resumedWord) {
+        // The client has not confirmed the word Backspace reached: rather
+        // than typing on it uncomposed, start a new word as before.
+        m_currentWord.clear();
+        m_previousWord = m_previousBeforeResume;
+    }
+    m_resumedWord.clear();
     // Composition starts only at a word boundary so a word is never split
     // between committed text and preedit.
     const bool startingWord = !m_composing && m_currentWord.isEmpty() && compositionAvailable();
@@ -340,6 +384,7 @@ void TypingEngine::typeText(const QString &text)
         return;
     }
     dropGlideAlternatives();
+    m_resumedWord.clear();
     m_wordAfterCursor.clear();
     m_lastWasDoublePeriod = false;
     if (text.isEmpty()) return;
@@ -528,6 +573,45 @@ bool TypingEngine::inSyncWithClient() const
     return m_surroundingSupported && m_inSync;
 }
 
+void TypingEngine::resumeWordBeforeCursor()
+{
+    // Only where the keyboard knows the text: a field that reports it.
+    if (!m_surroundingSupported || m_sensitiveContext || m_composing || m_pendingSpace || !m_currentWord.isEmpty()
+        || !m_wordAfterCursor.isEmpty()) {
+        return;
+    }
+    const WordsBeforeCursor words = wordsBeforeCursor(m_model);
+    if (words.trailing.isEmpty()) return;
+    qCDebug(lcEngine) << "backspace reached a word ->" << words.trailing.size() << "letters resumed";
+    m_resumedWord = words.trailing;
+    m_previousBeforeResume = m_previousWord;
+    m_currentWord = words.trailing;
+    m_previousWord = words.previous;
+    m_touchOffsets.clear();
+    m_sentenceStart = false;
+}
+
+// The word is deleted with delete_surrounding_text and shown again as the
+// preedit with the next letter: both travel on the text-input channel, so the
+// client applies them in order. Only on a word the client has confirmed:
+// GTK maps the deletion's bytes onto the text it last reported.
+bool TypingEngine::recomposeCurrentWord()
+{
+    if (!inSyncWithClient() || !m_model.endsWith(m_currentWord)) return false;
+    const QString word = m_currentWord;
+    const QString before = m_model.left(m_model.size() - word.size());
+    // A composition never starts in an empty paragraph (see m_committedHead):
+    // the first letter stays committed there.
+    const bool paragraphStart = before.isEmpty() || before.endsWith(QLatin1Char('\n'));
+    const qsizetype keep = !paragraphStart ? 0 : (word.front().isHighSurrogate() && word.size() > 1 ? 2 : 1);
+    const QString taken = word.mid(keep);
+    if (!taken.isEmpty() && !deleteLocal(taken)) return false;
+    qCDebug(lcEngine) << "typing on a confirmed word ->" << word.size() << "letters composed again";
+    m_committedHead = word.left(keep);
+    m_composing = true;
+    return true;
+}
+
 // Replaces `existing` (the text right before the cursor) with `replacement`.
 // On text-input clients the deletion uses delete_surrounding_text so it stays
 // ordered with the commit; Backspace key events travel on a different channel
@@ -537,9 +621,19 @@ bool TypingEngine::replaceBeforeCursor(const QString &existing, const QString &r
     if (existing.isEmpty()) return false;
     if (m_surroundingSupported) {
         const bool confirmed = inSyncWithClient() && m_model.endsWith(existing);
+        // A deliberate choice (a suggestion tap) on text the client has not
+        // reported back yet, but which this keyboard committed: GTK 3 turns
+        // the deletion's bytes into characters with the text it last asked
+        // the widget for, and asks again after any commit. An empty commit
+        // first makes it ask now, so the deletion is measured on the text as
+        // it is (imwayland.c text_input_done / notify_im_change).
+        const bool refreshed = !confirmed && allowUnconfirmed && m_model.endsWith(existing);
         qCDebug(lcEngine) << "replace len" << existing.size() << "->" << replacement.size()
-                          << (confirmed ? "text-channel" : (allowUnconfirmed ? "key-fallback" : "skipped"));
-        if (confirmed && deleteLocal(existing)) {
+                          << (confirmed ? "text-channel"
+                                        : refreshed ? "text-channel after refresh"
+                                                    : allowUnconfirmed ? "key-fallback" : "skipped");
+        if (refreshed) commitLocal(QString());
+        if ((confirmed || refreshed) && deleteLocal(existing)) {
             commitLocal(replacement);
             return true;
         }
@@ -570,6 +664,9 @@ void TypingEngine::finalizeCurrentWord(bool updatePrevious)
 void TypingEngine::space()
 {
     dropGlideAlternatives();
+    // A word Backspace reached and nothing typed on it since.
+    const bool resumedUnchanged = !m_resumedWord.isEmpty() && m_currentWord == m_resumedWord && !m_composing;
+    m_resumedWord.clear();
     // A Space inside a word splits it: never autocorrect the left part.
     const bool splittingWord = !m_wordAfterCursor.isEmpty() && !m_composing;
     m_wordAfterCursor.clear();
@@ -691,6 +788,25 @@ void TypingEngine::space()
         return;
     }
 
+    if (resumedUnchanged && !splittingWord && compositionAvailable()) {
+        // The word is already in the text and was learned when it was first
+        // typed: the space after it is held like after any typed word, so
+        // that punctuation can still swap with it and a second Space can
+        // become ". ".
+        m_previousWord = bareWord(m_currentWord);
+        m_currentWord.clear();
+        if (setPreeditLocal(QStringLiteral(" "))) m_pendingSpace = true;
+        else commitLocal(QStringLiteral(" "));
+        m_pendingSpaceAfterWord = m_pendingSpace;
+        m_lastActionWasSpace = true;
+        if (m_sentencePunctuationPending) {
+            m_sentenceStart = true;
+            m_sentencePunctuationPending = false;
+        }
+        refreshSuggestions();
+        return;
+    }
+
     if (m_autocorrectEnabled && !splittingWord) {
         const QString correction = m_lexicon.bestCorrection(m_currentWord, contextWord());
         if (!correction.isEmpty()) {
@@ -781,6 +897,7 @@ void TypingEngine::backspace()
         setPreeditLocal(QString());
         m_lastActionWasSpace = false;
         rearmSentenceStartFromText();
+        resumeWordBeforeCursor();
         refreshSuggestions();
         return;
     }
@@ -789,6 +906,7 @@ void TypingEngine::backspace()
         setPreeditLocal(stripHead(m_currentWord));
         if (m_currentWord.isEmpty()) m_composing = false;
         rearmSentenceStartFromText();
+        resumeWordBeforeCursor();
         refreshSuggestions();
         return;
     }
@@ -803,14 +921,17 @@ void TypingEngine::backspace()
         return;
     }
     if (!m_currentWord.isEmpty()) {
+        const bool resumed = m_currentWord == m_resumedWord;
         m_currentWord.chop(1);
+        m_resumedWord = resumed ? m_currentWord : QString();
     } else {
         m_previousWord.clear();
         m_sentencePunctuationPending = false;
     }
     m_lastActionWasSpace = false;
     rearmSentenceStartFromText();
-        refreshSuggestions();
+    resumeWordBeforeCursor();
+    refreshSuggestions();
 }
 
 void TypingEngine::backspaceRepeated(int count)
@@ -844,7 +965,8 @@ void TypingEngine::backspaceRepeated(int count)
         if (bounded == 0) {
             m_lastActionWasSpace = false;
             rearmSentenceStartFromText();
-        refreshSuggestions();
+            resumeWordBeforeCursor();
+            refreshSuggestions();
             return;
         }
     }
@@ -857,8 +979,10 @@ void TypingEngine::backspaceRepeated(int count)
     }
 
     if (!m_currentWord.isEmpty()) {
+        const bool resumed = m_currentWord == m_resumedWord;
         const int remove = qMin(bounded, static_cast<int>(m_currentWord.size()));
         m_currentWord.chop(remove);
+        m_resumedWord = resumed ? m_currentWord : QString();
         if (remove < bounded) m_previousWord.clear();
     } else {
         m_previousWord.clear();
@@ -867,12 +991,14 @@ void TypingEngine::backspaceRepeated(int count)
 
     m_lastActionWasSpace = false;
     rearmSentenceStartFromText();
-        refreshSuggestions();
+    resumeWordBeforeCursor();
+    refreshSuggestions();
 }
 
 void TypingEngine::enter()
 {
     dropGlideAlternatives();
+    m_resumedWord.clear();
     m_wordAfterCursor.clear();
     m_lastWasDoublePeriod = false;
     m_autoSpacePending = false;
@@ -905,6 +1031,7 @@ void TypingEngine::chooseSuggestion(const QString &word)
         return;
     }
     dropGlideAlternatives();
+    m_resumedWord.clear();
     QString selected = word;
     if (!m_currentWord.isEmpty() && m_currentWord.front().isUpper()) {
         selected[0] = selected.at(0).toUpper();
@@ -916,7 +1043,20 @@ void TypingEngine::chooseSuggestion(const QString &word)
     if (m_pendingSpace) commitLocal(takePendingText() + QLatin1Char(' '));
     if (m_composing) {
         m_composing = false;
-        commitLocal(stripHead(selected));    // replaces the preedit atomically
+        const QString head = m_committedHead;
+        if (!head.isEmpty() && !selected.startsWith(head)) {
+            // The choice changes the first letter, which is already committed
+            // (see m_committedHead): end the preedit with an empty commit
+            // (which also makes GTK read the text again), then replace the
+            // letter on the same channel.
+            commitLocal(QString());
+            if (!deleteLocal(head)) {
+                for (qsizetype i = 0; i < head.size(); ++i) backspaceLocal();
+            }
+            commitLocal(selected);
+        } else {
+            commitLocal(stripHead(selected));    // replaces the preedit atomically
+        }
         m_committedHead.clear();
     } else if (!m_currentWord.isEmpty() && !m_wordAfterCursor.isEmpty()) {
         // The cursor is inside a word: replace all of it, or nothing.
@@ -1072,6 +1212,7 @@ void TypingEngine::refreshSuggestions()
 void TypingEngine::resetComposition()
 {
     dropGlideAlternatives();
+    m_resumedWord.clear();
     m_wordAfterCursor.clear();
     m_spaceFromSuggestion = false;
     m_pendingWord.clear();
@@ -1165,6 +1306,7 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
     // source of truth.
     qCDebug(lcEngine) << "echo bytes" << bounded << "unknown state -> adopt";
     dropGlideAlternatives();
+    m_resumedWord.clear();
     m_composing = false;
     m_pendingSpace = false;
     m_spaceFromSuggestion = false;
@@ -1178,30 +1320,9 @@ bool TypingEngine::syncSurroundingText(const QString &text, int cursorByte, int 
     QString incomingPrevious;
     bool incomingSentenceStart = false;
     if (cursorByte == anchorByte) {
-        // A letter, or a connector between letters ("don't", "кто-то").
-        auto inWord = [&before](int i) {
-            const QChar ch = before.at(i);
-            if (ch.isLetter()) return true;
-            return isWordConnector(ch) && i > 0 && i + 1 < before.size() && before.at(i - 1).isLetter()
-                && before.at(i + 1).isLetter();
-        };
-        int start = before.size();
-        while (start > 0 && inWord(start - 1)) --start;
-        trailing = before.mid(start);
-        int prevEnd = start;
-        while (prevEnd > 0 && !before.at(prevEnd - 1).isLetter()) --prevEnd;
-        int prevStart = prevEnd;
-        while (prevStart > 0 && inWord(prevStart - 1)) --prevStart;
-        incomingPrevious = before.mid(prevStart, prevEnd - prevStart).toLower();
-        // Not across a sentence end or a line break.
-        for (qsizetype i = prevEnd; i < start; ++i) {
-            const QChar ch = before.at(i);
-            if (ch == QLatin1Char('.') || ch == QLatin1Char('!') || ch == QLatin1Char('?') || ch == QLatin1Char('\n')
-                || ch == QChar(0x2026)) {
-                incomingPrevious.clear();
-                break;
-            }
-        }
+        const WordsBeforeCursor words = wordsBeforeCursor(before);
+        trailing = words.trailing;
+        incomingPrevious = words.previous;
         incomingSentenceStart = before.trimmed().isEmpty();
         if (!incomingSentenceStart && trailing.isEmpty()) {
             const QChar last = before.trimmed().back();
@@ -1262,17 +1383,44 @@ void TypingEngine::glideThrough(const QString &key)
     if (m_glideTrace.isEmpty() || m_glideTrace.back() != normalized) m_glideTrace.append(normalized);
 }
 
+// LatinIME InputLogic.onStartBatchInput: a gesture right after a word, a
+// digit or punctuation that is usually followed by a space starts with a
+// space ("phantom space"), and it never replaces the word the cursor
+// touches: that word stays as it is.
+void TypingEngine::prepareTextForGlidedWord()
+{
+    if (m_pendingSpace) return;                  // the held space goes out first
+    if (!m_currentWord.isEmpty()) {
+        // A word typed on without composition, or one the cursor was put
+        // next to; it was learned when it was typed.
+        if (m_wordAfterCursor.isEmpty()) m_previousWord = bareWord(m_currentWord);
+        m_currentWord.clear();
+        m_wordAfterCursor.clear();
+        m_resumedWord.clear();
+    }
+    if (m_model.isEmpty()) return;
+    const QChar last = m_model.back();
+    // Character.isLetterOrDigit, LatinIME's symbols_followed_by_space
+    // (".,;:!?)]}&") and the ellipsis.
+    if (last.isLetterOrNumber() || QStringLiteral(".,;:!?)]}&\u2026").contains(last)) {
+        commitLocal(QStringLiteral(" "));
+    }
+}
+
 QString TypingEngine::endGlidePath(const QVector<QPointF> &path, const QHash<QChar, QPointF> &keyCentres, qreal keyWidth,
                                    GlideCase glideCase)
 {
     if (m_sensitiveContext) { m_glideTrace.clear(); return {}; }
-    // A word still being typed ends where the glide begins.
-    const QString context = m_composing && !m_currentWord.isEmpty() ? bareWord(m_currentWord) : contextWord();
+    // A word still being typed, or the one the cursor is at the end of, ends
+    // where the glide begins.
+    const QString context = !m_currentWord.isEmpty() && (m_composing || m_wordAfterCursor.isEmpty())
+        ? bareWord(m_currentWord) : contextWord();
     const QStringList readings = m_lexicon.decodeGlidePathCandidates(path, keyCentres, keyWidth, context, 4);
     // No geometry (or no reading near the path): the key sequence decoder.
     if (readings.isEmpty()) return endGlide();
     m_glideTrace.clear();
     commitComposition();
+    prepareTextForGlidedWord();
     const QString before = contextWord();
     auto inCase = [glideCase](const QString &word) {
         if (glideCase == GlideCase::AllCaps) return word.toUpper();
@@ -1367,11 +1515,13 @@ void TypingEngine::replaceGlidedWord(const QString &word)
 QString TypingEngine::endGlide()
 {
     if (m_sensitiveContext) { m_glideTrace.clear(); return {}; }
-    const QString context = m_composing && !m_currentWord.isEmpty() ? bareWord(m_currentWord) : contextWord();
+    const QString context = !m_currentWord.isEmpty() && (m_composing || m_wordAfterCursor.isEmpty())
+        ? bareWord(m_currentWord) : contextWord();
     const QString decoded = m_lexicon.decodeGlide(m_glideTrace, context);
     m_glideTrace.clear();
     if (decoded.isEmpty()) return {};
     commitComposition();
+    prepareTextForGlidedWord();
 
     const QString formatted = formatForSentence(decoded);
     const QString before = contextWord();

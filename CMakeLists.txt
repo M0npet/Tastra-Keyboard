@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     Tastra
-    VERSION 0.7.10
+    VERSION 0.7.11
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -460,6 +460,14 @@ if(BUILD_TESTING)
     target_compile_definitions(tst_smarttyping PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     target_link_libraries(tst_smarttyping PRIVATE tastra-core Qt6::Test)
     add_test(NAME smarttyping COMMAND tst_smarttyping)
+
+    add_executable(tst_clientsim
+        tests/tst_clientsim.cpp
+        tests/textinputclient.h
+    )
+    target_compile_definitions(tst_clientsim PRIVATE TASTRA_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    target_link_libraries(tst_clientsim PRIVATE tastra-core Qt6::Test)
+    add_test(NAME clientsim COMMAND tst_clientsim)
 
     add_executable(tst_clipboardemoji
         tests/tst_clipboardemoji.cpp

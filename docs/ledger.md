@@ -1762,3 +1762,59 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   bridge/legacymigration under TSan (Qt's own reports suppressed), static
   verify. Mutation checks: no pruning -> the bounds test fails; no wait
   before loading -> the background-save test fails.
+
+## 2026-10-08 — 0.7.11 words the cursor touches (sixth review)
+
+- Rebuilt the sandbox after a reset (Ubuntu Qt 6.4.2; the input-panel shell
+  call is stubbed in a copy only, as before) and re-read the sources the
+  0.7.7 simulator was built from: GTK 3 gtk-3-24 modules/input/imwayland.c,
+  KWin master src/inputmethod.cpp and src/wayland/textinput_v3.cpp, Firefox
+  widget/gtk/IMContextWrapper.cpp. That simulator was lost with the old
+  sandbox; tests/textinputclient.h is a new one kept in the repository, and
+  tests/tst_clientsim.cpp drives the real TypingEngine against it.
+- Facts from the sources that decide the design: KWin sends every
+  commit_string, preedit_string and delete_surrounding_text to a v3 client
+  with its own done, and keysyms as wl_keyboard keys; GTK applies text-input
+  events while reading them and GDK's queued keys afterwards; GTK turns the
+  bytes of delete_surrounding_text into characters with the surrounding text
+  it last retrieved from the widget (cursor_pointer - before_length: a
+  deletion longer than that text reads before it), and retrieves it again at
+  every done with a commit (even an empty one), a changed preedit or a
+  deletion, when the serial matches; Firefox answers from a content cache
+  with an emulated caret (DispatchCompositionCommitEvent) and deletes from
+  the cached selection, failing when the cache is short.
+- Reproduced and fixed: typing on at the end of an old word committed the
+  letters, and a suggestion tap sent Backspace keys + commit: Firefox model
+  "I need helphel ", "heloh". The word is now composed again on the first
+  letter (delete_surrounding_text + preedit, both text-input, only when the
+  client has confirmed the text, so GTK measures the deletion on the right
+  text; at a paragraph start the first letter stays committed, as for new
+  words since 0.4.x).
+- Reproduced and fixed: Backspace into a word left no current word: no
+  suggestions for it, and letters typed on started a new word ("hello",
+  Space, Backspace, "s" was "s" for corrections). Now the word is resumed
+  (LatinIME restartSuggestionsOnWordTouchedByCursor, no autocorrection of the
+  resumed word itself, as LatinIME's recorrection suggestions); a letter
+  composes it again when the client confirmed it, otherwise starts a new word
+  as before; Space after an unchanged resumed word is held like after a typed
+  word. tst_typingstress's reference follows this rule now (600 seeds x 6
+  modes pass).
+- Reproduced and fixed: with composition off, a tap before the client's
+  answer used Backspace keys (GTK model "we help yuoy", Firefox "we heplh").
+  The replacement now goes out as an empty commit (GTK reads the widget's
+  text again), delete_surrounding_text and the commit. Autocorrection at
+  Space still needs a confirmed word (a Space can follow a letter within
+  milliseconds, before Firefox's cache has the letter).
+- Found and fixed while testing: a suggestion that changes a paragraph's
+  committed first letter gave "ythe"; glides were glued to the word or
+  period before them ("a catthe", "hi.The") and replaced a word the cursor
+  had been put after. Now LatinIME's phantom space (onStartBatchInput:
+  letter, digit or symbols_followed_by_space before the cursor).
+- Checks: full suite 23/23 (new clientsim: 8 functions, 21 cases in GTK
+  and Firefox modes, 60 random sequences each with suggestion taps; 800
+  passed once), ASan + UBSan 23/23. 0.7.10's engine fails 14 of the 21.
+- Not changed, needs the device: Firefox ending a composition by itself (a
+  page script): KWin forwards no change cause and sends no reset, and what a
+  client reports while composing differs (Firefox leaves the composition out,
+  Chromium may not), so the keyboard cannot tell safely.
+

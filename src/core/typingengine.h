@@ -120,12 +120,21 @@ private:
     // previous word, or a corrected word still held with its space.
     QString contextWord() const;
     bool lostWordResumes() const;
+    // LatinIME restartSuggestionsOnWordTouchedByCursor: after Backspace
+    // reaches the end of a word, that word is the word being typed again
+    // (suggestions for it; the next letter continues it).
+    void resumeWordBeforeCursor();
+    // A letter typed onto a committed word the client has confirmed: the word
+    // is taken back and composed again, so that a suggestion or correction
+    // replaces it in one commit.
+    bool recomposeCurrentWord();
     // The other readings of the last glide, while nothing has happened since.
     bool glideAlternativesShown() const;
     void dropGlideAlternatives() { m_glideAlternatives.clear(); m_glidedWord.clear(); }
     // The last thing that happened was a glide (nothing typed since).
     bool glidedWordIsLast() const;
     void eraseGlidedWord();
+    void prepareTextForGlidedWord();
     void replaceGlidedWord(const QString &word);
     void refreshSuggestions();
     bool replaceBeforeCursor(const QString &existing, const QString &replacement, bool allowUnconfirmed);
@@ -157,6 +166,8 @@ private:
     QString m_currentWord;
     QString m_previousWord;
     QString m_wordBeforePeriod;          // restored when a double-space period is undone
+    QString m_resumedWord;               // taken up again after Backspace (resumeWordBeforeCursor)
+    QString m_previousBeforeResume;      // the context before that
     QString m_lostWord;                  // composed when the text input was switched off
     QString m_lostHead;                  // its first letter, if that was committed
     qint64 m_lostAtMs = 0;

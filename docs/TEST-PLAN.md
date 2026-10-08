@@ -88,3 +88,10 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 
 ## K. Learning (0.7.10)
 61. Settings → Clear learned words. In Kate type `quokkas` + Space three times, stay in the field, then System Settings → Virtual Keyboard → None → Apply, and Tastra → Apply again: typing `quo` offers `quokkas` first (the words are saved before KWin ends the keyboard). Type quickly for a few minutes: no pause every 16 words.
+
+## L. Words the cursor touches (0.7.11)
+62. In Kate and in claude.ai: type `I need hel`, tap somewhere else in the text, then right after `hel` at the end, type `p`: `help` is underlined again; tap `helpful` in the strip -> `I need helpful `, nothing doubled (before: `helphel`).
+63. `cat` + Space, Backspace: the strip shows suggestions for `cat`; `s` + Space -> `cats `. `hello` + Space, Backspace, `,` -> `hello, `.
+64. Glide right after a typed word (no Space) or after `Hi.`: a space comes first (`Hi. The`). Tap right after a word in the text and glide: the word stays, the glided word follows it with a space.
+65. Settings → Underline word while typing Off; in claude.ai type `hepl` and tap `help` in the strip right away: `help `. On again: start an empty message with `yhe`, tap `the` if the strip offers it: `the`, not `ythe`.
+

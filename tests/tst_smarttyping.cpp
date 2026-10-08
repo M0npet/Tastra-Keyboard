@@ -806,8 +806,11 @@ private Q_SLOTS:
         echo(kept, QStringLiteral("Ok hel"));
         keeps.preedit.clear();
         kept.typeLetter(QStringLiteral("l"));
-        QVERIFY2(!keeps.commits.join(QString()).contains(QStringLiteral("hell")) && keeps.preedit != QStringLiteral("hell"),
-                 qPrintable(keeps.commits.join('|') + QLatin1Char('/') + keeps.preedit));
+        // The kept word is taken back and composed on (0.7.11), never typed
+        // a second time.
+        QVERIFY2(!keeps.commits.join(QString()).contains(QStringLiteral("hel")), qPrintable(keeps.commits.join('|')));
+        QCOMPARE(keeps.deletions, QStringList({QStringLiteral("hel")}));
+        QCOMPARE(keeps.preedit, QStringLiteral("hell"));
 
         // Something typed in between, or much later: nothing comes back.
         FakeBackend late;

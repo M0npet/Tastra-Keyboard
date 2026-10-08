@@ -4,6 +4,27 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.11
+Words the cursor touches, after a review against GTK 3, Firefox and KWin
+(their sources read again) with a new model of such a text field in the tests:
+- Typing on at the end of a word (after tapping there, or after an app kept
+  a word) takes the word up again as the underlined word, as Gboard does.
+  A suggestion or correction then replaces it in one step. In Firefox
+  (claude.ai) tapping `helpful` after `hel` + `p` gave `helphel`: the
+  Backspace keys arrived after the new word.
+- Backspace into a word makes it the word being typed again (LatinIME
+  restartSuggestionsOnWordTouchedByCursor): the strip shows suggestions for
+  it, letters typed on continue it (`cat`, Space, Backspace, `s` -> `cats`,
+  one word), and punctuation after it swaps with the space as usual.
+- With "Underline word while typing" off, a suggestion tap right after the
+  last letter replaced the word in the wrong order in GTK apps and Firefox
+  (`heplh`); the word is now replaced on the text-input channel.
+- At the start of an empty paragraph a suggestion that changes the first
+  letter replaces it (`yhe` -> `the`, not `ythe`).
+- A glide right after a word, a digit or `. , ; : ! ? ) ] }` starts with a
+  space (`Hi.` + glide -> `Hi. The`), as LatinIME's "phantom space"; a glide
+  no longer replaces the word the cursor is next to.
+
 ## 0.7.10
 Learning, after measuring what it costs while typing:
 - Saving learned words no longer pauses typing. Every 16th word used to
