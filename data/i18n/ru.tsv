@@ -86,3 +86,6 @@ Voice model not installed: run tastra-voice-setup	Голосовая модел�
 Volume on keypress	Громкость звука нажатия
 ＋ Add word	＋ Добавить слово
 ＋ Add “%1” to dictionary	＋ Добавить «%1» в словарь
+Show emoji switch key	Показывать клавишу эмодзи
+Show language switch key	Показывать клавишу смены языка
+Letter layout (%1)	Раскладка букв (%1)

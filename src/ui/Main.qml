@@ -1151,16 +1151,18 @@ Rectangle {
             + keyboardBridge.languageCodes.length * (root.portrait ? 58 : 50)
             + root.keyGap * 5
 
+        // Above the globe key, or the space bar when the globe is hidden.
+        readonly property Item anchorKey: globeKey.visible ? globeKey : spaceKey
         x: Math.max(
             root.metrics.outerMargin,
             Math.min(
                 root.width - width - root.metrics.outerMargin,
-                globeKey.mapToItem(root, 0, 0).x + globeKey.width / 2 - width / 2
+                anchorKey.mapToItem(root, 0, 0).x + anchorKey.width / 2 - width / 2
             )
         )
         y: Math.max(
             root.toolbarHeight + root.metrics.topPadding,
-            globeKey.mapToItem(root, 0, 0).y - height - root.keyGap
+            anchorKey.mapToItem(root, 0, 0).y - height - root.keyGap
         )
 
         radius: 18
@@ -1622,18 +1624,28 @@ Rectangle {
 
             Key {
                 id: commaKey
+                objectName: "commaKey"
                 readonly property string glyph: keyboardBridge.inputPurpose === "email" ? "@"
                     : keyboardBridge.inputPurpose === "url" ? "/" : ","
                 preferredWidth: root.baseKeyWidth
                 label: glyph
-                // Gboard: long-press the comma for emoji.
+                // Gboard: touch and hold the comma for emoji, settings and the
+                // one-handed keyboard (slide onto one, release).
+                readonly property var actions: ["\u{1F60A}", "\u2699", "\u270B"]
+                alternates: actions
                 longPressEnabled: true
-                onLongPressed: keyboardBridge.activateToolbarAction("emoji")
+                onAlternateChosen: (text) => {
+                    if (text === actions[0]) keyboardBridge.activateToolbarAction("emoji")
+                    else if (text === actions[1]) keyboardBridge.activateToolbarAction("settings")
+                    else keyboardBridge.toggleOneHanded()
+                }
                 onTriggered: keyboardBridge.tapText(glyph)
             }
 
             Key {
                 id: globeKey
+                objectName: "globeKey"
+                visible: keyboardBridge.showLanguageKey
                 rollover: false
                 preferredWidth: root.baseKeyWidth
                 label: "🌐"
@@ -1644,11 +1656,26 @@ Rectangle {
             }
 
             Key {
+                // Gboard "Show emoji switch key".
+                id: emojiKey
+                objectName: "emojiKey"
+                visible: keyboardBridge.showEmojiKey
+                rollover: false
+                preferredWidth: root.baseKeyWidth
+                label: "\u{1F60A}"
+                popupEnabled: false
+                onTriggered: keyboardBridge.activateToolbarAction("emoji")
+            }
+
+            Key {
                 id: spaceKey
+                objectName: "spaceKey"
                 sound: "space"
                 property real dragStartX: 0
                 property int cursorStep: 0
+                // The space bar takes the place of a hidden globe / emoji key.
                 preferredWidth: root.baseKeyWidth * 4.05 + root.splitGap
+                    + (keyboardBridge.showLanguageKey || keyboardBridge.showEmojiKey ? 0 : root.baseKeyWidth + root.keyGap)
                 label: keyboardBridge.languageLabel
                 popupEnabled: false
                 longPressEnabled: true

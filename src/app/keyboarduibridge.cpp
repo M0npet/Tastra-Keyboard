@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "keyboarduibridge.h"
+#include "core/voicecommands.h"
 #include "uitranslator.h"
 #include "qtsystemclipboard.h"
 #include "core/keychords.h"
@@ -30,6 +31,9 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QtGlobal>
+#include <QLoggingCategory>
+
+Q_LOGGING_CATEGORY(lcBridge, "tastra.voice.commands", QtWarningMsg)
 
 namespace Tastra
 {
@@ -52,6 +56,9 @@ KeyboardUiBridge::KeyboardUiBridge(
     QSettings settings;
     m_uiLanguage = settings.value(QStringLiteral("uiLanguage"), QStringLiteral("system")).toString();
     applyUiLanguage();
+    for (const QString &code : m_model.languageCodes()) {
+        m_model.setLayoutVariant(code, settings.value(QStringLiteral("layoutVariant/") + code).toString());
+    }
     m_model.setLanguage(settings.value(QStringLiteral("language"), QStringLiteral("en")).toString());
     m_typingEngine.setLanguage(m_model.languageCode());
     m_emojiCatalog.setKeywordLanguage(m_model.languageCode());
@@ -91,6 +98,8 @@ KeyboardUiBridge::KeyboardUiBridge(
     m_emojiRow = settings.value(QStringLiteral("emojiRow"), false).toBool();
     m_symbolHints = settings.value(QStringLiteral("symbolHints"), true).toBool();
     m_numberRow = settings.value(QStringLiteral("numberRow"), false).toBool();
+    m_showEmojiKey = settings.value(QStringLiteral("showEmojiKey"), false).toBool();
+    m_showLanguageKey = settings.value(QStringLiteral("showLanguageKey"), true).toBool();
     m_blockOffensive = settings.value(QStringLiteral("blockOffensive"), true).toBool();
     m_typingEngine.setBlockOffensive(m_blockOffensive);
     {
@@ -223,12 +232,12 @@ QString KeyboardUiBridge::saveWordCandidate() const { return m_saveCandidate; }
 
 void KeyboardUiBridge::updateForeignLayouts()
 {
-    const QStringList current = KeyboardModel::rowsForLanguage(m_model.languageCode());
+    const QStringList current = KeyboardModel::rowsForLanguage(m_model.languageCode(), m_model.layoutVariant(m_model.languageCode()));
     QList<QPair<QString, QHash<QChar, QChar>>> maps;
     QStringList companions;
     for (const QString &code : languageCodes()) {
         if (code == m_model.languageCode()) continue;
-        const QStringList other = KeyboardModel::rowsForLanguage(code);
+        const QStringList other = KeyboardModel::rowsForLanguage(code, m_model.layoutVariant(code));
         if (other.size() != 3 || current.size() != 3) continue;
         QHash<QChar, QChar> map;
         for (int r = 0; r < 3; ++r) {
@@ -673,6 +682,29 @@ void KeyboardUiBridge::setNumberRow(bool enabled)
     Q_EMIT uiPreferencesChanged();
 }
 
+void KeyboardUiBridge::setShowEmojiKey(bool show)
+{
+    if (m_showEmojiKey == show) return;
+    m_showEmojiKey = show;
+    persistPreference(QStringLiteral("showEmojiKey"), show);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setShowLanguageKey(bool show)
+{
+    if (m_showEmojiKey && show) return;           // Gboard: greyed out while the emoji key is on
+    if (m_showLanguageKey == show) return;
+    m_showLanguageKey = show;
+    persistPreference(QStringLiteral("showLanguageKey"), show);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::toggleOneHanded()
+{
+    const bool oneHanded = m_layoutMode == QStringLiteral("left") || m_layoutMode == QStringLiteral("right");
+    setLayoutMode(oneHanded ? QStringLiteral("full") : QStringLiteral("right"));
+}
+
 QStringList KeyboardUiBridge::alternatesForKey(const QString &key) const
 {
     QStringList list = m_model.alternatesForKey(key);
@@ -833,13 +865,61 @@ void KeyboardUiBridge::setVoiceController(VoiceController *voice)
     if (!m_voice) return;
     m_voice->setLanguage(m_model.languageCode());
     connect(m_voice, &VoiceController::stateChanged, this, &KeyboardUiBridge::voiceChanged);
-    connect(m_voice, &VoiceController::textRecognized, this, [this](const QString &text) {
-        const bool uppercaseBefore = uppercase();
-        m_typingEngine.insertDictation(text);
-        if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
-        Q_EMIT suggestionsChanged();
-    });
+    connect(m_voice, &VoiceController::textRecognized, this, &KeyboardUiBridge::handleRecognizedSpeech);
     Q_EMIT voiceChanged();
+}
+
+void KeyboardUiBridge::handleRecognizedSpeech(const QString &text)
+{
+    cancelInlineFields();
+    const bool uppercaseBefore = uppercase();
+    const VoiceCommand command = m_secureInput ? VoiceCommand{} : parseVoiceCommand(text);
+    qCDebug(lcBridge) << "speech" << text.size() << "chars, command" << int(command.kind);
+    switch (command.kind) {
+    case VoiceCommand::DeleteLastWord:
+        m_typingEngine.deleteLastWord();
+        break;
+    case VoiceCommand::ClearSentence:
+        m_typingEngine.deleteLastSentence();
+        break;
+    case VoiceCommand::ClearAll:
+        if (canSelect()) {
+            // The whole field, not only what the keyboard knows of it.
+            settleForShortcut();
+            m_chords->send({EvdevKey::LeftCtrl}, EvdevKey::A);
+            m_chords->send({}, EvdevKey::BackSpace);
+        } else {
+            m_typingEngine.deleteKnownText();
+        }
+        break;
+    case VoiceCommand::Send:
+        enter();
+        return;
+    case VoiceCommand::NewLine:
+        m_typingEngine.insertLineBreak(command.argument);
+        break;
+    case VoiceCommand::Undo:
+        undo();
+        return;
+    case VoiceCommand::Emoji: {
+        QString emoji = spokenEmojiAlias(command.argument);
+        if (emoji.isEmpty()) emoji = m_emojiCatalog.emojiForWord(command.argument);
+        if (emoji.isEmpty()) emoji = m_emojiCatalog.emojiForWord(command.argument.section(QLatin1Char(' '), -1));
+        if (emoji.isEmpty()) {
+            m_typingEngine.insertDictation(applySpokenPunctuation(text));   // not an emoji name after all
+        } else {
+            m_typingEngine.typeText(emoji);
+            m_emojiCatalog.noteUsed(emoji);
+            Q_EMIT emojiChanged();
+        }
+        break;
+    }
+    case VoiceCommand::None:
+        m_typingEngine.insertDictation(applySpokenPunctuation(text));
+        break;
+    }
+    if (uppercaseBefore != uppercase()) Q_EMIT keyboardStateChanged();
+    Q_EMIT suggestionsChanged();
 }
 
 void KeyboardUiBridge::toggleVoice()
@@ -934,6 +1014,10 @@ void KeyboardUiBridge::tapLetter(const QString &letter) { tapLetterAt(letter, 0,
 
 void KeyboardUiBridge::tapLetterAt(const QString &letter, qreal dx, qreal dy)
 {
+    if (!letter.isEmpty() && !letter.front().isLetter()) {     // Dvorak's ' , . keys
+        tapText(letter);
+        return;
+    }
     if (typeIntoField(letter)) return;
     m_saveCandidate.clear();
     m_freshClipboard.clear();                       // typing dismisses the paste offer
@@ -1046,6 +1130,30 @@ void KeyboardUiBridge::setLanguage(const QString &code)
     if (m_voice) m_voice->setLanguage(m_model.languageCode());
     Q_EMIT userWordsChanged();
     persistLanguage();
+    typingStateDidChange();
+}
+
+QString KeyboardUiBridge::letterLayout() const
+{
+    return KeyboardModel::layoutVariantLabel(m_model.languageCode(), m_model.layoutVariant(m_model.languageCode()));
+}
+
+bool KeyboardUiBridge::letterLayoutChoice() const
+{
+    return KeyboardModel::layoutVariants(m_model.languageCode()).size() > 1;
+}
+
+void KeyboardUiBridge::cycleLetterLayout()
+{
+    const QString code = m_model.languageCode();
+    const QStringList ids = KeyboardModel::layoutVariants(code);
+    if (ids.size() < 2) return;
+    m_typingEngine.commitComposition();
+    const QString next = ids.at((ids.indexOf(m_model.layoutVariant(code)) + 1) % ids.size());
+    m_model.setLayoutVariant(code, next);
+    persistPreference(QStringLiteral("layoutVariant/") + code, next);
+    m_typingEngine.setKeyboardRows({m_model.row1().join(QString()), m_model.row2().join(QString()), m_model.row3().join(QString())});
+    updateForeignLayouts();
     typingStateDidChange();
 }
 

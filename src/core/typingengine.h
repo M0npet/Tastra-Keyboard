@@ -78,6 +78,12 @@ public:
     // text after the next activation (within a short time) puts it back as a
     // preedit when the client did not keep it.
     void rememberCompositionBeforeDeactivation();
+    // Voice commands (Gboard): what they delete is measured on the text this
+    // keyboard knows before the cursor.
+    void deleteLastWord();
+    void deleteLastSentence();
+    void deleteKnownText();
+    void insertLineBreak(const QString &breakText);
     // Commits whatever is held in the preedit as-is (before cursor moves,
     // paste, language switch). resetComposition() instead drops it.
     void commitComposition();
@@ -120,6 +126,7 @@ private:
     // previous word, or a corrected word still held with its space.
     QString contextWord() const;
     bool lostWordResumes() const;
+    void afterVoiceDeletion();
     // A space or punctuation right after the word at the cursor (or right
     // after the cursor), as the client last reported.
     bool textFollowsWord() const;

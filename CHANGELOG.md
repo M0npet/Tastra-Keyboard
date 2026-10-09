@@ -4,6 +4,22 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.14
+More of Gboard (`docs/GBOARD-PARITY.md`):
+- Voice commands, said on their own after a pause, in English, German,
+  Russian and Ukrainian: "delete last word", "clear" (the last sentence),
+  "clear all", "send", "new line" / "new paragraph", "undo" and "<name>
+  emoji" ("heart emoji", "эмодзи сердце"). "Question mark" and "exclamation
+  mark" in dictation become marks anywhere, "comma" and "full stop" at the
+  end; "Punkt", "точка", "period" stay words. A dictation after a full stop
+  gets its space.
+- Settings → Show emoji switch key / Show language switch key: the key next
+  to the comma is the emoji key or the globe (as on Gboard, the globe is off
+  while the emoji key is on); with neither, the space bar is longer.
+- Touch and hold the comma: emoji, settings or the one-handed keyboard.
+- Settings → Letter layout: QWERTY, QWERTZ, AZERTY, Dvorak or Colemak for
+  English, QWERTZ or QWERTY for German, kept per language.
+
 ## 0.7.13
 Release criterion written down: Tastra 1.0 is everything Gboard does, as far
 as it can be done offline on KWin (`docs/GBOARD-PARITY.md`, with sources and

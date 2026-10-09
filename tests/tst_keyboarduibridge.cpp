@@ -251,6 +251,50 @@ private Q_SLOTS:
         QVERIFY(bridge.canSelect());
     }
 
+    void voiceCommandsActInsteadOfBeingTyped()
+    {
+        // Gboard voice typing: "send", "clear all", "undo", "pizza emoji"
+        // said on their own act; anything else is typed, with spoken
+        // punctuation as marks.
+        using namespace Tastra::EvdevKey;
+        using Chord = QPair<QList<int>, int>;
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        FakeChords chords;
+        bridge.setKeyChordSender(&chords);
+
+        bridge.handleRecognizedSpeech(QStringLiteral("are you there question mark"));
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("Are you there? "));
+        const int enters = backend.enterCount;
+        bridge.handleRecognizedSpeech(QStringLiteral("Send."));
+        QCOMPARE(backend.enterCount, enters + 1);
+        QCOMPARE(backend.commits.join(QString()), QStringLiteral("Are you there? "));   // not typed
+        bridge.handleRecognizedSpeech(QStringLiteral("Clear all."));
+        QCOMPARE(chords.sent.mid(chords.sent.size() - 2), (QList<Chord>{{{LeftCtrl}, A}, {{}, BackSpace}}));
+        bridge.handleRecognizedSpeech(QStringLiteral("Undo."));
+        QCOMPARE(chords.sent.last(), (Chord{{LeftCtrl}, Z}));
+        backend.commits.clear();
+        bridge.handleRecognizedSpeech(QStringLiteral("Pizza emoji."));
+        QVERIFY2(backend.commits.join(QString()).contains(QString::fromUtf8("🍕")), qPrintable(backend.commits.join('|')));
+        QVERIFY(bridge.recentEmojis().contains(QString::fromUtf8("🍕")));
+        backend.commits.clear();
+        bridge.handleRecognizedSpeech(QStringLiteral("Heart emoji."));
+        QVERIFY2(backend.commits.join(QString()).contains(QString::fromUtf8("\u2764")), qPrintable(backend.commits.join('|')));
+        backend.commits.clear();
+        bridge.handleRecognizedSpeech(QStringLiteral("Qwzx emoji."));               // no such emoji: typed
+        QVERIFY(backend.commits.join(QString()).contains(QStringLiteral("Qwzx emoji.")));
+
+        // Never in a password field: there it is all dictation, no commands.
+        bridge.setContentType(0, 8);
+        const qsizetype sent = chords.sent.size();
+        bridge.handleRecognizedSpeech(QStringLiteral("Clear all."));
+        QCOMPARE(chords.sent.size(), sent);
+        bridge.setContentType(0, 0);
+        bridge.setKeyChordSender(nullptr);
+    }
+
     void slidingFromBackspaceSelectsWordsAndDeletesThemOnRelease()
     {
         // Gboard / LatinIME gesture delete: slide left from Backspace, the

@@ -755,6 +755,114 @@ private Q_SLOTS:
         QVERIFY(chords.sent.isEmpty());
     }
 
+    void emojiAndLanguageSwitchKeysAndTheCommaMenu()
+    {
+        // Gboard Preferences: "Show emoji switch key" replaces the globe key
+        // (and greys out "Show language switch key"); with neither, the space
+        // bar takes the room. Touch and hold the comma: emoji, settings,
+        // one-handed keyboard.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QVERIFY(findNamed(view.rootObject(), QStringLiteral("globeKey")));
+        QVERIFY(!findNamed(view.rootObject(), QStringLiteral("emojiKey")));
+        QQuickItem *space = findNamed(view.rootObject(), QStringLiteral("spaceKey"));
+        const qreal spaceWidth = space->width();
+
+        bridge.setShowEmojiKey(true);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("emojiKey")));
+        QVERIFY(!findNamed(view.rootObject(), QStringLiteral("globeKey")));
+        QVERIFY(!bridge.showLanguageKey());
+        bridge.setShowLanguageKey(true);                                   // greyed out: no effect
+        QVERIFY(!findNamed(view.rootObject(), QStringLiteral("globeKey")));
+        QQuickItem *emoji = findNamed(view.rootObject(), QStringLiteral("emojiKey"));
+        QTest::qWait(30);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, emoji->mapToScene(QPointF(emoji->width() / 2, emoji->height() / 2)).toPoint());
+        QTRY_COMPARE(bridge.activePanel(), QStringLiteral("emoji"));
+        bridge.closePanel();
+
+        bridge.setShowEmojiKey(false);
+        bridge.setShowLanguageKey(false);
+        QTRY_VERIFY(!findNamed(view.rootObject(), QStringLiteral("globeKey")));
+        QTRY_VERIFY(space->width() > spaceWidth + space->height() * 0.5);
+        bridge.setShowLanguageKey(true);
+        QTRY_VERIFY(findNamed(view.rootObject(), QStringLiteral("globeKey")));
+        QTRY_COMPARE(space->width(), spaceWidth);
+        QCOMPARE(QSettings().value(QStringLiteral("showLanguageKey")).toBool(), true);
+
+        // The comma menu: hold, slide onto a choice, release.
+        QQuickItem *comma = findNamed(view.rootObject(), QStringLiteral("commaKey"));
+        QVERIFY(comma);
+        static QPointingDevice *touch = QTest::createTouchDevice();
+        auto choose = [&](int index) {
+            const QPoint at = comma->mapToScene(QPointF(comma->width() / 2, comma->height() / 2)).toPoint();
+            QTest::touchEvent(&view, touch).press(0, at);
+            QTest::qWait(bridge.longPressDelay() + 120);
+            QVariant origin, cell;
+            QMetaObject::invokeMethod(comma, "choiceOriginX", Q_RETURN_ARG(QVariant, origin));
+            QMetaObject::invokeMethod(comma, "choiceCellWidth", Q_RETURN_ARG(QVariant, cell));
+            const QPoint to = comma->mapToScene(QPointF(origin.toReal() + cell.toReal() * (index + 0.5), comma->height() / 2)).toPoint();
+            QTest::touchEvent(&view, touch).move(0, to);
+            QTest::qWait(40);
+            QTest::touchEvent(&view, touch).release(0, to);
+            QTest::qWait(40);
+        };
+        choose(1);
+        QTRY_COMPARE(bridge.activePanel(), QStringLiteral("settings"));
+        bridge.closePanel();
+        choose(2);
+        QTRY_COMPARE(bridge.layoutMode(), QStringLiteral("right"));
+        choose(2);
+        QTRY_COMPARE(bridge.layoutMode(), QStringLiteral("full"));
+        choose(0);
+        QTRY_COMPARE(bridge.activePanel(), QStringLiteral("emoji"));
+        QVERIFY(backend.commits.isEmpty());                                // nothing typed
+        bridge.closePanel();
+    }
+
+    void anotherLetterLayoutIsChosenInSettingsAndKept()
+    {
+        // Settings -> Letter layout: QWERTY -> QWERTZ -> AZERTY -> Dvorak; the
+        // keys follow, Dvorak's punctuation keys type their mark, the choice
+        // is kept for the language.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setLanguage(QStringLiteral("en"));
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QCOMPARE(bridge.letterLayout(), QStringLiteral("QWERTY"));
+        bridge.cycleLetterLayout();
+        bridge.cycleLetterLayout();
+        QCOMPARE(bridge.letterLayout(), QStringLiteral("AZERTY"));
+        // Labels are capitals at the start of the field.
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("M")) || findText(view.rootObject(), QStringLiteral("m")));
+        QCOMPARE(bridge.row2().size(), 10);
+        bridge.cycleLetterLayout();
+        QCOMPARE(bridge.letterLayout(), QStringLiteral("Dvorak"));
+        QTRY_VERIFY(findText(view.rootObject(), QStringLiteral("'")));
+        bridge.tapLetter(QStringLiteral("p"));
+        bridge.tapLetter(QStringLiteral(","));
+        QCOMPARE(backend.commits.last(), QStringLiteral(","));                       // a mark, not a letter
+        QCOMPARE(QSettings().value(QStringLiteral("layoutVariant/en")).toString(), QStringLiteral("dvorak"));
+        Tastra::KeyboardModel again;
+        Tastra::KeyboardUiBridge restarted(controller, again);
+        QCOMPARE(restarted.letterLayout(), QStringLiteral("Dvorak"));
+        bridge.setLanguage(QStringLiteral("ru"));
+        QVERIFY(!bridge.letterLayoutChoice());
+        bridge.setLanguage(QStringLiteral("en"));
+    }
+
     void touchPointInsideTheKeyReachesCorrection()
     {
         FakeBackend backend;

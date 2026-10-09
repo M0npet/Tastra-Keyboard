@@ -1862,3 +1862,29 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   of a copy. Chips beside the 📋 chip share the strip (render checked).
 - Checks: 23/23, ASan + UBSan 23/23.
 
+## 2026-10-09 — 0.7.14 voice commands, switch keys, comma menu, letter layouts
+
+- Voice commands from the Gboard Help Center list (Advanced voice typing):
+  whole-utterance phrases in en/de/ru/uk after normalising Whisper's
+  capital and full stop; "stop" is left out (recording ends with the mic
+  key); detailed edits ("change X to Y") are not done yet. Deletions are
+  measured on the text the keyboard knows and go through
+  replaceBeforeCursor's deliberate path (0.7.11 re-read), checked in the
+  GTK and Firefox client models; "clear all" uses Ctrl+A + BackSpace with
+  fake input, else the known text. Spoken punctuation: only names that are
+  never words anywhere; "comma"/"full stop" only at the end; a mark Whisper
+  wrote next to the spoken one is absorbed ("ладно, запятая." -> "ладно,").
+  Never in password fields.
+- Incognito: GTK 3's imwayland translate_hints maps no private-window hint
+  and text-input-v3 has none, so Gboard's automatic incognito cannot be
+  done; marked 🚫 in the parity list (learning can still be turned off).
+- Switch keys as in Gboard Preferences (the language key is greyed out while
+  the emoji key is on, Gboard Help "Type in a different language"); the
+  language list then opens above the space bar. Comma long-press as a
+  three-item picker (emoji, settings, one-handed right / back to full).
+- Letter layouts: en QWERTY/QWERTZ/AZERTY/Dvorak/Colemak, de QWERTZ/QWERTY,
+  per language in settings (layoutVariant/<code>); symbol hints follow the
+  position; Dvorak's ' , . keys type marks; wrong-layout maps use the
+  chosen layouts. Rendered AZERTY and Dvorak checked.
+- Checks: 23/23, ASan + UBSan 23/23.
+

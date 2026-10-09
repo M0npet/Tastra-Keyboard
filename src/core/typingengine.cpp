@@ -203,7 +203,10 @@ void TypingEngine::insertDictation(const QString &text)
     if (!m_sensitiveContext && m_sentenceStart && m_autoCapitalizationEnabled && m_autoCapitalizationAllowed) {
         phrase[0] = phrase.at(0).toUpper();
     }
-    const QString separator = hadWord ? QStringLiteral(" ") : QString();
+    // A space before the phrase after a word or a mark ("Hi." + "Bye."), not
+    // at the start of a line or before a mark the phrase begins with.
+    const bool glued = !m_model.isEmpty() && !m_model.back().isSpace() && !phrase.front().isPunct();
+    const QString separator = hadWord || glued ? QStringLiteral(" ") : QString();
     commitLocal(separator + phrase + QLatin1Char(' '));
     // The sentence ends at . ! ? or …, also inside closing quotes or brackets.
     QString trimmed = phrase;
@@ -216,6 +219,70 @@ void TypingEngine::insertDictation(const QString &text)
     m_currentWord.clear();
     m_lastActionWasSpace = false;
     m_spaceFromSuggestion = false;
+    refreshSuggestions();
+}
+
+void TypingEngine::deleteLastWord()
+{
+    commitComposition();
+    // The word with what sticks to it ("world."), and the spaces and line
+    // breaks after it.
+    qsizetype end = m_model.size();
+    while (end > 0 && m_model.at(end - 1).isSpace()) --end;
+    qsizetype start = end;
+    while (start > 0 && !m_model.at(start - 1).isSpace()) --start;
+    if (start == m_model.size()) return;
+    replaceBeforeCursor(m_model.mid(start), QString(), true);
+    afterVoiceDeletion();
+}
+
+void TypingEngine::deleteLastSentence()
+{
+    commitComposition();
+    // Back over the sentence's own end mark, then to the previous one; the
+    // space after that mark goes too ("Hi. How are you? " -> "Hi.").
+    auto ends = [](QChar ch) {
+        return ch == QLatin1Char('.') || ch == QLatin1Char('!') || ch == QLatin1Char('?') || ch == QChar(0x2026)
+            || ch == QLatin1Char('\n');
+    };
+    qsizetype i = m_model.size();
+    while (i > 0 && m_model.at(i - 1).isSpace() && m_model.at(i - 1) != QLatin1Char('\n')) --i;
+    while (i > 0 && ends(m_model.at(i - 1)) && m_model.at(i - 1) != QLatin1Char('\n')) --i;
+    while (i > 0 && !ends(m_model.at(i - 1))) --i;
+    if (i == m_model.size()) return;
+    replaceBeforeCursor(m_model.mid(i), QString(), true);
+    afterVoiceDeletion();
+}
+
+void TypingEngine::deleteKnownText()
+{
+    commitComposition();
+    if (m_model.isEmpty()) return;
+    replaceBeforeCursor(m_model, QString(), true);
+    afterVoiceDeletion();
+}
+
+void TypingEngine::afterVoiceDeletion()
+{
+    m_currentWord.clear();
+    const WordsBeforeCursor words = wordsBeforeCursor(m_model);
+    m_previousWord = words.trailing.isEmpty() ? words.previous : words.trailing.toLower();
+    m_lastActionWasSpace = false;
+    rearmSentenceStartFromText();
+    refreshSuggestions();
+}
+
+void TypingEngine::insertLineBreak(const QString &breakText)
+{
+    commitComposition();
+    if (m_currentWord.size()) finalizeCurrentWord();
+    // The space after the last word or dictation becomes the break.
+    if (!m_model.endsWith(QLatin1Char(' ')) || !replaceBeforeCursor(QStringLiteral(" "), breakText, true)) {
+        commitLocal(breakText);
+    }
+    m_sentenceStart = true;
+    m_previousWord.clear();
+    m_lastActionWasSpace = false;
     refreshSuggestions();
 }
 

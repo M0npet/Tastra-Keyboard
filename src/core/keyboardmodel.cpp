@@ -27,6 +27,41 @@ constexpr std::array<LayoutDefinition, 4> layouts = {{
     {"ru", "Русский", "йцукенгшщзхъ", "фывапролджэ", "ячсмитьбю"},
 }};
 
+// Gboard "Select a layout" per language: the letter rows of the other
+// layouts (mobile forms: no punctuation keys except Dvorak's ' , .).
+struct VariantDefinition
+{
+    const char *code;
+    const char *variant;
+    const char *label;
+    const char *row1;
+    const char *row2;
+    const char *row3;
+};
+
+constexpr std::array<VariantDefinition, 5> variants = {{
+    {"en", "qwertz", "QWERTZ", "qwertzuiop", "asdfghjkl", "yxcvbnm"},
+    {"en", "azerty", "AZERTY", "azertyuiop", "qsdfghjklm", "wxcvbn"},
+    {"en", "dvorak", "Dvorak", "',.pyfgcrl", "aoeuidhtns", "qjkxbmwvz"},
+    {"en", "colemak", "Colemak", "qwfpgjluy", "arstdhneio", "zxcvbkm"},
+    {"de", "qwerty", "QWERTY", "qwertyuiopü", "asdfghjklöä", "zxcvbnm"},
+}};
+
+// The first layout of each language and its name.
+QString defaultVariant(const QString &code)
+{
+    if (code == QStringLiteral("de")) return QStringLiteral("qwertz");
+    if (code == QStringLiteral("ru") || code == QStringLiteral("uk")) return QStringLiteral("jcuken");
+    return QStringLiteral("qwerty");
+}
+
+QString defaultVariantLabel(const QString &code)
+{
+    if (code == QStringLiteral("de")) return QStringLiteral("QWERTZ");
+    if (code == QStringLiteral("ru") || code == QStringLiteral("uk")) return QString::fromUtf8("ЙЦУКЕН");
+    return QStringLiteral("QWERTY");
+}
+
 QStringList splitCharacters(const QString &text)
 {
     QStringList result;
@@ -100,14 +135,53 @@ QString KeyboardModel::textForLetter(const QString &text) const
     return uppercase() ? text.toUpper() : text.toLower();
 }
 
-QStringList KeyboardModel::rowsForLanguage(const QString &code)
+QStringList KeyboardModel::rowsForLanguage(const QString &code, const QString &variant)
 {
+    for (const auto &v : variants) {
+        if (QString::fromLatin1(v.code) == code && QString::fromLatin1(v.variant) == variant) {
+            return {QString::fromUtf8(v.row1), QString::fromUtf8(v.row2), QString::fromUtf8(v.row3)};
+        }
+    }
     for (const auto &layout : layouts) {
         if (QString::fromLatin1(layout.code) == code) {
             return {QString::fromUtf8(layout.row1), QString::fromUtf8(layout.row2), QString::fromUtf8(layout.row3)};
         }
     }
     return {};
+}
+
+QStringList KeyboardModel::layoutVariants(const QString &code)
+{
+    QStringList ids = {defaultVariant(code)};
+    for (const auto &v : variants) {
+        if (QString::fromLatin1(v.code) == code) ids.append(QString::fromLatin1(v.variant));
+    }
+    return ids;
+}
+
+QString KeyboardModel::layoutVariantLabel(const QString &code, const QString &variant)
+{
+    for (const auto &v : variants) {
+        if (QString::fromLatin1(v.code) == code && QString::fromLatin1(v.variant) == variant) return QString::fromUtf8(v.label);
+    }
+    return defaultVariantLabel(code);
+}
+
+QString KeyboardModel::layoutVariant(const QString &code) const
+{
+    const QString chosen = m_variants.value(code);
+    return layoutVariants(code).contains(chosen) ? chosen : defaultVariant(code);
+}
+
+void KeyboardModel::setLayoutVariant(const QString &code, const QString &variant)
+{
+    if (!layoutVariants(code).contains(variant)) return;
+    m_variants.insert(code, variant);
+}
+
+QStringList KeyboardModel::currentRows() const
+{
+    return rowsForLanguage(languageCode(), layoutVariant(languageCode()));
 }
 
 int KeyboardModel::symbolPage() const { return m_symbolPage; }
@@ -266,17 +340,17 @@ QStringList KeyboardModel::languageLabels() const
 
 QStringList KeyboardModel::row1() const
 {
-    return splitCharacters(QString::fromUtf8(layouts.at(m_languageIndex).row1));
+    return splitCharacters(currentRows().value(0));
 }
 
 QStringList KeyboardModel::row2() const
 {
-    return splitCharacters(QString::fromUtf8(layouts.at(m_languageIndex).row2));
+    return splitCharacters(currentRows().value(1));
 }
 
 QStringList KeyboardModel::row3() const
 {
-    return splitCharacters(QString::fromUtf8(layouts.at(m_languageIndex).row3));
+    return splitCharacters(currentRows().value(2));
 }
 
 void KeyboardModel::setLanguage(const QString &code)

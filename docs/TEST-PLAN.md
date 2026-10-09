@@ -102,4 +102,8 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 ## N. Gboard gaps closed (0.7.13)
 68. In Kate and claude.ai, after `one two three four`: touch Backspace and slide left: `four`, then `three four` become selected (nothing deleted yet); slide back a bit: only `four` stays selected; lift: `four` is deleted. Slide left and all the way back, lift: nothing deleted. In a password field the slide deletes as before.
 69. Copy `Write to anna@example.org today` (or an SMS-style `Your code: 583920`), open the keyboard: next to the 📋 chip there is `anna@example.org` (`583920`); tap it: only that is inserted.
+70. Voice input (if set up): dictate `Hello world.`, then say only `Delete last word`: `world.` goes; `Send`: the message is sent; `New line`: a line break; `Heart emoji`: ❤️; `How are you question mark`: `How are you?`. In Russian: `Удали последнее слово`, `Отправить`, `Эмодзи сердце`.
+71. Settings → Show emoji switch key On: an emoji key replaces the globe next to the comma, Show language switch key is greyed out; both Off: the space bar is longer; long-press Space still lists the languages.
+72. Touch and hold the comma, slide onto ⚙ and release: settings; onto ✋: the one-handed keyboard (again: full width); release on 😊: emoji.
+73. Settings → Letter layout (English): QWERTY → QWERTZ → AZERTY → Dvorak → Colemak; the keys change at once, glide and correction still work, the choice stays after a restart; German offers QWERTZ and QWERTY.
 

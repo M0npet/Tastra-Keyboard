@@ -3,6 +3,7 @@
 #include <QtTest/QTest>
 
 #include "app/voicecontroller.h"
+#include "core/voicecommands.h"
 
 using namespace Tastra;
 
@@ -49,6 +50,67 @@ class VoiceTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void spokenCommandsAreRecognisedInFourLanguages()
+    {
+        // Gboard voice commands, said on their own (Whisper adds a capital and
+        // a full stop); anything longer is dictation.
+        auto kind = [](const char *said) { return parseVoiceCommand(QString::fromUtf8(said)).kind; };
+        QCOMPARE(kind("Delete last word."), VoiceCommand::DeleteLastWord);
+        QCOMPARE(kind("Lösche das letzte Wort."), VoiceCommand::DeleteLastWord);
+        QCOMPARE(kind("Удали последнее слово"), VoiceCommand::DeleteLastWord);
+        QCOMPARE(kind("Видали останнє слово!"), VoiceCommand::DeleteLastWord);
+        QCOMPARE(kind("Clear."), VoiceCommand::ClearSentence);
+        QCOMPARE(kind("Clear all."), VoiceCommand::ClearAll);
+        QCOMPARE(kind("Удали всё."), VoiceCommand::ClearAll);
+        QCOMPARE(kind("Send."), VoiceCommand::Send);
+        QCOMPARE(kind("Отправить."), VoiceCommand::Send);
+        QCOMPARE(kind("Надіслати"), VoiceCommand::Send);
+        QCOMPARE(kind("Absenden."), VoiceCommand::Send);
+        QCOMPARE(kind("Undo."), VoiceCommand::Undo);
+        QCOMPARE(kind("Rückgängig machen."), VoiceCommand::Undo);
+        const VoiceCommand line = parseVoiceCommand(QStringLiteral("New line."));
+        QCOMPARE(line.kind, VoiceCommand::NewLine);
+        QCOMPARE(line.argument, QStringLiteral("\n"));
+        QCOMPARE(parseVoiceCommand(QString::fromUtf8("Новый абзац.")).argument, QStringLiteral("\n\n"));
+        const VoiceCommand heart = parseVoiceCommand(QStringLiteral("Heart emoji."));
+        QCOMPARE(heart.kind, VoiceCommand::Emoji);
+        QCOMPARE(heart.argument, QStringLiteral("heart"));
+        QCOMPARE(parseVoiceCommand(QString::fromUtf8("Эмодзи сердце")).argument, QString::fromUtf8("сердце"));
+        // Dictation, not commands.
+        QCOMPARE(kind("Please send me the file."), VoiceCommand::None);
+        QCOMPARE(kind("I will delete the last word later."), VoiceCommand::None);
+        QCOMPARE(kind("Hello."), VoiceCommand::None);
+        QCOMPARE(kind("emoji"), VoiceCommand::None);
+        QCOMPARE(kind("this is a long sentence about my favourite emoji"), VoiceCommand::None);
+    }
+
+    void shortEmojiNamesMeanTheUsualEmoji()
+    {
+        QCOMPARE(spokenEmojiAlias(QStringLiteral("Heart")), QString::fromUtf8("\u2764\uFE0F"));
+        QCOMPARE(spokenEmojiAlias(QString::fromUtf8("сердечко")), QString::fromUtf8("\u2764\uFE0F"));
+        QCOMPARE(spokenEmojiAlias(QStringLiteral("smiley")), QString::fromUtf8("\U0001F603"));
+        QCOMPARE(spokenEmojiAlias(QString::fromUtf8("плач")), QString::fromUtf8("\U0001F622"));
+        QVERIFY(spokenEmojiAlias(QStringLiteral("pizza")).isEmpty());          // the keywords know that one
+    }
+
+    void spokenPunctuationBecomesMarks()
+    {
+        auto said = [](const char *text) { return applySpokenPunctuation(QString::fromUtf8(text)); };
+        QCOMPARE(said("how are you question mark i am fine"), QString::fromUtf8("how are you? I am fine"));
+        QCOMPARE(said("Wie geht es dir Fragezeichen"), QString::fromUtf8("Wie geht es dir?"));
+        QCOMPARE(said("Как дела вопросительный знак"), QString::fromUtf8("Как дела?"));
+        QCOMPARE(said("Привіт знак оклику як справи"), QString::fromUtf8("Привіт! Як справи"));
+        QCOMPARE(said("Wow exclamation point."), QString::fromUtf8("Wow!"));
+        QCOMPARE(said("Hello comma"), QString::fromUtf8("Hello,"));
+        QCOMPARE(said("Ну и ладно, запятая."), QString::fromUtf8("Ну и ладно,"));
+        QCOMPARE(said("That is the end full stop"), QString::fromUtf8("That is the end."));
+        // Words that are words: left alone.
+        QCOMPARE(said("Das ist ein wichtiger Punkt."), QString::fromUtf8("Das ist ein wichtiger Punkt."));
+        QCOMPARE(said("С моей точки зрения, это так."), QString::fromUtf8("С моей точки зрения, это так."));
+        QCOMPARE(said("drei Komma fünf Liter"), QString::fromUtf8("drei Komma fünf Liter"));
+        QCOMPARE(said("during that period"), QString::fromUtf8("during that period"));
+    }
+
     void tapToRecordTapToRecognize()
     {
         FakeRecorder recorder;

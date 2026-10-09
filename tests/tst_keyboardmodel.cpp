@@ -192,6 +192,41 @@ private Q_SLOTS:
         QCOMPARE(model.row3().join(QString()), QStringLiteral("ячсмитьбю"));
     }
 
+    void otherLetterLayoutsPerLanguage()
+    {
+        // Gboard "Select a layout": QWERTY, QWERTZ, AZERTY, Dvorak, Colemak for
+        // English, QWERTZ and QWERTY for German; the usual one first.
+        using Tastra::KeyboardModel;
+        QCOMPARE(KeyboardModel::layoutVariants(QStringLiteral("en")),
+                 (QStringList{QStringLiteral("qwerty"), QStringLiteral("qwertz"), QStringLiteral("azerty"),
+                              QStringLiteral("dvorak"), QStringLiteral("colemak")}));
+        QCOMPARE(KeyboardModel::layoutVariants(QStringLiteral("de")),
+                 (QStringList{QStringLiteral("qwertz"), QStringLiteral("qwerty")}));
+        QCOMPARE(KeyboardModel::layoutVariants(QStringLiteral("ru")).size(), 1);
+        KeyboardModel model;
+        model.setLanguage(QStringLiteral("en"));
+        QCOMPARE(model.row1().join(QString()), QStringLiteral("qwertyuiop"));
+        model.setLayoutVariant(QStringLiteral("en"), QStringLiteral("azerty"));
+        QCOMPARE(model.row1().join(QString()), QStringLiteral("azertyuiop"));
+        QCOMPARE(model.row2().join(QString()), QStringLiteral("qsdfghjklm"));
+        QCOMPARE(model.row3().join(QString()), QStringLiteral("wxcvbn"));
+        // Symbol hints follow the key position: "a" is now where "q" was (1).
+        QVERIFY(model.alternatesForKey(QStringLiteral("a")).contains(QStringLiteral("1")));
+        model.setLayoutVariant(QStringLiteral("en"), QStringLiteral("colemak"));
+        QCOMPARE(model.row2().join(QString()), QStringLiteral("arstdhneio"));
+        model.setLayoutVariant(QStringLiteral("en"), QStringLiteral("nonsense"));        // ignored
+        QCOMPARE(model.layoutVariant(QStringLiteral("en")), QStringLiteral("colemak"));
+        // Each language keeps its own choice.
+        model.setLanguage(QStringLiteral("de"));
+        QCOMPARE(model.row1().join(QString()), QString::fromUtf8("qwertzuiopü"));
+        model.setLayoutVariant(QStringLiteral("de"), QStringLiteral("qwerty"));
+        QCOMPARE(model.row3().join(QString()), QStringLiteral("zxcvbnm"));
+        model.setLanguage(QStringLiteral("en"));
+        QCOMPARE(model.row1().join(QString()), QStringLiteral("qwfpgjluy"));
+        QCOMPARE(KeyboardModel::layoutVariantLabel(QStringLiteral("en"), QStringLiteral("dvorak")), QStringLiteral("Dvorak"));
+        QCOMPARE(KeyboardModel::layoutVariantLabel(QStringLiteral("uk"), QString::fromUtf8("jcuken")), QString::fromUtf8("ЙЦУКЕН"));
+    }
+
     void changingLanguageClearsShiftState()
     {
         Tastra::KeyboardModel model;

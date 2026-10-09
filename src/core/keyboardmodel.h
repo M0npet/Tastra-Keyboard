@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <QHash>
 #include <QString>
 #include <QStringList>
 
@@ -40,8 +41,15 @@ public:
     int symbolPage() const;
     void toggleSymbolPage();
     QList<QStringList> symbolRows() const;
-    // The three letter rows of a language's layout (for layout conversion).
-    static QStringList rowsForLanguage(const QString &code);
+    // The three letter rows of a language's layout (for layout conversion);
+    // `variant` empty or unknown: the language's first layout.
+    static QStringList rowsForLanguage(const QString &code, const QString &variant = {});
+    // Gboard "Select a layout": the layouts a language offers (its usual one
+    // first) and the one chosen for it.
+    static QStringList layoutVariants(const QString &code);
+    static QString layoutVariantLabel(const QString &code, const QString &variant);
+    QString layoutVariant(const QString &code) const;
+    void setLayoutVariant(const QString &code, const QString &variant);
 
     QString languageCode() const;
     QString languageLabel() const;
@@ -56,11 +64,13 @@ public:
 
 private:
     void resetShift();
+    QStringList currentRows() const;
 
     ShiftState m_shiftState = ShiftState::Lowercase;
     Layer m_layer = Layer::Alphabet;
     int m_languageIndex = 0;
     int m_symbolPage = 0;
+    QHash<QString, QString> m_variants;
 };
 
 }

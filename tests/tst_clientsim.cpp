@@ -280,6 +280,34 @@ private Q_SLOTS:
         Tastra::LocalLexicon::setFrequencySearchPaths({QStringLiteral(TASTRA_TEST_DATA "/empty")});
     }
 
+    // Gboard voice commands on the text: dictation keeps its spaces, "clear"
+    // takes the last sentence, "delete last word" the last word, "new line"
+    // turns the space after the dictation into a line break.
+    void voiceCommandsEditTheDictatedText_data() { echoModes_data(); }
+    void voiceCommandsEditTheDictatedText()
+    {
+        QFETCH(int, echo);
+        Session s{static_cast<TextInputClient::Echo>(echo)};
+        s.act([&] { s.engine.insertDictation(QStringLiteral("Hello world.")); });
+        s.act([&] { s.engine.insertDictation(QStringLiteral("How are you?")); });
+        QCOMPARE(s.client.visible(), QStringLiteral("Hello world. How are you? "));
+        s.act([&] { s.engine.deleteLastSentence(); });
+        QCOMPARE(s.client.visible(), QStringLiteral("Hello world."));
+        s.act([&] { s.engine.insertDictation(QStringLiteral("Bye now.")); });
+        QCOMPARE(s.client.visible(), QStringLiteral("Hello world. Bye now. "));
+        s.act([&] { s.engine.deleteLastWord(); });
+        QCOMPARE(s.client.visible(), QStringLiteral("Hello world. Bye "));
+        s.act([&] { s.engine.insertLineBreak(QStringLiteral("\n")); });
+        QCOMPARE(s.client.visible(), QStringLiteral("Hello world. Bye\n"));
+        s.act([&] { s.engine.insertDictation(QStringLiteral("next line")); });
+        QCOMPARE(s.client.visible(), QStringLiteral("Hello world. Bye\nNext line "));
+        s.act([&] { s.engine.deleteLastSentence(); });
+        QCOMPARE(s.client.visible(), QStringLiteral("Hello world. Bye\n"));
+        s.act([&] { s.engine.deleteKnownText(); });
+        QCOMPARE(s.client.visible(), QString());
+        QCOMPARE(s.client.badDeletes, 0);
+    }
+
     // tst_typingstress against the modelled clients: Backspace keys and
     // text-input requests reach them on different channels, so any action
     // that mixes both in one go shows up here.

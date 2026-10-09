@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     Tastra
-    VERSION 0.7.13
+    VERSION 0.7.14
     DESCRIPTION "Privacy-first customizable virtual keyboard for Wayland"
     LANGUAGES C CXX
 )
@@ -44,6 +44,7 @@ add_library(tastra-core STATIC
     src/core/emojicatalog.cpp
     src/core/legacymigration.cpp
     src/core/glidegeometry.cpp
+    src/core/voicecommands.cpp
     src/core/systemclipboard.h
 )
 

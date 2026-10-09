@@ -41,7 +41,7 @@ offline alternative is named where one exists).
 | Grammar check | ☁️ |
 | Proofread "Fix it" (network) | ☁️ |
 | Writing tools: rephrase, tone, shorten… | ☁️ (needs a language model far beyond a keyboard's size) |
-| Incognito (no learning in private windows) | 🟡 learning can be switched off; a quick toggle is ❌ |
+| Incognito (no learning in private windows, automatic) | 🚫 GTK 3 and text-input-v3 do not tell the keyboard about private windows; learning can be switched off in settings |
 
 ## Gestures and keys
 
@@ -55,7 +55,7 @@ offline alternative is named where one exists).
 | Touch and hold for accents / symbols, adjustable duration | ✅ |
 | Key popup on press | ✅ |
 | Long-press space or globe: language list | ✅ |
-| Long-press comma: emoji / settings / one-handed | 🟡 opens emoji only |
+| Long-press comma: emoji / settings / one-handed | ✅ 0.7.14 |
 | Two-thumb rollover typing | ✅ |
 
 ## Layouts and size
@@ -68,8 +68,8 @@ offline alternative is named where one exists).
 | Floating keyboard | 🚫 KWin places the panel |
 | Resize: drag the height, choose the width | 🟡 key size in settings; drag handle ❌ |
 | Field types: number pad, phone, e-mail `@` `.com`, URL | ✅ |
-| Layout choice per language (QWERTY, QWERTZ, AZERTY, Dvorak, Colemak, PC) | ❌ |
-| Show emoji switch key / language switch key | 🟡 globe key always shown; switches ❌ |
+| Layout choice per language (QWERTY, QWERTZ, AZERTY, Dvorak, Colemak, PC) | ✅ 0.7.14 for English (QWERTY, QWERTZ, AZERTY, Dvorak, Colemak) and German (QWERTZ, QWERTY); PC layout ❌; Russian and Ukrainian have ЙЦУКЕН only |
+| Show emoji switch key / language switch key | ✅ 0.7.14 (one or the other next to the comma, as on Gboard) |
 | Morse code layout | ❌ |
 | Handwriting layout | ❌ no light offline recogniser chosen yet |
 | More languages | 🟡 4 of Gboard's hundreds; more need dictionaries + frequency lists |
@@ -94,7 +94,7 @@ offline alternative is named where one exists).
 | Gboard | Tastra |
 |---|---|
 | Voice typing | ✅ optional, offline (whisper.cpp) |
-| Voice commands: "delete last word", "clear", "send", "stop", punctuation and emoji by voice | ❌ planned (offline, on the recognised text) |
+| Voice commands: "delete last word", "clear", "clear all", "send", "new line", "undo", emoji by voice, spoken punctuation | ✅ 0.7.14 in en/de/ru/uk (offline, on the recognised text); "stop" is not needed: recording ends with the mic key; detailed edits ("change X to Y") ❌ |
 | Auto punctuation | ✅ (whisper writes it) |
 | Rambler, sign-to-text, "Fix it" by voice | ☁️ |
 
@@ -110,19 +110,17 @@ offline alternative is named where one exists).
 
 ## Backlog, in order
 
-Done: gesture delete with selection, smart paste of parts (0.7.13).
+Done: gesture delete with selection, smart paste of parts (0.7.13); voice
+commands, emoji / language switch key, comma menu, letter layouts (0.7.14).
 
-1. Voice commands.
-2. Colour themes and a background photo.
-3. Resize handle for the height.
-4. Toolbar: choose and order the buttons.
-5. Show emoji / language switch key; long-press comma menu.
-6. Layout choice per language (QWERTZ, AZERTY, Dvorak, Colemak).
-7. Phrase completion in the strip (Smart Compose-like).
-8. Incognito toggle.
-9. Clipboard images.
-10. Morse code.
-11. Handwriting (find an offline recogniser first).
-12. More languages.
-13. Offline translation (Bergamot), if its size is acceptable.
-14. Haptic feedback, if the tablet has a vibration motor.
+1. Colour themes and a background photo.
+2. Resize handle for the height.
+3. Toolbar: choose and order the buttons.
+4. Phrase completion in the strip (Smart Compose-like).
+5. Clipboard images.
+6. Morse code.
+7. Voice: detailed edits ("change X to Y", "insert X after Y").
+8. Handwriting (find an offline recogniser first).
+9. More languages; more layouts (PC, Russian phonetic).
+10. Offline translation (Bergamot), if its size is acceptable.
+11. Haptic feedback, if the tablet has a vibration motor.

@@ -64,6 +64,14 @@ Flickable {
         }
 
         Row {
+            // Gboard "Select a layout" for the language being typed.
+            visible: keyboardBridge.letterLayoutChoice
+            width: parent.width; spacing: 12
+            Text { width: parent.width - letterLayoutButton.width - parent.spacing; height: letterLayoutButton.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Letter layout (%1)").arg(keyboardBridge.languageLabel); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+            PanelButton { id: letterLayoutButton; objectName: "letterLayoutButton"; width: root.portrait ? 170 : 150; label: keyboardBridge.letterLayout; onTriggered: keyboardBridge.cycleLetterLayout() }
+        }
+
+        Row {
             // Gboard follows the system language; here it can also be chosen.
             width: parent.width; spacing: 12
             Text { width: parent.width - uiLanguageButton.width - parent.spacing; height: uiLanguageButton.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Interface language"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
@@ -85,6 +93,19 @@ Flickable {
             width: parent.width; spacing: 12
             Text { width: parent.width - numberRowButton.width - parent.spacing; height: numberRowButton.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Number row"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
             PanelButton { id: numberRowButton; width: root.portrait ? 170 : 150; label: keyboardBridge.numberRow ? qsTr("On") : qsTr("Off"); onTriggered: keyboardBridge.setNumberRow(!keyboardBridge.numberRow) }
+        }
+
+        Row {
+            width: parent.width; spacing: 12
+            Text { width: parent.width - emojiKeyButton.width - parent.spacing; height: emojiKeyButton.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Show emoji switch key"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+            PanelButton { id: emojiKeyButton; objectName: "emojiKeySetting"; width: root.portrait ? 170 : 150; label: keyboardBridge.showEmojiKey ? qsTr("On") : qsTr("Off"); onTriggered: keyboardBridge.setShowEmojiKey(!keyboardBridge.showEmojiKey) }
+        }
+
+        Row {
+            width: parent.width; spacing: 12
+            // Gboard: greyed out while the emoji key is shown.
+            Text { width: parent.width - languageKeyButton.width - parent.spacing; height: languageKeyButton.height; verticalAlignment: Text.AlignVCenter; opacity: keyboardBridge.showEmojiKey ? 0.45 : 1; text: qsTr("Show language switch key"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+            PanelButton { id: languageKeyButton; objectName: "languageKeySetting"; width: root.portrait ? 170 : 150; enabled: !keyboardBridge.showEmojiKey; label: keyboardBridge.showLanguageKey ? qsTr("On") : qsTr("Off"); onTriggered: keyboardBridge.setShowLanguageKey(!keyboardBridge.showLanguageKey) }
         }
 
         Row {

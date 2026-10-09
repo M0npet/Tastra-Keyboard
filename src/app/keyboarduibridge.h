@@ -80,6 +80,14 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(QString uiLanguageLabel READ uiLanguageLabel NOTIFY uiLanguageChanged)
     Q_PROPERTY(bool symbolHints READ symbolHints WRITE setSymbolHints NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool numberRow READ numberRow WRITE setNumberRow NOTIFY uiPreferencesChanged)
+    // Gboard Preferences: the key next to the comma is the emoji key or the
+    // language (globe) key; with the emoji key on, the language key is off.
+    Q_PROPERTY(bool showEmojiKey READ showEmojiKey WRITE setShowEmojiKey NOTIFY uiPreferencesChanged)
+    // Gboard "Select a layout": QWERTY, QWERTZ, AZERTY, Dvorak, Colemak…
+    // for the current language.
+    Q_PROPERTY(QString letterLayout READ letterLayout NOTIFY keyboardStateChanged)
+    Q_PROPERTY(bool letterLayoutChoice READ letterLayoutChoice NOTIFY keyboardStateChanged)
+    Q_PROPERTY(bool showLanguageKey READ showLanguageKey WRITE setShowLanguageKey NOTIFY uiPreferencesChanged)
     Q_PROPERTY(bool autoSpaceAfterPunctuation READ autoSpaceAfterPunctuation WRITE setAutoSpaceAfterPunctuation NOTIFY typingPreferencesChanged)
     // Gboard "Emoji fast-access row": recent emoji above the keys.
     Q_PROPERTY(bool emojiRow READ emojiRow WRITE setEmojiRow NOTIFY uiPreferencesChanged)
@@ -188,6 +196,15 @@ public:
     QStringList emojiRowEmojis() const;
     bool symbolHints() const;
     bool numberRow() const;
+    bool showEmojiKey() const { return m_showEmojiKey; }
+    bool showLanguageKey() const { return m_showLanguageKey && !m_showEmojiKey; }
+    Q_INVOKABLE void setShowEmojiKey(bool show);
+    Q_INVOKABLE void setShowLanguageKey(bool show);
+    // Gboard: long-press the comma for the one-handed keyboard.
+    Q_INVOKABLE void toggleOneHanded();
+    QString letterLayout() const;
+    bool letterLayoutChoice() const;
+    Q_INVOKABLE void cycleLetterLayout();
     bool blockOffensive() const;
     QString layoutMode() const;
     bool voiceBuilt() const;
@@ -195,6 +212,9 @@ public:
     QString voiceMessage() const;
     // Optional: only set when the binary was built with offline voice input.
     void setVoiceController(class VoiceController *voice);
+    // What the speech recogniser heard: a Gboard voice command ("delete last
+    // word", "send", "smiley emoji"…) or dictation to type.
+    void handleRecognizedSpeech(const QString &text);
     void setKeyboardHider(class KeyboardHider *hider);
     // Gboard ⌄: commit the word being composed, then hide the keyboard.
     Q_INVOKABLE void hideKeyboard();
@@ -461,6 +481,8 @@ private:
     void loadShortcuts();
     bool m_symbolHints = true;
     bool m_numberRow = false;
+    bool m_showEmojiKey = false;
+    bool m_showLanguageKey = true;
     bool m_blockOffensive = true;
     QString m_layoutMode = QStringLiteral("full");
     class VoiceController *m_voice = nullptr;

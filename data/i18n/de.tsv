@@ -86,3 +86,6 @@ Voice model not installed: run tastra-voice-setup	Sprachmodell nicht installiert
 Volume on keypress	Lautstärke bei Tastendruck
 ＋ Add word	＋ Wort hinzufügen
 ＋ Add “%1” to dictionary	＋ „%1“ zum Wörterbuch hinzufügen
+Show emoji switch key	Emoji-Taste anzeigen
+Show language switch key	Taste für Sprachwechsel anzeigen
+Letter layout (%1)	Buchstabenlayout (%1)
