@@ -30,6 +30,7 @@
 #include <QSettings>
 #include <QFileInfo>
 #include <QDir>
+#include <QUrl>
 #include <QtGlobal>
 #include <QLoggingCategory>
 
@@ -76,6 +77,13 @@ KeyboardUiBridge::KeyboardUiBridge(
             m_theme = QStringLiteral("amoled");        // migrate the pre-1.0 toggle
         }
     }
+    {
+        const QString color = settings.value(QStringLiteral("themeColor")).toString();
+        if (themeColors().contains(color)) m_themeColor = color;
+        const QString image = settings.value(QStringLiteral("themeImage")).toString();
+        if (QFileInfo(QUrl(image).toLocalFile()).isReadable()) m_themeImage = image;   // a deleted photo: plain theme
+        m_themeImageDim = qBound(0, settings.value(QStringLiteral("themeImageDim"), 0).toInt(), 60);
+    }
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     if (qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
         connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged,
@@ -106,7 +114,7 @@ KeyboardUiBridge::KeyboardUiBridge(
         const QString mode = settings.value(QStringLiteral("layoutMode"), QStringLiteral("full")).toString();
         if (mode == QStringLiteral("left") || mode == QStringLiteral("right")) m_layoutMode = mode;
     }
-    m_keyScale = qBound(0.85, settings.value(QStringLiteral("keyScale"), 1.0).toDouble(), 1.20);
+    m_keyScale = qBound(0.75, settings.value(QStringLiteral("keyScale"), 1.0).toDouble(), 1.40);
     m_keyBorders = settings.value(QStringLiteral("keyBorders"), true).toBool();
     m_keyPopups = settings.value(QStringLiteral("keyPopups"), true).toBool();
     m_glideEnabled = settings.value(QStringLiteral("glideEnabled"), true).toBool();
@@ -846,6 +854,68 @@ void KeyboardUiBridge::applyUiLanguage()
     QCoreApplication::installTranslator(m_translator);
     if (m_qmlEngine) m_qmlEngine->retranslate();
     Q_EMIT uiLanguageChanged();
+}
+
+QStringList KeyboardUiBridge::themeColors() const
+{
+    // Blue, teal, green, yellow, orange, red, pink, purple, brown, blue grey.
+    return {QStringLiteral("#1a73e8"), QStringLiteral("#00897b"), QStringLiteral("#43a047"), QStringLiteral("#f9a825"),
+            QStringLiteral("#ef6c00"), QStringLiteral("#e53935"), QStringLiteral("#d81b60"), QStringLiteral("#8e24aa"),
+            QStringLiteral("#6d4c41"), QStringLiteral("#607d8b")};
+}
+
+void KeyboardUiBridge::setThemeColor(const QString &color)
+{
+    if (!color.isEmpty() && !themeColors().contains(color)) return;
+    if (m_themeColor == color) return;
+    m_themeColor = color;
+    persistPreference(QStringLiteral("themeColor"), color);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::setThemeImage(const QString &image)
+{
+    QString url;
+    if (!image.isEmpty()) {
+        const QString path = image.startsWith(QLatin1String("file:")) ? QUrl(image).toLocalFile() : image;
+        static const QStringList kinds = {QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"),
+                                          QStringLiteral("webp")};
+        const QFileInfo info(path);
+        if (!info.isFile() || !info.isReadable() || !kinds.contains(info.suffix().toLower())) return;
+        url = QUrl::fromLocalFile(info.absoluteFilePath()).toString();
+    }
+    if (m_themeImage == url) return;
+    m_themeImage = url;
+    persistPreference(QStringLiteral("themeImage"), url);
+    Q_EMIT uiPreferencesChanged();
+}
+
+void KeyboardUiBridge::cycleThemeImageDim()
+{
+    m_themeImageDim = (m_themeImageDim + 20) % 80;          // 0, 20, 40, 60 % darker
+    persistPreference(QStringLiteral("themeImageDim"), m_themeImageDim);
+    Q_EMIT uiPreferencesChanged();
+}
+
+QString KeyboardUiBridge::picturesFolder() const
+{
+    return m_picturesFolderOverride.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::PicturesLocation)
+                                              : m_picturesFolderOverride;
+}
+
+QStringList KeyboardUiBridge::pictureFiles() const
+{
+    QDir folder(picturesFolder());
+    const QFileInfoList found = folder.entryInfoList(
+        {QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"), QStringLiteral("*.png"), QStringLiteral("*.webp"),
+         QStringLiteral("*.JPG"), QStringLiteral("*.JPEG"), QStringLiteral("*.PNG")},
+        QDir::Files | QDir::Readable, QDir::Time);
+    QStringList urls;
+    for (const QFileInfo &info : found) {
+        urls.append(QUrl::fromLocalFile(info.absoluteFilePath()).toString());
+        if (urls.size() == 30) break;
+    }
+    return urls;
 }
 
 void KeyboardUiBridge::cycleTheme()
@@ -1593,7 +1663,7 @@ void KeyboardUiBridge::cycleLayoutMode()
 
 void KeyboardUiBridge::setKeyScale(double scale)
 {
-    const double bounded = qBound(0.85, scale, 1.20);
+    const double bounded = qBound(0.75, scale, 1.40);
     if (qAbs(m_keyScale - bounded) < 0.001) return;
     m_keyScale = bounded;
     persistPreference(QStringLiteral("keyScale"), bounded);

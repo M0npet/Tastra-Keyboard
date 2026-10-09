@@ -1888,3 +1888,24 @@ valid word (2000 frequent, ~700 rare) is changed: 0 throughout.
   chosen layouts. Rendered AZERTY and Dvorak checked.
 - Checks: 23/23, ASan + UBSan 23/23.
 
+## 2026-10-09 — 0.7.15 colour and photo themes, resize
+
+- Themes: Gboard's theme gallery (Colors, My themes with brightness; Gboard
+  Help "Change your keyboard theme"). Colours tint the light/dark palette
+  with Qt.tint; a photo is chosen from the Pictures folder inside the
+  settings panel (no file dialog: the panel cannot type into a dialog of its
+  own), decoded at the keyboard's size; keys 72 % opaque over it, the strip
+  transparent; settings validate the file (jpg/jpeg/png/webp, readable) and
+  drop a photo that is gone. Rendered dark-red, light-teal and photo checked.
+- Resize: Gboard's toolbar Resize drags the top edge. KWin keeps the input
+  panel's bottom on the screen's bottom, so the finger's distance from the
+  window's bottom is its screen position; the keys grow by that distance
+  over the number of rows. A first test version fed back (the offscreen
+  window grows downwards) and was rewritten to emulate the fixed bottom.
+  Range 0.75–1.40 for both resize and Key size.
+- Found by the full run: with five toolbar buttons the middle one sat under
+  the "Add to dictionary" chip and took its tap (with four, the chip's centre
+  fell between buttons); the buttons now hide while the chip shows. The mic
+  stays (it ends a recording).
+- Checks: 23/23, ASan + UBSan 23/23.
+

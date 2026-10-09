@@ -4,6 +4,19 @@ Version numbers were reset on 2026-10-05: the project is about half-way to a
 finished keyboard, so the builds that were numbered 0.5.0–1.4.0 are now the
 internal builds 0.4.1–0.4.13, and the current state is 0.5.0.
 
+## 0.7.15
+Gboard's look and size:
+- Themes: ten colours (blue, teal, green, yellow, orange, red, pink, purple,
+  brown, blue grey) over the light, dark or AMOLED theme, and an own photo
+  from the Pictures folder behind translucent keys, with Photo brightness
+  (100 / 80 / 60 / 40 %). A photo that was deleted falls back to the plain
+  theme.
+- Resize from the toolbar (⇕): drag the bar at the top to make the keyboard
+  taller or shorter (75–140 %, also the range of Key size in settings),
+  Reset, ✓.
+- Fixed: when "Add … to dictionary" was offered, the toolbar buttons sat
+  under it and could take the tap.
+
 ## 0.7.14
 More of Gboard (`docs/GBOARD-PARITY.md`):
 - Voice commands, said on their own after a pause, in English, German,

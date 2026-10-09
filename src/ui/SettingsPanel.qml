@@ -150,9 +150,9 @@ Flickable {
             Text { width: parent.width - keySizeControls.width - parent.spacing; height: keySizeControls.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Key size"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
             Row {
                 id: keySizeControls; spacing: 8
-                PanelButton { width: root.portrait ? 62 : 54; label: "−"; enabled: keyboardBridge.keyScale > 0.851; onTriggered: keyboardBridge.setKeyScale(keyboardBridge.keyScale - 0.05) }
+                PanelButton { width: root.portrait ? 62 : 54; label: "−"; enabled: keyboardBridge.keyScale > 0.751; onTriggered: keyboardBridge.setKeyScale(keyboardBridge.keyScale - 0.05) }
                 Rectangle { width: root.portrait ? 82 : 72; height: root.portrait ? 52 : 44; radius: 12; color: root.keyColor; Text { anchors.centerIn: parent; text: Math.round(keyboardBridge.keyScale * 100) + "%"; color: root.textColor; font.pixelSize: root.portrait ? 16 : 14 } }
-                PanelButton { width: root.portrait ? 62 : 54; label: "+"; enabled: keyboardBridge.keyScale < 1.199; onTriggered: keyboardBridge.setKeyScale(keyboardBridge.keyScale + 0.05) }
+                PanelButton { width: root.portrait ? 62 : 54; label: "+"; enabled: keyboardBridge.keyScale < 1.399; onTriggered: keyboardBridge.setKeyScale(keyboardBridge.keyScale + 0.05) }
             }
         }
 
@@ -177,6 +177,95 @@ Flickable {
             width: parent.width; spacing: 12
             Text { width: parent.width - themeButton.width - parent.spacing; height: themeButton.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Theme"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
             PanelButton { id: themeButton; width: root.portrait ? 170 : 150; label: keyboardBridge.theme === "system" ? qsTr("System") : keyboardBridge.theme === "light" ? qsTr("Light") : keyboardBridge.theme === "amoled" ? "AMOLED" : qsTr("Dark"); onTriggered: keyboardBridge.cycleTheme() }
+        }
+
+        Text {
+            width: parent.width
+            text: qsTr("Colour")
+            color: root.textColor
+            font.pixelSize: root.portrait ? 17 : 15
+        }
+
+        Flow {
+            // Gboard "Colors": the plain theme first, then the colours.
+            width: parent.width
+            spacing: 10
+            Repeater {
+                model: [""].concat(keyboardBridge.themeColors)
+                delegate: Rectangle {
+                    required property string modelData
+                    objectName: "themeColor_" + (modelData === "" ? "none" : modelData)
+                    width: root.portrait ? 46 : 40; height: width; radius: width / 2
+                    color: modelData === "" ? root.keyColor : modelData
+                    border.width: keyboardBridge.themeColor === modelData ? 3 : 1
+                    border.color: keyboardBridge.themeColor === modelData ? root.textColor : root.borderColor
+                    Text { anchors.centerIn: parent; visible: parent.modelData === ""; text: "A"; color: root.textColor; font.pixelSize: 15 }
+                    MouseArea { anchors.fill: parent; onClicked: keyboardBridge.setThemeColor(parent.modelData) }
+                }
+            }
+        }
+
+        Text {
+            width: parent.width
+            topPadding: 6
+            text: qsTr("Background photo")
+            color: root.textColor
+            font.pixelSize: root.portrait ? 17 : 15
+        }
+
+        Flow {
+            // Gboard "My themes": a photo of one's own (from the Pictures folder).
+            id: photoChoices
+            width: parent.width
+            spacing: 10
+            property var pictures: []
+            Component.onCompleted: pictures = keyboardBridge.pictureFiles()
+            onVisibleChanged: if (visible) pictures = keyboardBridge.pictureFiles()
+            PanelButton {
+                objectName: "themePhotoNone"
+                width: root.portrait ? 110 : 96
+                label: qsTr("None")
+                accent: keyboardBridge.themeImage === ""
+                onTriggered: keyboardBridge.setThemeImage("")
+            }
+            Repeater {
+                model: photoChoices.pictures
+                delegate: Rectangle {
+                    required property string modelData
+                    required property int index
+                    objectName: "themePhoto_" + index
+                    width: root.portrait ? 110 : 96; height: root.portrait ? 62 : 54
+                    radius: 8
+                    color: root.keyColor
+                    border.width: keyboardBridge.themeImage === modelData ? 3 : 0
+                    border.color: root.accentColor
+                    clip: true
+                    Image {
+                        anchors.fill: parent; anchors.margins: parent.border.width
+                        source: parent.modelData
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        sourceSize.width: 220; sourceSize.height: 124
+                    }
+                    MouseArea { anchors.fill: parent; onClicked: keyboardBridge.setThemeImage(parent.modelData) }
+                }
+            }
+        }
+
+        Text {
+            visible: photoChoices.pictures.length === 0
+            width: parent.width
+            wrapMode: Text.Wrap
+            text: qsTr("No pictures in %1").arg(keyboardBridge.picturesFolder)
+            color: root.secondaryTextColor
+            font.pixelSize: root.portrait ? 15 : 13
+        }
+
+        Row {
+            visible: keyboardBridge.themeImage !== ""
+            width: parent.width; spacing: 12
+            Text { width: parent.width - photoDimButton.width - parent.spacing; height: photoDimButton.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Photo brightness"); color: root.textColor; font.pixelSize: root.portrait ? 17 : 15 }
+            PanelButton { id: photoDimButton; objectName: "photoDimButton"; width: root.portrait ? 170 : 150; label: qsTr("%1 %").arg(100 - keyboardBridge.themeImageDim); onTriggered: keyboardBridge.cycleThemeImageDim() }
         }
 
         Row {

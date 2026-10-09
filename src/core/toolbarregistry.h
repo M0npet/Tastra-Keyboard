@@ -87,6 +87,15 @@ public:
         textEditing.visible = true;
         registry.registerAction(textEditing);
 
+        // Gboard "Resize": drag the keyboard's top edge (handled by the UI).
+        ToolbarAction resize;
+        resize.id = QStringLiteral("resize");
+        resize.label = QStringLiteral("Resize");
+        resize.iconName = QStringLiteral("resize");
+        resize.kind = ToolbarActionKind::Command;
+        resize.visible = true;
+        registry.registerAction(resize);
+
         ToolbarAction settings;
         settings.id = QStringLiteral("settings");
         settings.label = QStringLiteral("Settings");

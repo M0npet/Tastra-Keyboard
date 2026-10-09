@@ -5,6 +5,9 @@
 // behaviour that unit tests of the bridge alone cannot observe.
 
 #include <QtTest/QTest>
+#include <QFile>
+#include <QImage>
+#include <QTemporaryDir>
 
 #include <QColor>
 #include <QClipboard>
@@ -861,6 +864,120 @@ private Q_SLOTS:
         bridge.setLanguage(QStringLiteral("ru"));
         QVERIFY(!bridge.letterLayoutChoice());
         bridge.setLanguage(QStringLiteral("en"));
+    }
+
+    void colourThemesAndAnOwnPhoto()
+    {
+        // Gboard theme gallery: a colour tints the palette; an own photo
+        // from the Pictures folder sits behind translucent keys, dimmed on
+        // request; a photo that is gone falls back to the plain theme.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setTheme(QStringLiteral("dark"));
+        QTemporaryDir pictures;
+        QImage photo(320, 200, QImage::Format_RGB32);
+        photo.fill(QColor(QStringLiteral("#ff8800")));
+        QVERIFY(photo.save(pictures.filePath(QStringLiteral("beach.png"))));
+        QFile(pictures.filePath(QStringLiteral("notes.txt"))).open(QIODevice::WriteOnly);
+        bridge.setPicturesFolderForTesting(pictures.path());
+        QCOMPARE(bridge.pictureFiles().size(), 1);
+
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QQuickItem *root = view.rootObject();
+        const QColor plain = root->property("backgroundColor").value<QColor>();
+        bridge.setThemeColor(QStringLiteral("#123456"));                    // not one of the colours
+        QCOMPARE(bridge.themeColor(), QString());
+        bridge.setThemeColor(QStringLiteral("#e53935"));
+        QTRY_VERIFY(root->property("backgroundColor").value<QColor>() != plain);
+        const QColor red = root->property("backgroundColor").value<QColor>();
+        QVERIFY2(red.red() > red.blue(), qPrintable(red.name()));
+        QCOMPARE(root->property("accentColor").value<QColor>(), QColor(QStringLiteral("#e53935")).lighter(135));
+
+        bridge.setThemeImage(pictures.filePath(QStringLiteral("notes.txt")));  // not a picture
+        QCOMPARE(bridge.themeImage(), QString());
+        bridge.setThemeImage(bridge.pictureFiles().first());
+        QTRY_VERIFY(findNamed(root, QStringLiteral("themePhoto")));
+        QVERIFY(root->property("keyColor").value<QColor>().alphaF() < 0.9);
+        view.grabWindow();                                                    // renders
+        bridge.cycleThemeImageDim();
+        QCOMPARE(bridge.themeImageDim(), 20);
+        QCOMPARE(QSettings().value(QStringLiteral("themeImageDim")).toInt(), 20);
+        {
+            Tastra::KeyboardModel again;
+            Tastra::KeyboardUiBridge restarted(controller, again);
+            QCOMPARE(restarted.themeImage(), bridge.themeImage());
+            QCOMPARE(restarted.themeColor(), QStringLiteral("#e53935"));
+        }
+        QFile::remove(pictures.filePath(QStringLiteral("beach.png")));
+        {
+            Tastra::KeyboardModel again;
+            Tastra::KeyboardUiBridge restarted(controller, again);
+            QCOMPARE(restarted.themeImage(), QString());
+        }
+        bridge.setThemeImage(QString());
+        QTRY_VERIFY(!findNamed(root, QStringLiteral("themePhoto")));
+        QCOMPARE(root->property("keyColor").value<QColor>().alphaF(), 1.0);
+        bridge.setThemeColor(QString());
+        QTRY_COMPARE(root->property("backgroundColor").value<QColor>(), plain);
+    }
+
+    void resizingByDraggingTheTopBar()
+    {
+        // Gboard "Resize" (toolbar): drag the bar at the top; the keyboard
+        // grows by what the finger moved, measured from the fixed bottom
+        // edge; Reset goes back, ✓ ends; the keys do not type meanwhile.
+        FakeBackend backend;
+        Tastra::KeyboardController controller(backend);
+        Tastra::KeyboardModel model;
+        Tastra::KeyboardUiBridge bridge(controller, model);
+        bridge.setKeyScale(1.0);
+        QVERIFY(bridge.toolbarActionIds().contains(QStringLiteral("resize")));
+        QQuickView view;
+        view.rootContext()->setContextProperty(QStringLiteral("keyboardBridge"), &bridge);
+        view.setSource(QUrl::fromLocalFile(QStringLiteral(TASTRA_MAIN_QML)));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QQuickItem *root = view.rootObject();
+        const qreal keyHeight = root->property("keyHeight").toReal();
+        root->setProperty("resizing", true);
+        QTRY_VERIFY(findNamed(root, QStringLiteral("resizeFrame")));
+        QQuickItem *drag = findNamed(root, QStringLiteral("resizeDrag"));
+        QVERIFY(drag);
+        const QPoint start = drag->mapToScene(QPointF(drag->width() / 2, drag->height() / 2)).toPoint();
+        // KWin keeps the panel's bottom on the screen's bottom, so as the
+        // keyboard grows its top moves up under the finger: the finger's
+        // window position is its distance from the bottom, from the top of
+        // the current height. The finger goes 40 px up the screen.
+        const int fromBottom = int(root->height()) - start.y();
+        auto at = [&](int up) { return QPoint(start.x(), int(root->height()) - fromBottom - up); };
+        QTest::mousePress(&view, Qt::LeftButton, {}, at(0));
+        for (int i = 1; i <= 4; ++i) { QTest::mouseMove(&view, at(10 * i)); QTest::qWait(20); }
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, at(40));
+        QVERIFY2(qAbs(bridge.keyScale() - (keyHeight + 10.0) / keyHeight) < 0.01, qPrintable(QString::number(bridge.keyScale())));
+        QTRY_VERIFY(root->property("keyHeight").toReal() > keyHeight + 9);
+
+        // A tap on a letter under the frame types nothing.
+        QQuickItem *letter = findText(root, QStringLiteral("Q"));
+        if (!letter) letter = findText(root, QStringLiteral("q"));
+        QVERIFY(letter);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, letter->mapToScene(QPointF(letter->width() / 2, letter->height() / 2)).toPoint());
+        QVERIFY(backend.commits.isEmpty());
+
+        QQuickItem *reset = findNamed(root, QStringLiteral("resizeReset"));
+        QTest::mouseClick(&view, Qt::LeftButton, {}, reset->mapToScene(QPointF(reset->width() / 2, reset->height() / 2)).toPoint());
+        QTRY_COMPARE(bridge.keyScale(), 1.0);
+        QQuickItem *done = findNamed(root, QStringLiteral("resizeDone"));
+        QTest::mouseClick(&view, Qt::LeftButton, {}, done->mapToScene(QPointF(done->width() / 2, done->height() / 2)).toPoint());
+        QTRY_VERIFY(!findNamed(root, QStringLiteral("resizeFrame")));
+        bridge.setKeyScale(3.0);
+        QCOMPARE(bridge.keyScale(), 1.4);                                       // bounded
+        bridge.setKeyScale(1.0);
     }
 
     void touchPointInsideTheKeyReachesCorrection()

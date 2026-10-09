@@ -287,17 +287,19 @@ private Q_SLOTS:
                 QStringLiteral("clipboard"),
                 QStringLiteral("emoji"),
                 QStringLiteral("text-editing"),
+                QStringLiteral("resize"),
                 QStringLiteral("settings"),
             })
         );
 
         const auto all = registry.actions();
-        QCOMPARE(all.size(), 5);
+        QCOMPARE(all.size(), 6);
         QCOMPARE(all.at(0).id, QStringLiteral("language"));
         QCOMPARE(all.at(1).id, QStringLiteral("clipboard"));
         QCOMPARE(all.at(2).id, QStringLiteral("emoji"));
         QCOMPARE(all.at(3).id, QStringLiteral("text-editing"));
-        QCOMPARE(all.at(4).id, QStringLiteral("settings"));
+        QCOMPARE(all.at(4).id, QStringLiteral("resize"));
+        QCOMPARE(all.at(5).id, QStringLiteral("settings"));
     }
 
     void disabledToolbarActionCannotActivate()
@@ -350,11 +352,12 @@ private Q_SLOTS:
         const Tastra::ToolbarModel model(registry);
 
         const auto actions = model.visibleActions();
-        QCOMPARE(actions.size(), 4);
+        QCOMPARE(actions.size(), 5);
         QCOMPARE(actions.at(0).id, QStringLiteral("clipboard"));
         QCOMPARE(actions.at(1).id, QStringLiteral("emoji"));
         QCOMPARE(actions.at(2).id, QStringLiteral("text-editing"));
-        QCOMPARE(actions.at(3).id, QStringLiteral("settings"));
+        QCOMPARE(actions.at(3).id, QStringLiteral("resize"));
+        QCOMPARE(actions.at(4).id, QStringLiteral("settings"));
     }
 
     void exposesSupportedLanguageList()

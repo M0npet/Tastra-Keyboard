@@ -72,6 +72,14 @@ class KeyboardUiBridge final : public QObject
     Q_PROPERTY(bool amoled READ amoled WRITE setAmoled NOTIFY uiPreferencesChanged)
     // "system" (follows Plasma light/dark), "light", "dark" or "amoled".
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY uiPreferencesChanged)
+    // Gboard theme gallery: a colour over the light / dark theme ("" = the
+    // plain one), or an own photo behind translucent keys, dimmed by
+    // themeImageDim percent.
+    Q_PROPERTY(QString themeColor READ themeColor WRITE setThemeColor NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(QStringList themeColors READ themeColors CONSTANT)
+    Q_PROPERTY(QString themeImage READ themeImage WRITE setThemeImage NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(int themeImageDim READ themeImageDim NOTIFY uiPreferencesChanged)
+    Q_PROPERTY(QString picturesFolder READ picturesFolder CONSTANT)
     Q_PROPERTY(QString effectiveTheme READ effectiveTheme NOTIFY uiPreferencesChanged)
     Q_PROPERTY(QString version READ version CONSTANT)
     // Interface language: "system" (Plasma's language if Tastra has it,
@@ -202,6 +210,18 @@ public:
     Q_INVOKABLE void setShowLanguageKey(bool show);
     // Gboard: long-press the comma for the one-handed keyboard.
     Q_INVOKABLE void toggleOneHanded();
+    QString themeColor() const { return m_themeColor; }
+    QStringList themeColors() const;
+    Q_INVOKABLE void setThemeColor(const QString &color);
+    QString themeImage() const { return m_themeImage; }
+    // A local picture (file URL or path); anything else is refused.
+    Q_INVOKABLE void setThemeImage(const QString &image);
+    int themeImageDim() const { return m_themeImageDim; }
+    Q_INVOKABLE void cycleThemeImageDim();
+    QString picturesFolder() const;
+    // The newest pictures in the Pictures folder (file URLs), for choosing.
+    Q_INVOKABLE QStringList pictureFiles() const;
+    void setPicturesFolderForTesting(const QString &folder) { m_picturesFolderOverride = folder; }
     QString letterLayout() const;
     bool letterLayoutChoice() const;
     Q_INVOKABLE void cycleLetterLayout();
@@ -447,6 +467,10 @@ private:
 
     bool m_amoled = false;
     QString m_theme = QStringLiteral("system");
+    QString m_themeColor;
+    QString m_themeImage;
+    int m_themeImageDim = 0;
+    QString m_picturesFolderOverride;
     bool m_emojiSuggestions = true;
     bool m_nextWordSuggestions = true;
     bool m_emojiSearchActive = false;

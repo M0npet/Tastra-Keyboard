@@ -31,18 +31,32 @@ Rectangle {
     readonly property string themeName: keyboardBridge.effectiveTheme
     readonly property bool lightTheme: themeName === "light"
     readonly property bool amoledTheme: themeName === "amoled"
-    readonly property color backgroundColor: lightTheme ? "#e8eaed" : amoledTheme ? "#000000" : "#202124"
-    readonly property color panelColor: lightTheme ? "#f1f3f4" : amoledTheme ? "#080808" : "#292a2d"
-    readonly property color keyColor: lightTheme ? "#ffffff" : amoledTheme ? "#171717" : "#3c4043"
-    readonly property color specialKeyColor: lightTheme ? "#cdd0d4" : amoledTheme ? "#242424" : "#5f6368"
-    readonly property color borderColor: lightTheme ? "#c4c7c5" : amoledTheme ? "#333333" : "#56595e"
+    // Gboard theme gallery: a colour tints the light or dark palette; an own
+    // photo sits behind translucent keys.
+    readonly property bool tinted: keyboardBridge.themeColor !== ""
+    readonly property color themeTint: tinted ? keyboardBridge.themeColor : "#000000"
+    readonly property bool photoTheme: keyboardBridge.themeImage !== ""
+    function tintOf(base, amount) {
+        return tinted ? Qt.tint(base, Qt.rgba(themeTint.r, themeTint.g, themeTint.b, amount)) : base
+    }
+    function overPhoto(c, alpha) { return photoTheme ? Qt.rgba(c.r, c.g, c.b, alpha) : c }
+    readonly property color backgroundColor: tintOf(lightTheme ? "#e8eaed" : amoledTheme ? "#000000" : "#202124", amoledTheme ? 0 : 0.28)
+    readonly property color panelColor: tintOf(lightTheme ? "#f1f3f4" : amoledTheme ? "#080808" : "#292a2d", amoledTheme ? 0.05 : 0.18)
+    readonly property color keyColor: overPhoto(tintOf(lightTheme ? "#ffffff" : amoledTheme ? "#171717" : "#3c4043", lightTheme ? 0.06 : 0.2), 0.72)
+    readonly property color specialKeyColor: overPhoto(tintOf(lightTheme ? "#cdd0d4" : amoledTheme ? "#242424" : "#5f6368", 0.3), 0.8)
+    readonly property color borderColor: tintOf(lightTheme ? "#c4c7c5" : amoledTheme ? "#333333" : "#56595e", 0.3)
     readonly property color textColor: lightTheme ? "#202124" : "#f1f3f4"
     readonly property color secondaryTextColor: lightTheme ? "#5f6368" : "#9aa0a6"
-    readonly property color accentColor: lightTheme ? "#1a73e8" : "#8ab4f8"
-    readonly property color pressedColor: lightTheme ? "#d2d5d9" : "#60656a"
-    readonly property color accentPressedColor: lightTheme ? "#8ab4f8" : "#9fc3ff"
-    readonly property color selectedColor: lightTheme ? "#d2e3fc" : "#465c78"
+    readonly property color accentColor: tinted ? (lightTheme ? themeTint : Qt.lighter(themeTint, 1.35))
+                                                : (lightTheme ? "#1a73e8" : "#8ab4f8")
+    readonly property color pressedColor: tintOf(lightTheme ? "#d2d5d9" : "#60656a", 0.3)
+    readonly property color accentPressedColor: tinted ? Qt.lighter(accentColor, 1.25) : (lightTheme ? "#8ab4f8" : "#9fc3ff")
+    readonly property color selectedColor: tinted ? Qt.tint(lightTheme ? "#ffffff" : "#3c4043", Qt.rgba(themeTint.r, themeTint.g, themeTint.b, 0.4))
+                                                  : (lightTheme ? "#d2e3fc" : "#465c78")
     property bool toolbarExpanded: false
+    // Gboard "Resize": the keys are covered by a frame whose top bar is
+    // dragged; the panel's bottom stays where it is.
+    property bool resizing: false
     property string emojiCategory: "All"
     property var glideKeys: []
     property var glideStartItem: null
@@ -68,6 +82,25 @@ Rectangle {
             + (emojiRowShown ? keyHeight + keyGap : 0)
     color: backgroundColor
 
+    Image {
+        // Gboard "custom" theme: the photo fills the keyboard, cut to fit.
+        id: themePhoto
+        objectName: "themePhoto"
+        anchors.fill: parent
+        visible: root.photoTheme && status === Image.Ready
+        source: keyboardBridge.themeImage
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        // Decoded at the keyboard's size, not the camera's.
+        sourceSize.width: Math.max(1, root.width)
+        sourceSize.height: Math.max(1, root.height)
+        Rectangle {
+            anchors.fill: parent
+            color: root.lightTheme ? "#ffffff" : "#000000"
+            opacity: keyboardBridge.themeImageDim / 100
+        }
+    }
+
     function dynamicKeyWidth(count) {
         return (contentWidth - keyGap * (count - 1)) / count
     }
@@ -77,6 +110,7 @@ Rectangle {
         if (id === "emoji") return "☺"
         if (id === "text-editing") return "↔"
         if (id === "settings") return "⚙"
+        if (id === "resize") return "⇕"
         return "•"
     }
 
@@ -665,7 +699,8 @@ Rectangle {
         height: root.toolbarHeight
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        color: root.backgroundColor
+        // Over a photo theme the strip shows the photo, as Gboard's does.
+        color: root.photoTheme ? "transparent" : root.backgroundColor
 
         Item {
             anchors.fill: parent
@@ -862,7 +897,10 @@ Rectangle {
             }
 
             Row {
-                visible: !suggestionRow.visible && !clipboardChips.visible
+                // Not under the save-word chip: with five buttons the middle one
+                // sat under the chip and took its tap. (The voice status is
+                // text only; the mic here must stay to finish recording.)
+                visible: !suggestionRow.visible && !clipboardChips.visible && !saveWordChip.visible
                 anchors.centerIn: parent
                 spacing: root.portrait ? 18 : 14
 
@@ -939,6 +977,11 @@ Rectangle {
                             enabled: modelData.enabled
                             onClicked: {
                                 root.toolbarExpanded = false
+                                if (modelData.id === "resize") {
+                                    keyboardBridge.closePanel()
+                                    root.resizing = !root.resizing
+                                    return
+                                }
                                 if (keyboardBridge.activePanel === modelData.id) {
                                     keyboardBridge.closePanel()
                                 } else {
@@ -1838,5 +1881,87 @@ Rectangle {
                 source: "SettingsPanel.qml"
             }
         }
+    }
+
+    Rectangle {
+        id: resizeFrame
+        objectName: "resizeFrame"
+        visible: root.resizing
+        z: 300
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.top: parent.top
+        anchors.topMargin: root.toolbarHeight
+        color: Qt.rgba(root.backgroundColor.r, root.backgroundColor.g, root.backgroundColor.b, 0.82)
+        border.width: 2
+        border.color: root.accentColor
+        // Nothing underneath reacts while resizing.
+        MouseArea { anchors.fill: parent }
+
+        Rectangle {
+            id: resizeBar
+            anchors.top: parent.top
+            anchors.topMargin: 10
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 96; height: 8; radius: 4
+            color: root.accentColor
+        }
+        MouseArea {
+            // Drag the top: the keyboard grows or shrinks by what the finger
+            // moved, measured from the bottom edge, which KWin keeps fixed.
+            id: resizeDrag
+            objectName: "resizeDrag"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: Math.max(56, root.keyHeight)
+            property real startDistance: 0
+            property real startScale: 1
+            property real startKeyHeight: 1
+            readonly property int rows: 4 + (root.numberRowSpace ? 1 : 0) + (root.emojiRowShown ? 1 : 0)
+            onPressed: (mouse) => {
+                startDistance = root.height - mapToItem(root, mouse.x, mouse.y).y
+                startScale = keyboardBridge.keyScale
+                startKeyHeight = root.keyHeight
+            }
+            onPositionChanged: (mouse) => {
+                const distance = root.height - mapToItem(root, mouse.x, mouse.y).y
+                const keyHeight = startKeyHeight + (distance - startDistance) / rows
+                keyboardBridge.setKeyScale(startScale * keyHeight / startKeyHeight)
+            }
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: resizeBar.bottom
+            anchors.topMargin: 14
+            text: qsTr("Drag the bar to change the height")
+            color: root.textColor
+            font.pixelSize: root.portrait ? 17 : 15
+        }
+
+        Row {
+            anchors.centerIn: parent
+            spacing: 16
+            PanelButton {
+                objectName: "resizeReset"
+                width: root.portrait ? 150 : 130
+                label: qsTr("Reset")
+                onTriggered: keyboardBridge.setKeyScale(1.0)
+            }
+            PanelButton {
+                objectName: "resizeDone"
+                width: root.portrait ? 150 : 130
+                accent: true
+                label: "\u2713"
+                onTriggered: root.resizing = false
+            }
+        }
+    }
+
+    Connections {
+        target: keyboardBridge
+        function onPressesCancelled() { root.resizing = false }
     }
 }

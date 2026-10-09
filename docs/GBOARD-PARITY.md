@@ -66,7 +66,7 @@ offline alternative is named where one exists).
 | Split keyboard (tablets) | ✅ |
 | One-handed mode left / right | ✅ |
 | Floating keyboard | 🚫 KWin places the panel |
-| Resize: drag the height, choose the width | 🟡 key size in settings; drag handle ❌ |
+| Resize: drag the height, choose the width | ✅ 0.7.15: toolbar ⇕, drag the bar, Reset, ✓ (width: the one-handed and split layouts) |
 | Field types: number pad, phone, e-mail `@` `.com`, URL | ✅ |
 | Layout choice per language (QWERTY, QWERTZ, AZERTY, Dvorak, Colemak, PC) | ✅ 0.7.14 for English (QWERTY, QWERTZ, AZERTY, Dvorak, Colemak) and German (QWERTZ, QWERTY); PC layout ❌; Russian and Ukrainian have ЙЦУКЕН only |
 | Show emoji switch key / language switch key | ✅ 0.7.14 (one or the other next to the comma, as on Gboard) |
@@ -103,7 +103,7 @@ offline alternative is named where one exists).
 | Gboard | Tastra |
 |---|---|
 | System / light / dark themes, key borders | ✅ (+ AMOLED) |
-| Colour themes, own background photo | ❌ planned |
+| Colour themes, own background photo | ✅ 0.7.15: 10 colours over light / dark / AMOLED, a photo from the Pictures folder with brightness; Gboard's gradient and landscape themes ❌ |
 | Sound on keypress + volume | ✅ |
 | Haptic feedback + strength | ❌ needs a vibration motor driven through Linux force feedback; not checked whether the tablet has one |
 | Settings like Gboard's (sections) | ✅ |
@@ -113,14 +113,15 @@ offline alternative is named where one exists).
 Done: gesture delete with selection, smart paste of parts (0.7.13); voice
 commands, emoji / language switch key, comma menu, letter layouts (0.7.14).
 
-1. Colour themes and a background photo.
-2. Resize handle for the height.
-3. Toolbar: choose and order the buttons.
-4. Phrase completion in the strip (Smart Compose-like).
-5. Clipboard images.
-6. Morse code.
-7. Voice: detailed edits ("change X to Y", "insert X after Y").
-8. Handwriting (find an offline recogniser first).
-9. More languages; more layouts (PC, Russian phonetic).
-10. Offline translation (Bergamot), if its size is acceptable.
-11. Haptic feedback, if the tablet has a vibration motor.
+Colour and photo themes, resize (0.7.15).
+
+1. Toolbar: choose and order the buttons.
+2. Phrase completion in the strip (Smart Compose-like).
+3. Clipboard images.
+4. Morse code.
+5. Gradient themes.
+6. Voice: detailed edits ("change X to Y", "insert X after Y").
+7. Handwriting (find an offline recogniser first).
+8. More languages; more layouts (PC, Russian phonetic).
+9. Offline translation (Bergamot), if its size is acceptable.
+10. Haptic feedback, if the tablet has a vibration motor.

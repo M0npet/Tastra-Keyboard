@@ -106,4 +106,6 @@ keyboard. On any problem send `~/.local/state/tastra/trace.log`.
 71. Settings → Show emoji switch key On: an emoji key replaces the globe next to the comma, Show language switch key is greyed out; both Off: the space bar is longer; long-press Space still lists the languages.
 72. Touch and hold the comma, slide onto ⚙ and release: settings; onto ✋: the one-handed keyboard (again: full width); release on 😊: emoji.
 73. Settings → Letter layout (English): QWERTY → QWERTZ → AZERTY → Dvorak → Colemak; the keys change at once, glide and correction still work, the choice stays after a restart; German offers QWERTZ and QWERTY.
+74. Settings → Theme → Colour: each colour tints the keyboard (light and dark); the "A" circle goes back to the plain theme. Put a photo into ~/Pictures, open Settings again: Background photo shows it; tap it: the photo is behind the keys, the strip shows it too; Photo brightness darkens it; None removes it.
+75. Toolbar ⇕: a frame covers the keys; drag the bar up: the keyboard grows under the finger, down: it shrinks; Reset: back to normal; ✓: typing again. Settings → Key size shows the new value.
 
